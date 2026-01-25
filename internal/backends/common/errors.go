@@ -7,5 +7,4 @@ var (
 	ErrBucketNotFound      = errors.New("bucket not found")
 
 	ErrObjectNotFound = errors.New("object not found")
-	ErrObjectTooLarge = errors.New("object too large")
 )

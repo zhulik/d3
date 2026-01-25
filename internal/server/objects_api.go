@@ -44,7 +44,7 @@ func (s *Server) GetObject(c *echo.Context) error {
 		return err
 	}
 
-	defer contents.Close()
+	defer contents.Close() //nolint:errcheck
 
 	c.Response().Header().Set("Last-Modified", contents.LastModified.Format(http.TimeFormat))
 	c.Response().Header().Set("Content-Length", strconv.FormatInt(contents.Size, 10))

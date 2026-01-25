@@ -85,7 +85,7 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, reader io.R
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	_, err = io.Copy(f, reader)
 	return err
