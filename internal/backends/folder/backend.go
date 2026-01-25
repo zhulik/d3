@@ -127,3 +127,8 @@ func (b *Backend) ListObjects(ctx context.Context, bucket, prefix string) ([]*ty
 		}, nil
 	})
 }
+
+func (b *Backend) DeleteObject(ctx context.Context, bucket, key string) error {
+	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
+	return os.Remove(path)
+}

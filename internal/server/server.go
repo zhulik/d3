@@ -64,6 +64,7 @@ func (s *Server) Init(ctx context.Context) error {
 	objects.HEAD("", s.HeadObject)
 	objects.PUT("", s.PutObject)
 	objects.GET("", s.GetObject)
+	objects.DELETE("", s.DeleteObject)
 
 	return nil
 }

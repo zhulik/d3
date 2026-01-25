@@ -29,4 +29,5 @@ type Backend interface {
 	PutObject(ctx context.Context, bucket, key string, reader io.Reader) error
 	GetObject(ctx context.Context, bucket, key string) (*ObjectContent, error)
 	ListObjects(ctx context.Context, bucket, prefix string) ([]*types.Object, error)
+	DeleteObject(ctx context.Context, bucket, key string) error
 }

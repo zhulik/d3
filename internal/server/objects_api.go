@@ -71,3 +71,14 @@ func (s *Server) ListObjects(c *echo.Context) error {
 	}
 	return c.XML(http.StatusOK, xmlResponse)
 }
+
+func (s *Server) DeleteObject(c *echo.Context) error {
+	bucket := c.Param("bucket")
+	key := c.Param("*")
+
+	err := s.Backend.DeleteObject(c.Request().Context(), bucket, key)
+	if err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusNoContent)
+}
