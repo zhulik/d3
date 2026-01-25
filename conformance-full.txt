@@ -1,0 +1,27 @@
+AWS CLI full conformance against http://localhost:8080
+Bucket: fullconf-1769368950-6388
+PASS: bucket.create
+PASS: bucket.create.duplicate_should_fail
+PASS: service.list.contains_bucket
+PASS: bucket.list_nonexistent_should_fail
+PASS: object.put
+PASS: bucket.list_contains_object
+PASS: object.head
+PASS: object.get
+PASS: object.get_content_match
+PASS: object.head_missing_should_fail
+PASS: object.put_with_metadata
+FAIL: object.head_has_content_type
+FAIL: object.head_has_metadata_foo
+PASS: object.copy
+PASS: object.get_copy
+FAIL: object.copy_content_match
+FAIL: list.delimiter_commonprefixes_dir1
+FAIL: list.delimiter_commonprefixes_dir2
+FAIL: object.get_range_0_9
+FAIL: mpu.create
+FAIL: objects.delete_batch
+PASS: presign.get
+FAIL: bucket.remove_nonempty_should_fail
+FAIL: bucket.remove
+Summary: PASS=14 FAIL=10

@@ -8,6 +8,7 @@ import (
 
 	"github.com/zhulik/d3/internal/backends/folder"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/internal/server"
 	"github.com/zhulik/pal"
 )
@@ -23,6 +24,7 @@ func Run() {
 		server.Provide(),
 		folder.Provide(config),
 		pal.Provide(config),
+		locker.Provide(),
 	).
 		InitTimeout(1*time.Minute).
 		HealthCheckTimeout(5*time.Second).

@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.1
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/labstack/echo/v5 v5.0.0
-	github.com/samber/lo v1.52.0
+	github.com/redis/rueidis v1.0.70
 	github.com/zhulik/pal v0.10.1
 )
 

@@ -22,6 +22,7 @@ const (
 type Config struct {
 	Backend           BackendType `env:"BACKEND" envDefault:"folder"`
 	FolderBackendPath string      `env:"FOLDER_BACKEND_PATH" envDefault:"./d3_data"`
+	RedisURL          string      `env:"REDIS_URL" envDefault:"redis://localhost:6379"`
 }
 
 func (c *Config) Init(ctx context.Context) error {
