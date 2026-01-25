@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
+	ihttp "github.com/zhulik/d3/internal/http"
 )
 
 type Server struct {
@@ -49,7 +50,12 @@ func (s *Server) Init(ctx context.Context) error {
 	s.e.GET("/", s.ListBuckets)
 
 	buckets := s.e.Group("/:bucket")
-	buckets.GET("", s.GetBucketLocation)
+
+	buckets.GET("", ihttp.NewQueryParamsRouter().
+		AddRoute("location", s.GetBucketLocation).
+		AddRoute("prefix", s.ListObjects).
+		Handle,
+	)
 	buckets.HEAD("", s.HeadBucket)
 	buckets.PUT("", s.CreateBucket)
 	buckets.DELETE("", s.DeleteBucket)

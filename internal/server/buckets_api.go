@@ -79,38 +79,16 @@ func (s *Server) DeleteBucket(c *echo.Context) error {
 func (s *Server) GetBucketLocation(c *echo.Context) error {
 	bucket := c.Param("bucket")
 
-	// depending on the query params this endpoint may perform different actions
-	if _, err := echo.QueryParam[string](c, "location"); err == nil {
-
-		err := s.Backend.HeadBucket(c.Request().Context(), bucket)
-		if err != nil {
-			return err
-		}
-
-		response := LocationConstraintResponse{
-			Location: "local",
-		}
-
-		return c.XML(http.StatusOK, response)
+	err := s.Backend.HeadBucket(c.Request().Context(), bucket)
+	if err != nil {
+		return err
 	}
-	if _, err := echo.QueryParam[string](c, "prefix"); err == nil {
-		prefix := c.QueryParam("prefix")
-		objects, err := s.Backend.ListObjects(c.Request().Context(), bucket, prefix)
-		if err != nil {
-			return err
-		}
-		xmlResponse := ListBucketResult{
-			IsTruncated:    false,
-			Contents:       objects,
-			Name:           bucket,
-			Prefix:         prefix,
-			Delimiter:      c.QueryParam("delimiter"),
-			MaxKeys:        1000,
-			CommonPrefixes: []PrefixEntry{},
-		}
-		return c.XML(http.StatusOK, xmlResponse)
+
+	response := LocationConstraintResponse{
+		Location: "local",
 	}
-	panic("unknown query param")
+
+	return c.XML(http.StatusOK, response)
 }
 
 func (s *Server) HeadBucket(c *echo.Context) error {

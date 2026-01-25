@@ -52,3 +52,22 @@ func (s *Server) GetObject(c *echo.Context) error {
 
 	return c.Stream(http.StatusOK, "application/octet-stream", contents)
 }
+
+func (s *Server) ListObjects(c *echo.Context) error {
+	bucket := c.Param("bucket")
+	prefix := c.QueryParam("prefix")
+	objects, err := s.Backend.ListObjects(c.Request().Context(), bucket, prefix)
+	if err != nil {
+		return err
+	}
+	xmlResponse := ListBucketResult{
+		IsTruncated:    false,
+		Contents:       objects,
+		Name:           bucket,
+		Prefix:         prefix,
+		Delimiter:      c.QueryParam("delimiter"),
+		MaxKeys:        1000,
+		CommonPrefixes: []PrefixEntry{},
+	}
+	return c.XML(http.StatusOK, xmlResponse)
+}
