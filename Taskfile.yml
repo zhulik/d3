@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+env:
+  BACKEND: folder
+
+  FOLDER_BACKEND_PATH:
+    sh: |
+      echo $(pwd)/data
+
+tasks:
+  default:
+    desc: Run checks and tests
+    deps:
+      - lint
+      - test
+
+  lint:
+    desc: Run linting
+    cmd: golangci-lint run
+
+  test:
+    desc: Run tests
+    cmd: ginkgo run
+
+  run:
+    desc: Run the application
+    cmd: go run cmd/main.go
