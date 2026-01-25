@@ -10,11 +10,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/iter"
 )
 
 type Backend struct {
 	Config *core.Config
+	Locker *locker.Locker
 }
 
 func (b *Backend) ListBuckets(ctx context.Context) ([]*types.Bucket, error) {
@@ -81,13 +83,28 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, reader io.R
 		return err
 	}
 
+	ctx, cancel, err := b.Locker.Lock(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	if _, err := os.Stat(path); err == nil {
+		return common.ErrObjectAlreadyExists
+	}
+
 	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
 	defer f.Close() //nolint:errcheck
 
-	_, err = io.Copy(f, reader)
+	_, err = io.Copy(f, reader) // TODO: make it cancellable
+	if err != nil {
+		f.Close()
+		os.Remove(path)
+	}
+
 	return err
 }
 
