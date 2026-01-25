@@ -5,10 +5,6 @@ version: '3'
 env:
   BACKEND: folder
 
-  FOLDER_BACKEND_PATH:
-    sh: |
-      echo $(pwd)/data
-
 tasks:
   default:
     desc: Run checks and tests

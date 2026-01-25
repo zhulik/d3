@@ -21,7 +21,7 @@ const (
 
 type Config struct {
 	Backend           BackendType `env:"BACKEND" envDefault:"folder"`
-	FolderBackendPath string      `env:"FOLDER_BACKEND_PATH"`
+	FolderBackendPath string      `env:"FOLDER_BACKEND_PATH" envDefault:"./d3_data"`
 }
 
 func (c *Config) Init(ctx context.Context) error {
@@ -32,20 +32,24 @@ func (c *Config) Init(ctx context.Context) error {
 
 	switch c.Backend {
 	case BackendFolder:
-		return c.validateFolderBackendPath(c.FolderBackendPath)
+		return c.validateFolderBackendPath()
 	default:
 		return fmt.Errorf("%w: unknown backend: %s", ErrInvalidConfig, c.Backend)
 	}
 }
 
-func (c *Config) validateFolderBackendPath(path string) error {
+func (c *Config) validateFolderBackendPath() error {
 	if c.FolderBackendPath == "" {
 		return fmt.Errorf("%w: FolderBackendPath is not set", ErrInvalidConfig)
 	}
 
 	fileInfo, err := os.Stat(c.FolderBackendPath)
 	if err != nil {
-		return fmt.Errorf("%w: unable to access FolderBackendPath: %w", ErrInvalidConfig, err)
+		if os.IsNotExist(err) {
+			return os.MkdirAll(c.FolderBackendPath, 0755)
+		} else {
+			return fmt.Errorf("%w: unable to access FolderBackendPath: %w", ErrInvalidConfig, err)
+		}
 	}
 
 	if !fileInfo.IsDir() {
