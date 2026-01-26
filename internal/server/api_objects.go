@@ -133,11 +133,11 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 		return err
 	}
 
-	defer contents.Close() //nolint:errcheck
+	defer contents.Reader.Close() //nolint:errcheck
 
-	setObjectHeaders(c, contents.ObjectMetadata)
+	setObjectHeaders(c, contents.Metadata)
 
-	return c.Stream(http.StatusOK, contents.ContentType, contents)
+	return c.Stream(http.StatusOK, contents.Metadata.ContentType, contents.Reader)
 }
 
 func (a APIObjects) ListObjects(c *echo.Context) error {

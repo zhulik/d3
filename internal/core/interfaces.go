@@ -19,8 +19,8 @@ type ObjectMetadata struct {
 }
 
 type ObjectContent struct {
-	io.ReadCloser
-	*ObjectMetadata
+	Reader   io.ReadCloser
+	Metadata *ObjectMetadata
 }
 
 type PutObjectInput struct {
