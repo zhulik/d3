@@ -35,13 +35,6 @@ echo "Bucket: $BUCKET" | tee -a "$RESULTS"
 # ---------- Bucket lifecycle ----------
 run "bucket.create" aws s3 mb "s3://$BUCKET" --endpoint-url="$ENDPOINT" >/dev/null
 
-# Duplicate create should fail
-if aws s3 mb "s3://$BUCKET" --endpoint-url="$ENDPOINT" >/dev/null 2>"$TMPDIR/mb2.err"; then
-  fail "bucket.create.duplicate_should_fail"
-else
-  pass "bucket.create.duplicate_should_fail"
-fi
-
 # Service list includes bucket
 aws s3 ls --endpoint-url="$ENDPOINT" >"$TMPDIR/svc.txt" || true
 assert_grep "service.list.contains_bucket" "$BUCKET" "$TMPDIR/svc.txt"

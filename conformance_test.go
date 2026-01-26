@@ -29,11 +29,9 @@ var objectMetadata = map[string]string{
 
 var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	var s3Client *s3.Client
-	var bucketName string
+	bucketName := fmt.Sprintf("conformance-bucket-%d", time.Now().Unix())
 
 	BeforeAll(func(ctx context.Context) {
-		bucketName = fmt.Sprintf("conformance-bucket-%d", time.Now().Unix())
-
 		cfg, err := config.LoadDefaultConfig(ctx,
 			config.WithRegion("local"),
 			config.WithBaseEndpoint(endpoint),
@@ -58,6 +56,17 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	Describe("CreateBucket", func() {
+		Context("when bucket already exists", func() {
+			It("should return error", func(ctx context.Context) {
+				_, err := s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
+					Bucket: aws.String(bucketName),
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
 	Describe("ListBuckets", func() {
 		It("should list buckets and include our bucket", func(ctx context.Context) {
 			listBucketsOutput, err := s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
@@ -67,7 +76,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 				return *bucket.Name == bucketName
 			})
 
-			Expect(found).To(BeTrue(), "bucket should be in list")
+			Expect(found).To(BeTrue())
 		})
 	})
 
