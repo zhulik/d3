@@ -43,16 +43,7 @@ func (a APIObjects) HeadObject(c *echo.Context) error {
 		return err
 	}
 
-	headers := lo.Assign(result.Meta, map[string]string{
-		"Last-Modified":         result.LastModified.Format(http.TimeFormat),
-		"Content-Length":        strconv.FormatInt(result.Size, 10),
-		"Content-Type":          result.ContentType,
-		"ETag":                  result.SHA256,
-		"x-amz-checksum-sha256": result.SHA256Base64,
-		"x-amz-tagging":         encodeTags(result.Tags),
-	})
-
-	ihttp.SetHeaders(c, headers)
+	setObjectHeaders(c, result)
 
 	return c.NoContent(http.StatusOK)
 }
@@ -96,14 +87,7 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 
 	defer contents.Close() //nolint:errcheck
 
-	ihttp.SetHeaders(c, map[string]string{
-		"Last-Modified":         contents.LastModified.Format(http.TimeFormat),
-		"Content-Length":        strconv.FormatInt(contents.Size, 10),
-		"Content-Type":          contents.ContentType,
-		"ETag":                  contents.SHA256,
-		"x-amz-checksum-sha256": contents.SHA256Base64,
-		"x-amz-tagging":         encodeTags(contents.Tags),
-	})
+	setObjectHeaders(c, contents.ObjectMetadata)
 
 	return c.Stream(http.StatusOK, "application/octet-stream", contents)
 }
@@ -189,4 +173,16 @@ func parseMeta(c *echo.Context) map[string]string {
 		}
 	}
 	return meta
+}
+
+func setObjectHeaders(c *echo.Context, metadata *core.ObjectMetadata) {
+	headers := lo.Assign(metadata.Meta, map[string]string{
+		"Last-Modified":         metadata.LastModified.Format(http.TimeFormat),
+		"Content-Length":        strconv.FormatInt(metadata.Size, 10),
+		"Content-Type":          metadata.ContentType,
+		"ETag":                  metadata.SHA256,
+		"x-amz-checksum-sha256": metadata.SHA256Base64,
+		"x-amz-tagging":         encodeTags(metadata.Tags),
+	})
+	ihttp.SetHeaders(c, headers)
 }

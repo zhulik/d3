@@ -20,7 +20,7 @@ type ObjectMetadata struct {
 
 type ObjectContent struct {
 	io.ReadCloser
-	ObjectMetadata
+	*ObjectMetadata
 }
 
 type PutObjectInput struct {

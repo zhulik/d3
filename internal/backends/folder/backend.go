@@ -148,7 +148,7 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 
 	return &core.ObjectContent{
 		ReadCloser: f,
-		ObjectMetadata: core.ObjectMetadata{
+		ObjectMetadata: &core.ObjectMetadata{
 			LastModified: metadata.LastModified,
 			Size:         metadata.Size,
 			ContentType:  metadata.ContentType,
