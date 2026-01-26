@@ -89,7 +89,7 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 
 	setObjectHeaders(c, contents.ObjectMetadata)
 
-	return c.Stream(http.StatusOK, "application/octet-stream", contents)
+	return c.Stream(http.StatusOK, contents.ObjectMetadata.ContentType, contents)
 }
 
 func (a APIObjects) ListObjects(c *echo.Context) error {
@@ -151,14 +151,6 @@ func parseTags(header string) (map[string]string, error) {
 	return tags, nil
 }
 
-func encodeTags(tags map[string]string) string {
-	values := url.Values{}
-	for key, value := range tags {
-		values.Add(key, value)
-	}
-	return values.Encode()
-}
-
 func parseMeta(c *echo.Context) map[string]string {
 	meta := map[string]string{}
 	for name, vals := range c.Request().Header {
@@ -182,7 +174,7 @@ func setObjectHeaders(c *echo.Context, metadata *core.ObjectMetadata) {
 		"Content-Type":          metadata.ContentType,
 		"ETag":                  metadata.SHA256,
 		"x-amz-checksum-sha256": metadata.SHA256Base64,
-		"x-amz-tagging":         encodeTags(metadata.Tags),
+		"x-amz-tagging-count":   strconv.Itoa(len(metadata.Tags)),
 	})
 	ihttp.SetHeaders(c, headers)
 }

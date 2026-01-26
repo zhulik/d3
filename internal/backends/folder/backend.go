@@ -72,7 +72,18 @@ func (b *Backend) HeadBucket(_ context.Context, name string) error {
 }
 
 func (b *Backend) HeadObject(ctx context.Context, bucket, key string) (*core.ObjectMetadata, error) {
-	return b.MetadataRepository.Get(ctx, bucket, key)
+	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
+	if err != nil {
+		return nil, err
+	}
+	rawSha256, err := hex.DecodeString(metadata.SHA256)
+	if err != nil {
+		return nil, err
+	}
+
+	metadata.SHA256Base64 = base64.StdEncoding.EncodeToString(rawSha256)
+
+	return metadata, nil
 }
 
 func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error {
@@ -144,18 +155,11 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 	if err != nil {
 		return nil, err
 	}
-	sha256Base64 := base64.StdEncoding.EncodeToString(rawSha256)
+	metadata.SHA256Base64 = base64.StdEncoding.EncodeToString(rawSha256)
 
 	return &core.ObjectContent{
-		ReadCloser: f,
-		ObjectMetadata: &core.ObjectMetadata{
-			LastModified: metadata.LastModified,
-			Size:         metadata.Size,
-			ContentType:  metadata.ContentType,
-			Tags:         metadata.Tags,
-			SHA256:       metadata.SHA256,
-			SHA256Base64: sha256Base64,
-		},
+		ReadCloser:     f,
+		ObjectMetadata: metadata,
 	}, nil
 }
 

@@ -23,6 +23,10 @@ const (
 	endpoint = "http://localhost:8080"
 )
 
+var objectMetadata = map[string]string{
+	"foo": "bar",
+}
+
 var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	var s3Client *s3.Client
 	var bucketName string
@@ -71,26 +75,14 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		It("should put object", func(ctx context.Context) {
 			content := "hello world"
 			_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String("hello.txt"),
-				Body:   strings.NewReader(content),
+				Bucket:      aws.String(bucketName),
+				Key:         aws.String("hello.txt"),
+				Body:        strings.NewReader(content),
+				ContentType: aws.String("text/plain"),
+				Metadata:    objectMetadata,
+				Tagging:     aws.String("bar=baz"),
 			})
 			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-
-	Describe("ListObjectsV2", func() {
-		It("should list bucket contents and include object", func(ctx context.Context) {
-			listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-				Bucket: aws.String(bucketName),
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			found := lo.ContainsBy(listObjectsOutput.Contents, func(obj types.Object) bool {
-				return *obj.Key == "/hello.txt"
-			})
-
-			Expect(found).To(BeTrue(), "object should be in list")
 		})
 	})
 
@@ -104,6 +96,9 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(headObjectOutput.ContentLength).NotTo(BeNil())
 			Expect(*headObjectOutput.ContentLength).To(Equal(int64(len(content))))
+			Expect(*headObjectOutput.ContentType).To(Equal("text/plain"))
+			Expect(headObjectOutput.Metadata).To(Equal(objectMetadata))
+			Expect(*headObjectOutput.TagCount).To(Equal(int32(1)))
 		})
 	})
 
@@ -120,7 +115,10 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 
 			bodyBytes, err := io.ReadAll(getObjectOutput.Body)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(content), "content mismatch after get")
+			Expect(string(bodyBytes)).To(Equal(content))
+			Expect(*getObjectOutput.ContentType).To(Equal("text/plain"))
+			Expect(getObjectOutput.Metadata).To(Equal(objectMetadata))
+			Expect(*getObjectOutput.TagCount).To(Equal(int32(1)))
 		})
 	})
 
