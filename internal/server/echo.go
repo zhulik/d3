@@ -35,7 +35,7 @@ func (e *Echo) Init(ctx context.Context) error {
 				return echo.NewHTTPError(http.StatusNotFound, err.Error())
 			case errors.Is(err, common.ErrObjectNotFound):
 				return echo.NewHTTPError(http.StatusNotFound, err.Error())
-			case errors.Is(err, common.ErrBucketAlreadyExists):
+			case errors.Is(err, common.ErrBucketAlreadyExists) || errors.Is(err, common.ErrObjectAlreadyExists):
 				return echo.NewHTTPError(http.StatusConflict, err.Error())
 			case err == nil:
 				return nil
