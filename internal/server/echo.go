@@ -21,7 +21,7 @@ type Echo struct {
 func (e *Echo) Init(_ context.Context) error {
 	e.Echo = echo.New()
 	e.Logger = slog.Default()
-	e.rootQueryRouter = ihttp.NewQueryParamsRouter(nil)
+	e.rootQueryRouter = ihttp.NewQueryParamsRouter()
 
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.RequestLogger())
@@ -50,4 +50,8 @@ func (e *Echo) Init(_ context.Context) error {
 
 func (e *Echo) AddQueryParamRoute(path string, handler echo.HandlerFunc) {
 	e.rootQueryRouter.AddRoute(path, handler)
+}
+
+func (e *Echo) SetRootQueryFallbackHandler(handler echo.HandlerFunc) {
+	e.rootQueryRouter.SetFallbackHandler(handler)
 }

@@ -37,6 +37,7 @@ type APIObjects struct {
 }
 
 func (a APIObjects) Init(_ context.Context) error {
+	a.Echo.SetRootQueryFallbackHandler(a.ListObjects)
 	a.Echo.AddQueryParamRoute("prefix", a.ListObjects)
 	a.Echo.AddQueryParamRoute("list-type", a.ListObjects)
 
@@ -44,9 +45,12 @@ func (a APIObjects) Init(_ context.Context) error {
 	objects.HEAD("", a.HeadObject)
 	objects.PUT("", a.PutObject)
 
-	objects.GET("", ihttp.NewQueryParamsRouter(a.GetObject).
-		AddRoute("tagging", a.GetObjectTagging).
-		Handle)
+	objects.GET("",
+		ihttp.NewQueryParamsRouter().
+			SetFallbackHandler(a.GetObject).
+			AddRoute("tagging", a.GetObjectTagging).
+			Handle,
+	)
 
 	objects.DELETE("", a.DeleteObject)
 

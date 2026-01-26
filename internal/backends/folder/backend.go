@@ -181,6 +181,9 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 }
 
 func (b *Backend) ListObjects(_ context.Context, bucket, prefix string) ([]*types.Object, error) {
+	if prefix == "" {
+		prefix = "/"
+	}
 	entries, err := os.ReadDir(filepath.Join(b.Config.FolderBackendPath, bucket, prefix))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

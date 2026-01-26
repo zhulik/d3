@@ -108,7 +108,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			})
 		})
 
-		XContext("when prefix is not specified", func() {
+		Context("when prefix is not specified", func() {
 			It("should list objects", func(ctx context.Context) {
 				listObjectsOutput, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
 					Bucket: aws.String(bucketName),
@@ -118,7 +118,6 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 				Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("/hello.txt")))
 			})
 		})
-
 	})
 
 	Describe("HeadObject", func() {

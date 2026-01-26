@@ -17,15 +17,22 @@ type QueryParamsRouter struct {
 	fallbackHandler echo.HandlerFunc
 }
 
-func NewQueryParamsRouter(fallback echo.HandlerFunc) *QueryParamsRouter {
+func NewQueryParamsRouter() *QueryParamsRouter {
 	return &QueryParamsRouter{
-		routes:          []route{},
-		fallbackHandler: fallback,
+		routes: []route{},
 	}
 }
 
 func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc) *QueryParamsRouter {
 	r.routes = append(r.routes, route{param: param, handler: handler})
+	return r
+}
+
+func (r *QueryParamsRouter) SetFallbackHandler(handler echo.HandlerFunc) *QueryParamsRouter {
+	if r.fallbackHandler != nil {
+		panic("fallback handler already set")
+	}
+	r.fallbackHandler = handler
 	return r
 }
 
