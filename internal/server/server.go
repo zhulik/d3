@@ -20,13 +20,11 @@ type Server struct {
 	ObjectsAPI *ObjectsAPI
 	BucketsAPI *BucketsAPI
 
-	e  *echo.Echo
-	sc *echo.StartConfig
+	e *echo.Echo
 }
 
 func (s *Server) Init(ctx context.Context) error {
 	s.e = echo.New()
-	s.sc = &echo.StartConfig{Address: ":8080"}
 
 	s.e.Pre(middleware.RemoveTrailingSlash())
 	s.e.Use(middleware.RequestLogger())
@@ -73,7 +71,8 @@ func (s *Server) Init(ctx context.Context) error {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	if err := s.sc.Start(ctx, s.e); err != nil {
+	sc := &echo.StartConfig{Address: ":8080"}
+	if err := sc.Start(ctx, s.e); err != nil {
 		s.Logger.Error("failed to start server", "error", err)
 		return err
 	}

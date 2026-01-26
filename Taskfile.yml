@@ -20,6 +20,12 @@ tasks:
     desc: Run tests
     cmd: ginkgo run
 
+  build:
+    desc: Build the application
+    sources:
+      - '**/*.go'
+    cmd: go build ./...
+
   run:
     desc: Run the application
     cmd: go run cmd/main.go
