@@ -52,7 +52,16 @@ func (b *Backend) ListBuckets(_ context.Context) ([]*types.Bucket, error) {
 
 func (b *Backend) CreateBucket(_ context.Context, name string) error {
 	path := filepath.Join(b.Config.FolderBackendPath, name)
-	return os.Mkdir(path, 0755)
+	err := os.Mkdir(path, 0755)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return common.ErrBucketAlreadyExists
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (b *Backend) DeleteBucket(_ context.Context, name string) error {
