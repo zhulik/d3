@@ -20,6 +20,8 @@ const (
 )
 
 type Config struct {
+	Environment string `env:"ENVIRONMENT" envDefault:"production"`
+
 	Backend           BackendType `env:"BACKEND" envDefault:"folder"`
 	FolderBackendPath string      `env:"FOLDER_BACKEND_PATH" envDefault:"./d3_data"`
 	RedisAddress      string      `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`

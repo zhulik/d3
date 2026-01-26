@@ -2,6 +2,9 @@
 
 version: '3'
 
+env:
+  ENVIRONMENT: development
+
 tasks:
   default:
     desc: Run checks and tests

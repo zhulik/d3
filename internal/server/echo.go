@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
@@ -19,6 +20,7 @@ type Echo struct {
 
 func (e *Echo) Init(ctx context.Context) error {
 	e.Echo = echo.New()
+	e.Logger = slog.Default()
 	e.rootQueryRouter = ihttp.NewQueryParamsRouter()
 
 	e.Pre(middleware.RemoveTrailingSlash())

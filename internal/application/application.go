@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/golang-cz/devslog"
 	"github.com/zhulik/d3/internal/backends/folder"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
@@ -18,6 +19,21 @@ func Run() {
 	if err := config.Init(context.Background()); err != nil {
 		slog.Error("failed to initialize config", "error", err)
 		os.Exit(1)
+	}
+
+	if config.Environment == "development" {
+		// new logger with options
+		opts := &devslog.Options{
+			MaxSlicePrintSize: 4,
+			SortKeys:          true,
+			TimeFormat:        "[04:05]",
+			NewLineAfterLog:   true,
+			DebugColor:        devslog.Magenta,
+			StringerFormatter: true,
+		}
+
+		logger := slog.New(devslog.NewHandler(os.Stdout, opts))
+		slog.SetDefault(logger)
 	}
 
 	p := pal.New(
