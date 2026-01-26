@@ -27,6 +27,7 @@ type PutObjectInput struct {
 	Reader      io.Reader
 	ContentType string
 	SHA256      string
+	Size        int64
 	Metadata    map[string]string
 }
 

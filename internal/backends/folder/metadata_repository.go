@@ -3,7 +3,8 @@ package folder
 import (
 	"context"
 	"encoding/json"
-	"path"
+	"path/filepath"
+	"time"
 
 	"github.com/redis/rueidis"
 	"github.com/zhulik/d3/internal/core"
@@ -12,31 +13,25 @@ import (
 )
 
 type Metadata struct {
-	ContentType string            `json:"str"`
-	Metadata    map[string]string `json:"metadata"`
-	SHA256      string            `json:"sha256"`
+	ContentType  string            `json:"str"`
+	LastModified time.Time         `json:"last_modified"`
+	SHA256       string            `json:"sha256"`
+	Size         int64             `json:"size"`
+	Metadata     map[string]string `json:"metadata"`
 }
 
-func (m Metadata) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"content_type": m.ContentType,
-		"metadata":     m.Metadata,
-		"sha256":       m.SHA256,
-	})
+type marshallableMetadata Metadata
+
+func (m marshallableMetadata) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m)
 }
 
-func (m *Metadata) UnmarshalJSON(data []byte) error {
-	var tmp struct {
-		ContentType string            `json:"content_type"`
-		Metadata    map[string]string `json:"metadata"`
-		SHA256      string            `json:"sha256"`
-	}
-	if err := json.Unmarshal(data, &tmp); err != nil {
+func (m *marshallableMetadata) UnmarshalJSON(data []byte) error {
+	var metadata Metadata
+	if err := json.Unmarshal(data, &metadata); err != nil {
 		return err
 	}
-	m.ContentType = tmp.ContentType
-	m.Metadata = tmp.Metadata
-	m.SHA256 = tmp.SHA256
+	*m = marshallableMetadata(metadata)
 	return nil
 }
 
@@ -64,7 +59,7 @@ func (m *MetadataRepository) Init(_ context.Context) error {
 
 func (m *MetadataRepository) Save(ctx context.Context, bucket, key string, metadata Metadata) error {
 	err := m.repo.Save(ctx, &ObjectMetadataValue{
-		Key:      path.Join(bucket, key),
+		Key:      filepath.Join(bucket, key),
 		Ver:      1,
 		Metadata: metadata,
 	})
@@ -72,7 +67,7 @@ func (m *MetadataRepository) Save(ctx context.Context, bucket, key string, metad
 }
 
 func (m *MetadataRepository) Get(ctx context.Context, bucket, key string) (Metadata, error) {
-	metadata, err := m.repo.Fetch(ctx, path.Join(bucket, key))
+	metadata, err := m.repo.Fetch(ctx, filepath.Join(bucket, key))
 	if err != nil {
 		return Metadata{}, err
 	}

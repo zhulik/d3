@@ -58,6 +58,7 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 		Reader:      c.Request().Body,
 		ContentType: c.Request().Header.Get("Content-Type"),
 		SHA256:      c.Request().Header.Get("x-amz-content-sha256"),
+		Size:        c.Request().ContentLength,
 		// TODO: metadata
 	})
 	if err != nil {

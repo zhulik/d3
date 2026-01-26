@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -70,17 +71,14 @@ func (b *Backend) HeadBucket(_ context.Context, name string) error {
 	return nil
 }
 
-func (b *Backend) HeadObject(_ context.Context, bucket, key string) (*core.HeadObjectResult, error) {
-	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
-	fileInfo, err := os.Stat(path)
-
-	if os.IsNotExist(err) {
-		return nil, common.ErrObjectNotFound
+func (b *Backend) HeadObject(ctx context.Context, bucket, key string) (*core.HeadObjectResult, error) {
+	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
+	if err != nil {
+		return nil, err
 	}
-
 	return &core.HeadObjectResult{
-		LastModified:  fileInfo.ModTime(),
-		ContentLength: fileInfo.Size(),
+		LastModified:  metadata.LastModified,
+		ContentLength: metadata.Size,
 	}, nil
 }
 
@@ -118,9 +116,11 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.
 	}
 
 	b.MetadataRepository.Save(ctx, bucket, key, Metadata{
-		ContentType: input.ContentType,
-		Metadata:    input.Metadata,
-		SHA256:      sha256sum,
+		ContentType:  input.ContentType,
+		Metadata:     input.Metadata,
+		SHA256:       sha256sum,
+		Size:         input.Size,
+		LastModified: time.Now(),
 	})
 
 	return err
@@ -128,10 +128,6 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.
 
 func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.ObjectContent, error) {
 	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
-	fileinfo, err := os.Stat(path)
-	if err != nil {
-		return nil, err
-	}
 
 	f, err := os.Open(path)
 	if err != nil {
@@ -151,8 +147,8 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 
 	return &core.ObjectContent{
 		ReadCloser:   f,
-		LastModified: fileinfo.ModTime(),
-		Size:         fileinfo.Size(),
+		LastModified: metadata.LastModified,
+		Size:         metadata.Size,
 		ContentType:  metadata.ContentType,
 		Metadata:     metadata.Metadata,
 		SHA256:       metadata.SHA256,
