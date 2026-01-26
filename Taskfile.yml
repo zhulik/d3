@@ -20,6 +20,14 @@ tasks:
       - 'go.sum'
     cmd: golangci-lint run
 
+  lint-fix:
+    desc: Run linting
+    sources:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+    cmd: golangci-lint run --fix
+
   test:
     desc: Run tests
     cmd: ginkgo run

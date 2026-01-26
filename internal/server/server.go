@@ -16,7 +16,7 @@ type Server struct {
 	Echo *Echo
 }
 
-func (s *Server) Init(ctx context.Context) error {
+func (s *Server) Init(_ context.Context) error {
 	buckets := s.Echo.Group("/:bucket")
 
 	buckets.GET("", s.Echo.rootQueryRouter.Handle)

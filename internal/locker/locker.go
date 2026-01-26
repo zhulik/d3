@@ -15,7 +15,7 @@ type Locker struct {
 	locker rueidislock.Locker
 }
 
-func (l *Locker) Init(ctx context.Context) error {
+func (l *Locker) Init(_ context.Context) error {
 	locker, err := rueidislock.NewLocker(rueidislock.LockerOption{
 		ClientOption:   rueidis.ClientOption{InitAddress: []string{l.Config.RedisAddress}},
 		KeyMajority:    1,
@@ -29,7 +29,7 @@ func (l *Locker) Init(ctx context.Context) error {
 	return nil
 }
 
-func (l *Locker) Shutdown(ctx context.Context) error {
+func (l *Locker) Shutdown(_ context.Context) error {
 	l.locker.Close()
 	return nil
 }

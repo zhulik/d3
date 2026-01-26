@@ -94,7 +94,7 @@ var _ = Describe("Core conformance", Ordered, func() {
 		})
 	})
 
-	Describe("aws s3api head-object", func() {
+	Describe("HeadObject", func() {
 		It("should head object", func(ctx context.Context) {
 			content := "hello world"
 			headObjectOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
@@ -107,7 +107,7 @@ var _ = Describe("Core conformance", Ordered, func() {
 		})
 	})
 
-	Describe("aws s3 cp get + content match", func() {
+	Describe("GetObject", func() {
 		It("should get object and verify content matches", func(ctx context.Context) {
 			content := "hello world"
 			getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
@@ -124,7 +124,7 @@ var _ = Describe("Core conformance", Ordered, func() {
 		})
 	})
 
-	Describe("aws s3 rm", func() {
+	Describe("DeleteObject", func() {
 		It("should delete object", func(ctx context.Context) {
 			_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 				Bucket: aws.String(bucketName),

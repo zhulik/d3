@@ -15,7 +15,7 @@ type APIObjects struct {
 	Echo    *Echo
 }
 
-func (a APIObjects) Init(ctx context.Context) error {
+func (a APIObjects) Init(_ context.Context) error {
 	a.Echo.AddQueryParamRoute("prefix", a.ListObjects)
 	a.Echo.AddQueryParamRoute("list-type", a.ListObjects)
 

@@ -43,7 +43,7 @@ type listBucketResult struct {
 	CommonPrefixes []prefixEntry   `xml:"CommonPrefixes,omitempty"`
 }
 
-func (a APIBuckets) Init(ctx context.Context) error {
+func (a APIBuckets) Init(_ context.Context) error {
 	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation)
 
 	a.Echo.GET("/", a.ListBuckets)

@@ -20,7 +20,7 @@ type Backend struct {
 	Locker *locker.Locker
 }
 
-func (b *Backend) ListBuckets(ctx context.Context) ([]*types.Bucket, error) {
+func (b *Backend) ListBuckets(_ context.Context) ([]*types.Bucket, error) {
 	entries, err := os.ReadDir(b.Config.FolderBackendPath)
 	if err != nil {
 		return nil, err
@@ -43,12 +43,12 @@ func (b *Backend) ListBuckets(ctx context.Context) ([]*types.Bucket, error) {
 	})
 }
 
-func (b *Backend) CreateBucket(ctx context.Context, name string) error {
+func (b *Backend) CreateBucket(_ context.Context, name string) error {
 	path := filepath.Join(b.Config.FolderBackendPath, name)
 	return os.Mkdir(path, 0755)
 }
 
-func (b *Backend) DeleteBucket(ctx context.Context, name string) error {
+func (b *Backend) DeleteBucket(_ context.Context, name string) error {
 	path := filepath.Join(b.Config.FolderBackendPath, name)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return common.ErrBucketNotFound
@@ -56,7 +56,7 @@ func (b *Backend) DeleteBucket(ctx context.Context, name string) error {
 	return os.RemoveAll(path)
 }
 
-func (b *Backend) HeadBucket(ctx context.Context, name string) error {
+func (b *Backend) HeadBucket(_ context.Context, name string) error {
 	path := filepath.Join(b.Config.FolderBackendPath, name)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return common.ErrBucketNotFound
@@ -64,7 +64,7 @@ func (b *Backend) HeadBucket(ctx context.Context, name string) error {
 	return nil
 }
 
-func (b *Backend) HeadObject(ctx context.Context, bucket, key string) (*core.HeadObjectResult, error) {
+func (b *Backend) HeadObject(_ context.Context, bucket, key string) (*core.HeadObjectResult, error) {
 	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
 	fileInfo, err := os.Stat(path)
 
@@ -110,7 +110,7 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, reader io.R
 	return err
 }
 
-func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.ObjectContent, error) {
+func (b *Backend) GetObject(_ context.Context, bucket, key string) (*core.ObjectContent, error) {
 	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
 	fileinfo, err := os.Stat(path)
 	if err != nil {
@@ -129,7 +129,7 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 	}, nil
 }
 
-func (b *Backend) ListObjects(ctx context.Context, bucket, prefix string) ([]*types.Object, error) {
+func (b *Backend) ListObjects(_ context.Context, bucket, prefix string) ([]*types.Object, error) {
 	entries, err := os.ReadDir(filepath.Join(b.Config.FolderBackendPath, bucket, prefix))
 	if err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func (b *Backend) ListObjects(ctx context.Context, bucket, prefix string) ([]*ty
 	})
 }
 
-func (b *Backend) DeleteObject(ctx context.Context, bucket, key string) error {
+func (b *Backend) DeleteObject(_ context.Context, bucket, key string) error {
 	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
 	return os.Remove(path)
 }

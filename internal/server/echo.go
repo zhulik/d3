@@ -18,7 +18,7 @@ type Echo struct {
 	rootQueryRouter *ihttp.QueryParamsRouter
 }
 
-func (e *Echo) Init(ctx context.Context) error {
+func (e *Echo) Init(_ context.Context) error {
 	e.Echo = echo.New()
 	e.Logger = slog.Default()
 	e.rootQueryRouter = ihttp.NewQueryParamsRouter()

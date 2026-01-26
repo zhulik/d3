@@ -8,6 +8,8 @@ import (
 )
 
 func TestD3(t *testing.T) {
+	t.Parallel()
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "D3 Suite")
 }

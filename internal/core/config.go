@@ -27,7 +27,7 @@ type Config struct {
 	RedisAddress      string      `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
 }
 
-func (c *Config) Init(ctx context.Context) error {
+func (c *Config) Init(_ context.Context) error {
 	err := env.Parse(c)
 	if err != nil {
 		return fmt.Errorf("%w: failed to parse config: %w", ErrInvalidConfig, err)
@@ -50,9 +50,8 @@ func (c *Config) validateFolderBackendPath() error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			return os.MkdirAll(c.FolderBackendPath, 0755)
-		} else {
-			return fmt.Errorf("%w: unable to access FolderBackendPath: %w", ErrInvalidConfig, err)
 		}
+		return fmt.Errorf("%w: unable to access FolderBackendPath: %w", ErrInvalidConfig, err)
 	}
 
 	if !fileInfo.IsDir() {
