@@ -17,6 +17,9 @@ type Server struct {
 	Logger  *slog.Logger
 	Backend core.Backend
 
+	ObjectsAPI *ObjectsAPI
+	BucketsAPI *BucketsAPI
+
 	e  *echo.Echo
 	sc *echo.StartConfig
 }
@@ -47,24 +50,24 @@ func (s *Server) Init(ctx context.Context) error {
 		}
 	})
 
-	s.e.GET("/", s.ListBuckets)
+	s.e.GET("/", s.BucketsAPI.ListBuckets)
 
 	buckets := s.e.Group("/:bucket")
 
 	buckets.GET("", ihttp.NewQueryParamsRouter().
-		AddRoute("location", s.GetBucketLocation).
-		AddRoute("prefix", s.ListObjects).
+		AddRoute("location", s.BucketsAPI.GetBucketLocation).
+		AddRoute("prefix", s.ObjectsAPI.ListObjects).
 		Handle,
 	)
-	buckets.HEAD("", s.HeadBucket)
-	buckets.PUT("", s.CreateBucket)
-	buckets.DELETE("", s.DeleteBucket)
+	buckets.HEAD("", s.BucketsAPI.HeadBucket)
+	buckets.PUT("", s.BucketsAPI.CreateBucket)
+	buckets.DELETE("", s.BucketsAPI.DeleteBucket)
 
 	objects := buckets.Group("/*")
-	objects.HEAD("", s.HeadObject)
-	objects.PUT("", s.PutObject)
-	objects.GET("", s.GetObject)
-	objects.DELETE("", s.DeleteObject)
+	objects.HEAD("", s.ObjectsAPI.HeadObject)
+	objects.PUT("", s.ObjectsAPI.PutObject)
+	objects.GET("", s.ObjectsAPI.GetObject)
+	objects.DELETE("", s.ObjectsAPI.DeleteObject)
 
 	return nil
 }

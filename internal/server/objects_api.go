@@ -6,13 +6,18 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v5"
+	"github.com/zhulik/d3/internal/core"
 )
 
-func (s *Server) HeadObject(c *echo.Context) error {
+type ObjectsAPI struct {
+	Backend core.Backend
+}
+
+func (a ObjectsAPI) HeadObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	result, err := s.Backend.HeadObject(c.Request().Context(), bucket, key)
+	result, err := a.Backend.HeadObject(c.Request().Context(), bucket, key)
 	if err != nil {
 		return err
 	}
@@ -23,11 +28,11 @@ func (s *Server) HeadObject(c *echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (s *Server) PutObject(c *echo.Context) error {
+func (a ObjectsAPI) PutObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	err := s.Backend.PutObject(c.Request().Context(), bucket, key, c.Request().Body)
+	err := a.Backend.PutObject(c.Request().Context(), bucket, key, c.Request().Body)
 	if err != nil {
 		return err
 	}
@@ -35,11 +40,11 @@ func (s *Server) PutObject(c *echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (s *Server) GetObject(c *echo.Context) error {
+func (a ObjectsAPI) GetObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	contents, err := s.Backend.GetObject(c.Request().Context(), bucket, key)
+	contents, err := a.Backend.GetObject(c.Request().Context(), bucket, key)
 	if err != nil {
 		return err
 	}
@@ -53,10 +58,10 @@ func (s *Server) GetObject(c *echo.Context) error {
 	return c.Stream(http.StatusOK, "application/octet-stream", contents)
 }
 
-func (s *Server) ListObjects(c *echo.Context) error {
+func (a ObjectsAPI) ListObjects(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	prefix := c.QueryParam("prefix")
-	objects, err := s.Backend.ListObjects(c.Request().Context(), bucket, prefix)
+	objects, err := a.Backend.ListObjects(c.Request().Context(), bucket, prefix)
 	if err != nil {
 		return err
 	}
@@ -72,11 +77,11 @@ func (s *Server) ListObjects(c *echo.Context) error {
 	return c.XML(http.StatusOK, xmlResponse)
 }
 
-func (s *Server) DeleteObject(c *echo.Context) error {
+func (a ObjectsAPI) DeleteObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	err := s.Backend.DeleteObject(c.Request().Context(), bucket, key)
+	err := a.Backend.DeleteObject(c.Request().Context(), bucket, key)
 	if err != nil {
 		return err
 	}

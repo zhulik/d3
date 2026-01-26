@@ -7,7 +7,12 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/labstack/echo/v5"
+	"github.com/zhulik/d3/internal/core"
 )
+
+type BucketsAPI struct {
+	Backend core.Backend
+}
 
 // BucketsResult is the XML envelope for ListBuckets responses.
 type BucketsResult struct {
@@ -40,8 +45,8 @@ type ListBucketResult struct {
 
 // ListBuckets enumerates existing JetStream Object Store buckets and returns
 // a simple S3-compatible XML response.
-func (s *Server) ListBuckets(c *echo.Context) error {
-	entries, err := s.Backend.ListBuckets(c.Request().Context())
+func (a BucketsAPI) ListBuckets(c *echo.Context) error {
+	entries, err := a.Backend.ListBuckets(c.Request().Context())
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -53,9 +58,9 @@ func (s *Server) ListBuckets(c *echo.Context) error {
 	return c.XML(http.StatusOK, response)
 }
 
-func (s *Server) CreateBucket(c *echo.Context) error {
+func (a BucketsAPI) CreateBucket(c *echo.Context) error {
 	name := c.Param("bucket")
-	err := s.Backend.CreateBucket(c.Request().Context(), name)
+	err := a.Backend.CreateBucket(c.Request().Context(), name)
 	if err != nil {
 		return c.String(http.StatusConflict, err.Error())
 	}
@@ -66,9 +71,9 @@ func (s *Server) CreateBucket(c *echo.Context) error {
 	return c.NoContent(http.StatusCreated)
 }
 
-func (s *Server) DeleteBucket(c *echo.Context) error {
+func (a BucketsAPI) DeleteBucket(c *echo.Context) error {
 	name := c.Param("bucket")
-	err := s.Backend.DeleteBucket(c.Request().Context(), name)
+	err := a.Backend.DeleteBucket(c.Request().Context(), name)
 	if err != nil {
 		return err
 	}
@@ -76,10 +81,10 @@ func (s *Server) DeleteBucket(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (s *Server) GetBucketLocation(c *echo.Context) error {
+func (a BucketsAPI) GetBucketLocation(c *echo.Context) error {
 	bucket := c.Param("bucket")
 
-	err := s.Backend.HeadBucket(c.Request().Context(), bucket)
+	err := a.Backend.HeadBucket(c.Request().Context(), bucket)
 	if err != nil {
 		return err
 	}
@@ -91,8 +96,8 @@ func (s *Server) GetBucketLocation(c *echo.Context) error {
 	return c.XML(http.StatusOK, response)
 }
 
-func (s *Server) HeadBucket(c *echo.Context) error {
-	err := s.Backend.HeadBucket(c.Request().Context(), c.Param("bucket"))
+func (a BucketsAPI) HeadBucket(c *echo.Context) error {
+	err := a.Backend.HeadBucket(c.Request().Context(), c.Param("bucket"))
 	if err != nil {
 		return err
 	}
