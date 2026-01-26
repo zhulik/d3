@@ -149,7 +149,7 @@ func (a APIObjects) ListObjects(c *echo.Context) error {
 		return err
 	}
 
-	xmlResponse := listBucketResult{
+	xmlResponse := listObjectsResult{
 		IsTruncated:    false,
 		Contents:       objects,
 		Name:           bucket,
@@ -203,12 +203,7 @@ func parseMeta(c *echo.Context) map[string]string {
 	meta := map[string]string{}
 	for name, vals := range c.Request().Header {
 		ln := strings.ToLower(name)
-		// Extract user metadata (x-amz-meta-*)
 		if strings.HasPrefix(ln, "x-amz-meta-") {
-			meta[ln] = strings.Join(vals, ",")
-		}
-		// Extract object retention headers if present during PUT
-		if ln == "x-amz-object-lock-mode" || ln == "x-amz-object-lock-retain-until-date" {
 			meta[ln] = strings.Join(vals, ",")
 		}
 	}
