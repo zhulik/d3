@@ -13,11 +13,14 @@ type route struct {
 
 type QueryParamsRouter struct {
 	routes []route
+
+	fallbackHandler echo.HandlerFunc
 }
 
-func NewQueryParamsRouter() *QueryParamsRouter {
+func NewQueryParamsRouter(fallback echo.HandlerFunc) *QueryParamsRouter {
 	return &QueryParamsRouter{
-		routes: []route{},
+		routes:          []route{},
+		fallbackHandler: fallback,
 	}
 }
 
@@ -31,6 +34,9 @@ func (r *QueryParamsRouter) Handle(c *echo.Context) error {
 		if _, ok := c.QueryParams()[route.param]; ok {
 			return route.handler(c)
 		}
+	}
+	if r.fallbackHandler != nil {
+		return r.fallbackHandler(c)
 	}
 	return echo.NewHTTPError(http.StatusNotImplemented, "not implemented")
 }

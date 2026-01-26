@@ -21,7 +21,7 @@ type Echo struct {
 func (e *Echo) Init(_ context.Context) error {
 	e.Echo = echo.New()
 	e.Logger = slog.Default()
-	e.rootQueryRouter = ihttp.NewQueryParamsRouter()
+	e.rootQueryRouter = ihttp.NewQueryParamsRouter(nil)
 
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.RequestLogger())
