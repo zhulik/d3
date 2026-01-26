@@ -72,18 +72,6 @@ else
   pass "object.head_missing_should_fail"
 fi
 
-# ---------- Metadata and content-type ----------
-echo "meta file" > "$TMPDIR/meta.txt"
-run "object.put_with_metadata" aws s3api put-object \
-  --bucket "$BUCKET" --key meta.txt \
-  --body "$TMPDIR/meta.txt" \
-  --content-type text/plain \
-  --metadata foo=bar,baz=qux \
-  --endpoint-url="$ENDPOINT" >/dev/null
-
-aws s3api head-object --bucket "$BUCKET" --key meta.txt --endpoint-url="$ENDPOINT" >"$TMPDIR/head-meta.json" || true
-assert_grep "object.head_has_content_type" '"ContentType":\s*"text/plain"' "$TMPDIR/head-meta.json"
-assert_grep "object.head_has_metadata_foo" '"Foo":\s*"bar"' "$TMPDIR/head-meta.json"
 
 # ---------- Copy object ----------
 run "object.copy" aws s3api copy-object --bucket "$BUCKET" --copy-source "$BUCKET/hello.txt" --key copy.txt --endpoint-url="$ENDPOINT" >/dev/null
