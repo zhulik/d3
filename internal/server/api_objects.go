@@ -41,8 +41,10 @@ func (a APIObjects) HeadObject(c *echo.Context) error {
 	}
 
 	ihttp.SetHeaders(c, map[string]string{
-		"Last-Modified":  result.LastModified.Format(http.TimeFormat),
-		"Content-Length": strconv.FormatInt(result.ContentLength, 10),
+		"Last-Modified":         result.LastModified.Format(http.TimeFormat),
+		"Content-Length":        strconv.FormatInt(result.Size, 10),
+		"ETag":                  result.SHA256,
+		"x-amz-checksum-sha256": result.SHA256Base64,
 	})
 
 	return c.NoContent(http.StatusOK)
@@ -51,8 +53,6 @@ func (a APIObjects) HeadObject(c *echo.Context) error {
 func (a APIObjects) PutObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
-
-	a.Logger.Info("put object", "bucket", bucket, "key", key, "headers", c.Request().Header)
 
 	err := a.Backend.PutObject(c.Request().Context(), bucket, key, core.PutObjectInput{
 		Reader:      c.Request().Body,

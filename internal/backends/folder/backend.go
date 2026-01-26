@@ -71,15 +71,8 @@ func (b *Backend) HeadBucket(_ context.Context, name string) error {
 	return nil
 }
 
-func (b *Backend) HeadObject(ctx context.Context, bucket, key string) (*core.HeadObjectResult, error) {
-	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
-	if err != nil {
-		return nil, err
-	}
-	return &core.HeadObjectResult{
-		LastModified:  metadata.LastModified,
-		ContentLength: metadata.Size,
-	}, nil
+func (b *Backend) HeadObject(ctx context.Context, bucket, key string) (*core.ObjectMetadata, error) {
+	return b.MetadataRepository.Get(ctx, bucket, key)
 }
 
 func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error {
@@ -109,21 +102,28 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.
 		f.Close() //nolint:errcheck
 		rmErr := os.Remove(path)
 		err = errors.Join(err, rmErr)
+		return err
 	}
 
 	if input.SHA256 != sha256sum {
 		return common.ErrObjectChecksumMismatch
 	}
 
-	b.MetadataRepository.Save(ctx, bucket, key, Metadata{
+	err = b.MetadataRepository.Save(ctx, bucket, key, &core.ObjectMetadata{
 		ContentType:  input.ContentType,
 		Metadata:     input.Metadata,
 		SHA256:       sha256sum,
 		Size:         input.Size,
 		LastModified: time.Now(),
 	})
+	if err != nil {
+		f.Close() //nolint:errcheck
+		rmErr := os.Remove(path)
+		err = errors.Join(err, rmErr)
+		return err
+	}
 
-	return err
+	return nil
 }
 
 func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.ObjectContent, error) {
@@ -146,13 +146,15 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 	sha256Base64 := base64.StdEncoding.EncodeToString(rawSha256)
 
 	return &core.ObjectContent{
-		ReadCloser:   f,
-		LastModified: metadata.LastModified,
-		Size:         metadata.Size,
-		ContentType:  metadata.ContentType,
-		Metadata:     metadata.Metadata,
-		SHA256:       metadata.SHA256,
-		SHA256Base64: sha256Base64,
+		ReadCloser: f,
+		ObjectMetadata: core.ObjectMetadata{
+			LastModified: metadata.LastModified,
+			Size:         metadata.Size,
+			ContentType:  metadata.ContentType,
+			Metadata:     metadata.Metadata,
+			SHA256:       metadata.SHA256,
+			SHA256Base64: sha256Base64,
+		},
 	}, nil
 }
 

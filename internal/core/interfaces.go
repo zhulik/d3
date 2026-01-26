@@ -8,19 +8,18 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-type HeadObjectResult struct {
-	LastModified  time.Time
-	ContentLength int64
+type ObjectMetadata struct {
+	ContentType  string            `json:"str"`
+	LastModified time.Time         `json:"last_modified"`
+	SHA256       string            `json:"sha256"`
+	SHA256Base64 string            `json:"sha256_base64"` // only when ObjectMetadata is returned by the backend
+	Size         int64             `json:"size"`
+	Metadata     map[string]string `json:"metadata"`
 }
 
 type ObjectContent struct {
 	io.ReadCloser
-	LastModified time.Time
-	Size         int64
-	ContentType  string
-	Metadata     map[string]string
-	SHA256       string
-	SHA256Base64 string
+	ObjectMetadata
 }
 
 type PutObjectInput struct {
@@ -37,7 +36,7 @@ type Backend interface {
 	DeleteBucket(ctx context.Context, name string) error
 	HeadBucket(ctx context.Context, name string) error
 
-	HeadObject(ctx context.Context, bucket, key string) (*HeadObjectResult, error)
+	HeadObject(ctx context.Context, bucket, key string) (*ObjectMetadata, error)
 	PutObject(ctx context.Context, bucket, key string, input PutObjectInput) error
 	GetObject(ctx context.Context, bucket, key string) (*ObjectContent, error)
 	ListObjects(ctx context.Context, bucket, prefix string) ([]*types.Object, error)
