@@ -105,16 +105,17 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.
 		return err
 	}
 
-	if input.SHA256 != sha256sum {
+	if input.Metadata.SHA256 != sha256sum {
 		return common.ErrObjectChecksumMismatch
 	}
 
 	err = b.MetadataRepository.Save(ctx, bucket, key, &core.ObjectMetadata{
-		ContentType:  input.ContentType,
-		Metadata:     input.Metadata,
+		ContentType:  input.Metadata.ContentType,
+		Tags:         input.Metadata.Tags,
 		SHA256:       sha256sum,
-		Size:         input.Size,
+		Size:         input.Metadata.Size,
 		LastModified: time.Now(),
+		Meta:         input.Metadata.Meta,
 	})
 	if err != nil {
 		f.Close() //nolint:errcheck
@@ -151,7 +152,7 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 			LastModified: metadata.LastModified,
 			Size:         metadata.Size,
 			ContentType:  metadata.ContentType,
-			Metadata:     metadata.Metadata,
+			Tags:         metadata.Tags,
 			SHA256:       metadata.SHA256,
 			SHA256Base64: sha256Base64,
 		},

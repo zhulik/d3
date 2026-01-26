@@ -14,7 +14,8 @@ type ObjectMetadata struct {
 	SHA256       string            `json:"sha256"`
 	SHA256Base64 string            `json:"sha256_base64"` // only when ObjectMetadata is returned by the backend
 	Size         int64             `json:"size"`
-	Metadata     map[string]string `json:"metadata"`
+	Tags         map[string]string `json:"tags"`
+	Meta         map[string]string `json:"meta"`
 }
 
 type ObjectContent struct {
@@ -23,11 +24,8 @@ type ObjectContent struct {
 }
 
 type PutObjectInput struct {
-	Reader      io.Reader
-	ContentType string
-	SHA256      string
-	Size        int64
-	Metadata    map[string]string
+	Reader   io.Reader
+	Metadata ObjectMetadata
 }
 
 type Backend interface {
