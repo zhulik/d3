@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -11,6 +12,8 @@ import (
 )
 
 type APIObjects struct {
+	Logger *slog.Logger
+
 	Backend core.Backend
 	Echo    *Echo
 }
@@ -49,7 +52,14 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	err := a.Backend.PutObject(c.Request().Context(), bucket, key, c.Request().Body)
+	a.Logger.Info("put object", "bucket", bucket, "key", key, "headers", c.Request().Header)
+
+	err := a.Backend.PutObject(c.Request().Context(), bucket, key, core.PutObjectInput{
+		Reader:      c.Request().Body,
+		ContentType: c.Request().Header.Get("Content-Type"),
+		SHA256:      c.Request().Header.Get("x-amz-content-sha256"),
+		// TODO: metadata
+	})
 	if err != nil {
 		return err
 	}
@@ -69,8 +79,12 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 	defer contents.Close() //nolint:errcheck
 
 	ihttp.SetHeaders(c, map[string]string{
-		"Last-Modified":  contents.LastModified.Format(http.TimeFormat),
-		"Content-Length": strconv.FormatInt(contents.Size, 10),
+		"Last-Modified":         contents.LastModified.Format(http.TimeFormat),
+		"Content-Length":        strconv.FormatInt(contents.Size, 10),
+		"Content-Type":          contents.ContentType,
+		"ETag":                  contents.SHA256,
+		"x-amz-checksum-sha256": contents.SHA256Base64,
+		// TODO: metadata
 	})
 
 	return c.Stream(http.StatusOK, "application/octet-stream", contents)

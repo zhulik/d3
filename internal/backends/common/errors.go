@@ -6,6 +6,7 @@ var (
 	ErrBucketAlreadyExists = errors.New("bucket already exists")
 	ErrBucketNotFound      = errors.New("bucket not found")
 
-	ErrObjectNotFound      = errors.New("object not found")
-	ErrObjectAlreadyExists = errors.New("object already exists")
+	ErrObjectNotFound         = errors.New("object not found")
+	ErrObjectAlreadyExists    = errors.New("object already exists")
+	ErrObjectChecksumMismatch = errors.New("object checksum mismatch")
 )

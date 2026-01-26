@@ -2,8 +2,10 @@ package folder
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
-	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -13,11 +15,15 @@ import (
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/iter"
+	"github.com/zhulik/d3/pkg/smartio"
 )
 
 type Backend struct {
-	Config *core.Config
-	Locker *locker.Locker
+	Logger *slog.Logger
+
+	Config             *core.Config
+	Locker             *locker.Locker
+	MetadataRepository *MetadataRepository
 }
 
 func (b *Backend) ListBuckets(_ context.Context) ([]*types.Bucket, error) {
@@ -78,7 +84,7 @@ func (b *Backend) HeadObject(_ context.Context, bucket, key string) (*core.HeadO
 	}, nil
 }
 
-func (b *Backend) PutObject(ctx context.Context, bucket, key string, reader io.Reader) error {
+func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error {
 	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -100,17 +106,27 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, reader io.R
 	}
 	defer f.Close() //nolint:errcheck
 
-	_, err = io.Copy(f, reader) // TODO: make it cancellable
+	_, sha256sum, err := smartio.Copy(ctx, f, input.Reader)
 	if err != nil {
 		f.Close() //nolint:errcheck
 		rmErr := os.Remove(path)
 		err = errors.Join(err, rmErr)
 	}
 
+	if input.SHA256 != sha256sum {
+		return common.ErrObjectChecksumMismatch
+	}
+
+	b.MetadataRepository.Save(ctx, bucket, key, Metadata{
+		ContentType: input.ContentType,
+		Metadata:    input.Metadata,
+		SHA256:      sha256sum,
+	})
+
 	return err
 }
 
-func (b *Backend) GetObject(_ context.Context, bucket, key string) (*core.ObjectContent, error) {
+func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.ObjectContent, error) {
 	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
 	fileinfo, err := os.Stat(path)
 	if err != nil {
@@ -122,10 +138,25 @@ func (b *Backend) GetObject(_ context.Context, bucket, key string) (*core.Object
 		return nil, err
 	}
 
+	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
+	if err != nil {
+		return nil, err
+	}
+
+	rawSha256, err := hex.DecodeString(metadata.SHA256)
+	if err != nil {
+		return nil, err
+	}
+	sha256Base64 := base64.StdEncoding.EncodeToString(rawSha256)
+
 	return &core.ObjectContent{
 		ReadCloser:   f,
 		LastModified: fileinfo.ModTime(),
 		Size:         fileinfo.Size(),
+		ContentType:  metadata.ContentType,
+		Metadata:     metadata.Metadata,
+		SHA256:       metadata.SHA256,
+		SHA256Base64: sha256Base64,
 	}, nil
 }
 

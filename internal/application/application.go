@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-cz/devslog"
-	"github.com/zhulik/d3/internal/backends/folder"
+	"github.com/zhulik/d3/internal/backends"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/internal/server"
@@ -38,7 +38,7 @@ func Run() {
 
 	p := pal.New(
 		server.Provide(),
-		folder.Provide(config),
+		backends.Provide(config),
 		pal.Provide(config),
 		locker.Provide(),
 	).
