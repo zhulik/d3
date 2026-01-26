@@ -43,6 +43,7 @@ func (a APIObjects) HeadObject(c *echo.Context) error {
 	ihttp.SetHeaders(c, map[string]string{
 		"Last-Modified":         result.LastModified.Format(http.TimeFormat),
 		"Content-Length":        strconv.FormatInt(result.Size, 10),
+		"Content-Type":          result.ContentType,
 		"ETag":                  result.SHA256,
 		"x-amz-checksum-sha256": result.SHA256Base64,
 	})
