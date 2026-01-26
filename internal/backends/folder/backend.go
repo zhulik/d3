@@ -2,6 +2,7 @@ package folder
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -83,7 +84,7 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, reader io.R
 		return err
 	}
 
-	ctx, cancel, err := b.Locker.Lock(ctx, path)
+	_, cancel, err := b.Locker.Lock(ctx, path)
 	if err != nil {
 		return err
 	}
@@ -101,8 +102,9 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, reader io.R
 
 	_, err = io.Copy(f, reader) // TODO: make it cancellable
 	if err != nil {
-		f.Close()
-		os.Remove(path)
+		f.Close() //nolint:errcheck
+		rmErr := os.Remove(path)
+		err = errors.Join(err, rmErr)
 	}
 
 	return err

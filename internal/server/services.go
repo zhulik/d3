@@ -5,7 +5,8 @@ import "github.com/zhulik/pal"
 func Provide() pal.ServiceDef {
 	return pal.ProvideList(
 		pal.Provide(&Server{}),
-		pal.Provide(&ObjectsAPI{}),
-		pal.Provide(&BucketsAPI{}),
+		pal.Provide(&APIObjects{}),
+		pal.Provide(&APIBuckets{}),
+		pal.Provide(&Echo{}),
 	)
 }

@@ -1,19 +1,33 @@
 package server
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
+	ihttp "github.com/zhulik/d3/internal/http"
 )
 
-type ObjectsAPI struct {
+type APIObjects struct {
 	Backend core.Backend
+	Echo    *Echo
 }
 
-func (a ObjectsAPI) HeadObject(c *echo.Context) error {
+func (a APIObjects) Init(ctx context.Context) error {
+	a.Echo.rootQueryRouter.AddRoute("prefix", a.ListObjects)
+
+	objects := a.Echo.Group("/:bucket/*")
+	objects.HEAD("", a.HeadObject)
+	objects.PUT("", a.PutObject)
+	objects.GET("", a.GetObject)
+	objects.DELETE("", a.DeleteObject)
+
+	return nil
+}
+
+func (a APIObjects) HeadObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
@@ -22,13 +36,15 @@ func (a ObjectsAPI) HeadObject(c *echo.Context) error {
 		return err
 	}
 
-	c.Response().Header().Set("Last-Modified", result.LastModified.Format(http.TimeFormat))
-	c.Response().Header().Set("Content-Length", strconv.FormatInt(result.ContentLength, 10))
+	ihttp.SetHeaders(c, map[string]string{
+		"Last-Modified":  result.LastModified.Format(http.TimeFormat),
+		"Content-Length": strconv.FormatInt(result.ContentLength, 10),
+	})
 
 	return c.NoContent(http.StatusOK)
 }
 
-func (a ObjectsAPI) PutObject(c *echo.Context) error {
+func (a APIObjects) PutObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
@@ -40,7 +56,7 @@ func (a ObjectsAPI) PutObject(c *echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func (a ObjectsAPI) GetObject(c *echo.Context) error {
+func (a APIObjects) GetObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
@@ -51,33 +67,37 @@ func (a ObjectsAPI) GetObject(c *echo.Context) error {
 
 	defer contents.Close() //nolint:errcheck
 
-	c.Response().Header().Set("Last-Modified", contents.LastModified.Format(http.TimeFormat))
-	c.Response().Header().Set("Content-Length", strconv.FormatInt(contents.Size, 10))
-	c.Response().Header().Set("ETag", fmt.Sprintf("%x", "foo"))
+	ihttp.SetHeaders(c, map[string]string{
+		"Last-Modified":  contents.LastModified.Format(http.TimeFormat),
+		"Content-Length": strconv.FormatInt(contents.Size, 10),
+	})
 
 	return c.Stream(http.StatusOK, "application/octet-stream", contents)
 }
 
-func (a ObjectsAPI) ListObjects(c *echo.Context) error {
+func (a APIObjects) ListObjects(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	prefix := c.QueryParam("prefix")
+
 	objects, err := a.Backend.ListObjects(c.Request().Context(), bucket, prefix)
 	if err != nil {
 		return err
 	}
-	xmlResponse := ListBucketResult{
+
+	xmlResponse := listBucketResult{
 		IsTruncated:    false,
 		Contents:       objects,
 		Name:           bucket,
 		Prefix:         prefix,
 		Delimiter:      c.QueryParam("delimiter"),
 		MaxKeys:        1000,
-		CommonPrefixes: []PrefixEntry{},
+		CommonPrefixes: []prefixEntry{},
 	}
+
 	return c.XML(http.StatusOK, xmlResponse)
 }
 
-func (a ObjectsAPI) DeleteObject(c *echo.Context) error {
+func (a APIObjects) DeleteObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
@@ -85,5 +105,6 @@ func (a ObjectsAPI) DeleteObject(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	return c.NoContent(http.StatusNoContent)
 }

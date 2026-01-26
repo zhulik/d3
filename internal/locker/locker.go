@@ -17,7 +17,7 @@ type Locker struct {
 
 func (l *Locker) Init(ctx context.Context) error {
 	locker, err := rueidislock.NewLocker(rueidislock.LockerOption{
-		ClientOption:   rueidis.ClientOption{InitAddress: []string{"localhost:6379"}},
+		ClientOption:   rueidis.ClientOption{InitAddress: []string{l.Config.RedisAddress}},
 		KeyMajority:    1,
 		NoLoopTracking: true,
 	})

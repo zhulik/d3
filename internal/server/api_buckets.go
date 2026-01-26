@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -8,71 +9,87 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
+	ihttp "github.com/zhulik/d3/internal/http"
 )
 
-type BucketsAPI struct {
+type APIBuckets struct {
 	Backend core.Backend
+
+	Echo *Echo
 }
 
-// BucketsResult is the XML envelope for ListBuckets responses.
-type BucketsResult struct {
+type bucketsResult struct {
 	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListAllMyBucketsResult"`
 	Owner   *types.Owner
 	Buckets []*types.Bucket `xml:"Buckets>Bucket"`
 }
 
-// LocationConstraintResponse is the XML response for GetBucketLocation.
-type LocationConstraintResponse struct {
+type locationConstraintResponse struct {
 	XMLName  xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ LocationConstraint"`
 	Location string   `xml:",chardata"`
 }
 
-// PrefixEntry represents a common prefix in S3 list results.
-type PrefixEntry struct {
+type prefixEntry struct {
 	Prefix string `xml:"Prefix"`
 }
 
-// ListBucketResult is a minimal representation of S3's ListBucket result.
-type ListBucketResult struct {
+type listBucketResult struct {
 	IsTruncated    bool            `xml:"IsTruncated"`
 	Contents       []*types.Object `xml:"Contents"`
 	Name           string          `xml:"Name"`
 	Prefix         string          `xml:"Prefix"`
 	Delimiter      string          `xml:"Delimiter,omitempty"`
 	MaxKeys        int             `xml:"MaxKeys"`
-	CommonPrefixes []PrefixEntry   `xml:"CommonPrefixes,omitempty"`
+	CommonPrefixes []prefixEntry   `xml:"CommonPrefixes,omitempty"`
+}
+
+func (a APIBuckets) Init(ctx context.Context) error {
+	a.Echo.rootQueryRouter.AddRoute("location", a.GetBucketLocation)
+
+	a.Echo.GET("/", a.ListBuckets)
+
+	buckets := a.Echo.Group("/:bucket")
+	buckets.HEAD("", a.HeadBucket)
+	buckets.PUT("", a.CreateBucket)
+	buckets.DELETE("", a.DeleteBucket)
+
+	return nil
 }
 
 // ListBuckets enumerates existing JetStream Object Store buckets and returns
 // a simple S3-compatible XML response.
-func (a BucketsAPI) ListBuckets(c *echo.Context) error {
-	entries, err := a.Backend.ListBuckets(c.Request().Context())
+func (a APIBuckets) ListBuckets(c *echo.Context) error {
+	buckets, err := a.Backend.ListBuckets(c.Request().Context())
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 
-	response := BucketsResult{
-		Buckets: entries,
+	response := bucketsResult{
+		Buckets: buckets,
 	}
 
 	return c.XML(http.StatusOK, response)
 }
 
-func (a BucketsAPI) CreateBucket(c *echo.Context) error {
+func (a APIBuckets) CreateBucket(c *echo.Context) error {
 	name := c.Param("bucket")
+
 	err := a.Backend.CreateBucket(c.Request().Context(), name)
 	if err != nil {
 		return c.String(http.StatusConflict, err.Error())
 	}
 
-	c.Response().Header().Set("Location", fmt.Sprintf("/%s", name))
-	c.Response().Header().Set("x-amz-bucket-arn", fmt.Sprintf("arn:aws:s3:::%s", name))
+	ihttp.SetHeaders(c, map[string]string{
+		"Location":         fmt.Sprintf("/%s", name),
+		"x-amz-bucket-arn": fmt.Sprintf("arn:aws:s3:::%s", name),
+	})
 
 	return c.NoContent(http.StatusCreated)
 }
 
-func (a BucketsAPI) DeleteBucket(c *echo.Context) error {
+func (a APIBuckets) DeleteBucket(c *echo.Context) error {
 	name := c.Param("bucket")
+
 	err := a.Backend.DeleteBucket(c.Request().Context(), name)
 	if err != nil {
 		return err
@@ -81,7 +98,7 @@ func (a BucketsAPI) DeleteBucket(c *echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-func (a BucketsAPI) GetBucketLocation(c *echo.Context) error {
+func (a APIBuckets) GetBucketLocation(c *echo.Context) error {
 	bucket := c.Param("bucket")
 
 	err := a.Backend.HeadBucket(c.Request().Context(), bucket)
@@ -89,17 +106,18 @@ func (a BucketsAPI) GetBucketLocation(c *echo.Context) error {
 		return err
 	}
 
-	response := LocationConstraintResponse{
+	response := locationConstraintResponse{
 		Location: "local",
 	}
 
 	return c.XML(http.StatusOK, response)
 }
 
-func (a BucketsAPI) HeadBucket(c *echo.Context) error {
+func (a APIBuckets) HeadBucket(c *echo.Context) error {
 	err := a.Backend.HeadBucket(c.Request().Context(), c.Param("bucket"))
 	if err != nil {
 		return err
 	}
+
 	return c.NoContent(http.StatusOK)
 }

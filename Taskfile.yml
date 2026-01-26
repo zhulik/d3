@@ -2,9 +2,6 @@
 
 version: '3'
 
-env:
-  BACKEND: folder
-
 tasks:
   default:
     desc: Run checks and tests
@@ -14,6 +11,10 @@ tasks:
 
   lint:
     desc: Run linting
+    sources:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
     cmd: golangci-lint run
 
   test:
@@ -24,6 +25,8 @@ tasks:
     desc: Build the application
     sources:
       - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
     cmd: go build ./...
 
   run:
