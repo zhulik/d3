@@ -44,7 +44,7 @@ type listBucketResult struct {
 }
 
 func (a APIBuckets) Init(ctx context.Context) error {
-	a.Echo.rootQueryRouter.AddRoute("location", a.GetBucketLocation)
+	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation)
 
 	a.Echo.GET("/", a.ListBuckets)
 
@@ -61,7 +61,7 @@ func (a APIBuckets) Init(ctx context.Context) error {
 func (a APIBuckets) ListBuckets(c *echo.Context) error {
 	buckets, err := a.Backend.ListBuckets(c.Request().Context())
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		return err
 	}
 
 	response := bucketsResult{
@@ -76,7 +76,7 @@ func (a APIBuckets) CreateBucket(c *echo.Context) error {
 
 	err := a.Backend.CreateBucket(c.Request().Context(), name)
 	if err != nil {
-		return c.String(http.StatusConflict, err.Error())
+		return err
 	}
 
 	ihttp.SetHeaders(c, map[string]string{

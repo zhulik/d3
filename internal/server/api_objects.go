@@ -16,7 +16,7 @@ type APIObjects struct {
 }
 
 func (a APIObjects) Init(ctx context.Context) error {
-	a.Echo.rootQueryRouter.AddRoute("prefix", a.ListObjects)
+	a.Echo.AddQueryParamRoute("prefix", a.ListObjects)
 
 	objects := a.Echo.Group("/:bucket/*")
 	objects.HEAD("", a.HeadObject)

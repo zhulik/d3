@@ -47,3 +47,7 @@ func (e *Echo) Init(ctx context.Context) error {
 
 	return nil
 }
+
+func (e *Echo) AddQueryParamRoute(path string, handler echo.HandlerFunc) {
+	e.rootQueryRouter.AddRoute(path, handler)
+}
