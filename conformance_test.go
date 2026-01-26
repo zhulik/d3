@@ -102,6 +102,18 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		})
 	})
 
+	Describe("GetObjectTagging", func() {
+		It("should get object and verify content matches", func(ctx context.Context) {
+			output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
+				Bucket: aws.String(bucketName),
+				Key:    aws.String("hello.txt"),
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(output.TagSet).To(HaveLen(1))
+		})
+	})
+
 	Describe("GetObject", func() {
 		It("should get object and verify content matches", func(ctx context.Context) {
 			content := "hello world"

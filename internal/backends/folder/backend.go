@@ -138,6 +138,14 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.
 	return nil
 }
 
+func (b *Backend) GetObjectTagging(ctx context.Context, bucket, key string) (map[string]string, error) {
+	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
+	if err != nil {
+		return nil, err
+	}
+	return metadata.Tags, nil
+}
+
 func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.ObjectContent, error) {
 	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
 

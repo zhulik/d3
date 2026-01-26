@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/xml"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -13,6 +14,20 @@ import (
 	"github.com/zhulik/d3/internal/core"
 	ihttp "github.com/zhulik/d3/internal/http"
 )
+
+type taggingXML struct {
+	XMLName xml.Name  `xml:"Tagging"`
+	TagSet  tagSetXML `xml:"TagSet"`
+}
+
+type tagSetXML struct {
+	Tags []tagXML `xml:"Tag"`
+}
+
+type tagXML struct {
+	Key   string `xml:"Key"`
+	Value string `xml:"Value"`
+}
 
 type APIObjects struct {
 	Logger *slog.Logger
@@ -28,7 +43,11 @@ func (a APIObjects) Init(_ context.Context) error {
 	objects := a.Echo.Group("/:bucket/*")
 	objects.HEAD("", a.HeadObject)
 	objects.PUT("", a.PutObject)
-	objects.GET("", a.GetObject)
+
+	objects.GET("", ihttp.NewQueryParamsRouter(a.GetObject).
+		AddRoute("tagging", a.GetObjectTagging).
+		Handle)
+
 	objects.DELETE("", a.DeleteObject)
 
 	return nil
@@ -76,6 +95,31 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+func (a APIObjects) GetObjectTagging(c *echo.Context) error {
+	bucket := c.Param("bucket")
+	key := c.Param("*")
+
+	tags, err := a.Backend.GetObjectTagging(c.Request().Context(), bucket, key)
+	if err != nil {
+		return err
+	}
+
+	tagging := taggingXML{
+		TagSet: tagSetXML{
+			Tags: make([]tagXML, 0, len(tags)),
+		},
+	}
+
+	for key, value := range tags {
+		tagging.TagSet.Tags = append(tagging.TagSet.Tags, tagXML{
+			Key:   key,
+			Value: value,
+		})
+	}
+
+	return c.XML(http.StatusOK, tagging)
+}
+
 func (a APIObjects) GetObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
@@ -89,7 +133,7 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 
 	setObjectHeaders(c, contents.ObjectMetadata)
 
-	return c.Stream(http.StatusOK, contents.ObjectMetadata.ContentType, contents)
+	return c.Stream(http.StatusOK, contents.ContentType, contents)
 }
 
 func (a APIObjects) ListObjects(c *echo.Context) error {
