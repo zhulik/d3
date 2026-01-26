@@ -48,3 +48,7 @@ func (m *MetadataRepository) Get(ctx context.Context, bucket, key string) (*core
 	}
 	return metadata.Metadata, nil
 }
+
+func (m *MetadataRepository) Delete(ctx context.Context, bucket, key string) error {
+	return m.repo.Remove(ctx, filepath.Join(bucket, key))
+}

@@ -85,12 +85,6 @@ func (b *Backend) HeadObject(ctx context.Context, bucket, key string) (*core.Obj
 	if err != nil {
 		return nil, err
 	}
-	rawSha256, err := hex.DecodeString(metadata.SHA256)
-	if err != nil {
-		return nil, err
-	}
-
-	metadata.SHA256Base64 = base64.StdEncoding.EncodeToString(rawSha256)
 
 	return metadata, nil
 }
@@ -129,10 +123,16 @@ func (b *Backend) PutObject(ctx context.Context, bucket, key string, input core.
 		return common.ErrObjectChecksumMismatch
 	}
 
+	rawSha256, err := hex.DecodeString(sha256sum)
+	if err != nil {
+		return err
+	}
+
 	err = b.MetadataRepository.Save(ctx, bucket, key, &core.ObjectMetadata{
 		ContentType:  input.Metadata.ContentType,
 		Tags:         input.Metadata.Tags,
 		SHA256:       sha256sum,
+		SHA256Base64: base64.StdEncoding.EncodeToString(rawSha256),
 		Size:         input.Metadata.Size,
 		LastModified: time.Now(),
 		Meta:         input.Metadata.Meta,
@@ -168,12 +168,6 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 		return nil, err
 	}
 
-	rawSha256, err := hex.DecodeString(metadata.SHA256)
-	if err != nil {
-		return nil, err
-	}
-	metadata.SHA256Base64 = base64.StdEncoding.EncodeToString(rawSha256)
-
 	return &core.ObjectContent{
 		ReadCloser:     f,
 		ObjectMetadata: metadata,
@@ -204,7 +198,17 @@ func (b *Backend) ListObjects(_ context.Context, bucket, prefix string) ([]*type
 	})
 }
 
-func (b *Backend) DeleteObject(_ context.Context, bucket, key string) error {
+func (b *Backend) DeleteObject(ctx context.Context, bucket, key string) error {
 	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
-	return os.Remove(path)
+
+	err := os.Remove(path)
+	if err != nil {
+		return err
+	}
+
+	err = b.MetadataRepository.Delete(ctx, bucket, key)
+	if err != nil {
+		return err
+	}
+	return nil
 }
