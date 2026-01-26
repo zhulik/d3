@@ -4,15 +4,9 @@ import (
 	"context"
 
 	"github.com/labstack/echo/v5"
-	"github.com/zhulik/d3/internal/core"
 )
 
 type Server struct {
-	Backend core.Backend
-
-	ObjectsAPI *APIObjects
-	BucketsAPI *APIBuckets
-
 	Echo *Echo
 }
 

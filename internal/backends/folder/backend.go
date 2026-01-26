@@ -183,6 +183,9 @@ func (b *Backend) GetObject(ctx context.Context, bucket, key string) (*core.Obje
 func (b *Backend) ListObjects(_ context.Context, bucket, prefix string) ([]*types.Object, error) {
 	entries, err := os.ReadDir(filepath.Join(b.Config.FolderBackendPath, bucket, prefix))
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, common.ErrBucketNotFound
+		}
 		return nil, err
 	}
 	return iter.ErrMap(entries, func(entry os.DirEntry) (*types.Object, error) {
@@ -191,7 +194,7 @@ func (b *Backend) ListObjects(_ context.Context, bucket, prefix string) ([]*type
 			return nil, err
 		}
 		return &types.Object{
-			Key:          aws.String("/" + filepath.Join(prefix, entry.Name())),
+			Key:          aws.String(filepath.Join(prefix, entry.Name())),
 			LastModified: aws.Time(fileInfo.ModTime()),
 			Size:         aws.Int64(fileInfo.Size()),
 		}, nil
