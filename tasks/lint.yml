@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  default:
+    desc: Run linter with --fix
+    deps:
+      - fix
+
+  lint:
+    desc: Run linting
+    sources:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+    cmd: golangci-lint run
+
+  fix:
+    desc: Run linting
+    sources:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+    cmd: golangci-lint run --fix

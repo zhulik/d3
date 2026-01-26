@@ -23,7 +23,7 @@ const (
 	endpoint = "http://localhost:8080"
 )
 
-var _ = Describe("Core conformance", Ordered, func() {
+var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	var s3Client *s3.Client
 	var bucketName string
 

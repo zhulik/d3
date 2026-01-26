@@ -5,32 +5,16 @@ version: '3'
 env:
   ENVIRONMENT: development
 
+includes:
+  test: tasks/test.yml
+  lint: tasks/lint.yml
+
 tasks:
   default:
     desc: Run checks and tests
     deps:
       - lint
       - test
-
-  lint:
-    desc: Run linting
-    sources:
-      - '**/*.go'
-      - 'go.mod'
-      - 'go.sum'
-    cmd: golangci-lint run
-
-  lint-fix:
-    desc: Run linting
-    sources:
-      - '**/*.go'
-      - 'go.mod'
-      - 'go.sum'
-    cmd: golangci-lint run --fix
-
-  test:
-    desc: Run tests
-    cmd: ginkgo run
 
   build:
     desc: Build the application

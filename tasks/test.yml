@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  default:
+    desc: Run tests
+    deps:
+      - unit
+
+  unit:
+    desc: Run unit tests
+    cmd: ginkgo run --label-filter=!conformance
+
+  conformance:
+    desc: Run conformance tests
+    cmd: ginkgo run --label-filter=conformance
+
+  conformance-full:
+    desc: Run server and conformance tests against it
+    cmd: ./tasks/conformance.sh
