@@ -8,7 +8,7 @@ import (
 
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
-	"go.yaml.in/yaml/v3"
+	"github.com/zhulik/d3/pkg/yaml"
 )
 
 var (
@@ -63,7 +63,7 @@ func (b *Backend) Init(ctx context.Context) error {
 }
 
 func (b *Backend) prepareFileStructure(ctx context.Context) error {
-	err := b.prepareVersionFile(ctx)
+	err := b.prepareConfigYaml(ctx)
 	if err != nil {
 		return err
 	}
@@ -77,28 +77,19 @@ func (b *Backend) prepareFileStructure(ctx context.Context) error {
 	return nil
 }
 
-func (b *Backend) prepareVersionFile(_ context.Context) error {
+func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	configPath := b.config.configYamlPath()
 	_, err := os.Stat(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			yamlData, err := yaml.Marshal(defaultConfigYaml)
-			if err != nil {
-				return err
-			}
-			return os.WriteFile(configPath, yamlData, 0600)
+			return yaml.MarshalToFile(defaultConfigYaml, configPath)
 		}
 		return err
 	}
 
-	data, err := os.ReadFile(configPath)
+	existingConfig, err := yaml.UnmarshalFromFile[configYaml](configPath)
 	if err != nil {
-		return fmt.Errorf("failed to read config file %s: %w", configPath, err)
-	}
-	var existingConfig configYaml
-	err = yaml.Unmarshal(data, &existingConfig)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal config file %s: %w", configPath, err)
 	}
 	if existingConfig.Version != defaultConfigYaml.Version {
 		return fmt.Errorf("%w: config version mismatch: expected %d, got %d", ErrConfigVersionMismatch, defaultConfigYaml.Version, existingConfig.Version)
