@@ -1,10 +1,6 @@
 package folder
 
 import (
-<<<<<<< HEAD
-	"errors"
-=======
->>>>>>> 5598164 (Get rid of MetadataRepository)
 	"io"
 	"os"
 	"path/filepath"
@@ -13,13 +9,6 @@ import (
 	"github.com/zhulik/d3/pkg/yaml"
 )
 
-<<<<<<< HEAD
-var (
-	ErrNotAnObjectPath = errors.New("not an object path")
-)
-
-=======
->>>>>>> 5598164 (Get rid of MetadataRepository)
 type Object struct {
 	Path string
 }
@@ -30,11 +19,7 @@ func ObjectFromPath(path string) (*Object, error) {
 		return nil, err
 	}
 	if !isObject {
-<<<<<<< HEAD
-		return nil, ErrNotAnObjectPath
-=======
 		return nil, nil
->>>>>>> 5598164 (Get rid of MetadataRepository)
 	}
 
 	return &Object{
@@ -54,13 +39,10 @@ func (o *Object) Metadata() (*core.ObjectMetadata, error) {
 	return &metadata, nil
 }
 
-<<<<<<< HEAD
-=======
 func (o *Object) Delete() error {
 	return os.RemoveAll(o.Path)
 }
 
->>>>>>> 5598164 (Get rid of MetadataRepository)
 func IsObjectPath(path string) (bool, error) {
 	fi, err := os.Stat(filepath.Join(path))
 	if err != nil {

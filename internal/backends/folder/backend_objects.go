@@ -33,17 +33,8 @@ func (b *BackendObjects) Init(_ context.Context) error {
 }
 
 func (b *BackendObjects) HeadObject(_ context.Context, bucket, key string) (*core.ObjectMetadata, error) {
-<<<<<<< HEAD
-	path := b.config.objectPath(bucket, key)
-	object, err := ObjectFromPath(path)
-	if err != nil {
-		if errors.Is(err, ErrNotAnObjectPath) {
-			return nil, common.ErrObjectNotFound
-		}
-=======
 	object, err := b.getObject(bucket, key)
 	if err != nil {
->>>>>>> 5598164 (Get rid of MetadataRepository)
 		return nil, err
 	}
 	return object.Metadata()
@@ -118,12 +109,8 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 }
 
 func (b *BackendObjects) GetObjectTagging(_ context.Context, bucket, key string) (map[string]string, error) {
-	path := b.config.objectPath(bucket, key)
-	object, err := ObjectFromPath(path)
+	object, err := b.getObject(bucket, key)
 	if err != nil {
-		if errors.Is(err, ErrNotAnObjectPath) {
-			return nil, common.ErrObjectNotFound
-		}
 		return nil, err
 	}
 	metadata, err := object.Metadata()
@@ -134,13 +121,8 @@ func (b *BackendObjects) GetObjectTagging(_ context.Context, bucket, key string)
 }
 
 func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (*core.ObjectContent, error) {
-	path := b.config.objectPath(bucket, key)
-
-	object, err := ObjectFromPath(path)
+	object, err := b.getObject(bucket, key)
 	if err != nil {
-		if errors.Is(err, ErrNotAnObjectPath) {
-			return nil, common.ErrObjectNotFound
-		}
 		return nil, err
 	}
 	metadata, err := object.Metadata()
