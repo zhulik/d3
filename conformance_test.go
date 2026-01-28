@@ -178,6 +178,15 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 				Expect(err).To(HaveOccurred())
 			})
 		})
+
+		Context("when bucket does not exist", func() {
+			It("should return error", func(ctx context.Context) {
+				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
+					Bucket: aws.String("does-not-exist"),
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
 	})
 
 	Describe("DeleteObject", func() {

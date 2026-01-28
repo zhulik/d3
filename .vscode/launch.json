@@ -10,10 +10,6 @@
             "request": "launch",
             "mode": "auto",
             "program": "cmd/main.go",
-            "env": {
-                "BACKEND": "folder",
-                "FOLDER_BACKEND_PATH": "${workspaceFolder}/data"
-            }
         }
     ]
 }

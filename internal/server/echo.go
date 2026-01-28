@@ -37,6 +37,8 @@ func (e *Echo) Init(_ context.Context) error {
 				return echo.NewHTTPError(http.StatusNotFound, err.Error())
 			case errors.Is(err, common.ErrBucketAlreadyExists) || errors.Is(err, common.ErrObjectAlreadyExists):
 				return echo.NewHTTPError(http.StatusConflict, err.Error())
+			case errors.Is(err, common.ErrBucketNotEmpty):
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			case err == nil:
 				return nil
 			default:

@@ -3,12 +3,18 @@ package folder
 import (
 	"path/filepath"
 
+	"github.com/google/uuid"
 	"github.com/zhulik/d3/internal/core"
 )
 
-const configYamlFilename = "d3.yaml"
-const bucketsFolder = "buckets"
-const tmpFolder = "tmp"
+const (
+	configYamlFilename   = "d3.yaml"
+	bucketsFolder        = "buckets"
+	tmpFolder            = "tmp"
+	uploadsFolder        = "uploads"
+	metadataYamlFilename = "metadata.yaml"
+	blobFilename         = "blob"
+)
 
 type config struct {
 	*core.Config
@@ -26,10 +32,14 @@ func (c *config) bucketsPath() string {
 	return filepath.Join(c.FolderBackendPath, bucketsFolder)
 }
 
-func (c *config) tmpPath() string {
-	return filepath.Join(c.FolderBackendPath, tmpFolder)
+func (c *config) uploadsPath() string {
+	return filepath.Join(c.FolderBackendPath, tmpFolder, uploadsFolder)
 }
 
 func (c *config) configYamlPath() string {
 	return filepath.Join(c.FolderBackendPath, configYamlFilename)
+}
+
+func (c *config) newUploadPath() string {
+	return filepath.Join(c.FolderBackendPath, tmpFolder, uploadsFolder, uuid.New().String())
 }

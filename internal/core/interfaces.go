@@ -9,13 +9,13 @@ import (
 )
 
 type ObjectMetadata struct {
-	ContentType  string            `json:"str"`
-	LastModified time.Time         `json:"last_modified"`
-	SHA256       string            `json:"sha256"`
-	SHA256Base64 string            `json:"sha256_base64"` // only when ObjectMetadata is returned by the backend
-	Size         int64             `json:"size"`
-	Tags         map[string]string `json:"tags"`
-	Meta         map[string]string `json:"meta"`
+	ContentType  string            `yaml:"content_type"`
+	LastModified time.Time         `yaml:"last_modified"`
+	SHA256       string            `yaml:"sha256"`
+	SHA256Base64 string            `yaml:"sha256_base64"` // only when ObjectMetadata is returned by the backend
+	Size         int64             `yaml:"size"`
+	Tags         map[string]string `yaml:"tags"`
+	Meta         map[string]string `yaml:"meta"`
 }
 
 type ObjectContent struct {

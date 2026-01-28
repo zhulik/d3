@@ -33,19 +33,11 @@ func (b *BackendObjects) Init(_ context.Context) error {
 }
 
 func (b *BackendObjects) HeadObject(ctx context.Context, bucket, key string) (*core.ObjectMetadata, error) {
-	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
-	if err != nil {
-		return nil, err
-	}
-
-	return metadata, nil
+	return b.MetadataRepository.Get(ctx, bucket, key)
 }
 
 func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error {
 	path := b.config.objectPath(bucket, key)
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
-	}
 
 	_, cancel, err := b.Locker.Lock(ctx, path)
 	if err != nil {
@@ -53,21 +45,26 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 	}
 	defer cancel()
 
+	// TODO: this behavior should depend on the passed details
 	if _, err := os.Stat(path); err == nil {
 		return common.ErrObjectAlreadyExists
 	}
 
-	f, err := os.Create(path)
+	uploadPath := b.config.newUploadPath()
+	err = os.MkdirAll(uploadPath, 0755)
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck
+	defer os.RemoveAll(uploadPath) //nolint:errcheck
 
-	_, sha256sum, err := smartio.Copy(ctx, f, input.Reader)
+	uploadFile, err := os.Create(filepath.Join(uploadPath, blobFilename))
 	if err != nil {
-		f.Close() //nolint:errcheck
-		rmErr := os.Remove(path)
-		err = errors.Join(err, rmErr)
+		return err
+	}
+	defer uploadFile.Close() //nolint:errcheck
+
+	_, sha256sum, err := smartio.Copy(ctx, uploadFile, input.Reader)
+	if err != nil {
 		return err
 	}
 
@@ -80,7 +77,7 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 		return err
 	}
 
-	err = b.MetadataRepository.Save(ctx, bucket, key, &core.ObjectMetadata{
+	metadata := core.ObjectMetadata{
 		ContentType:  input.Metadata.ContentType,
 		Tags:         input.Metadata.Tags,
 		SHA256:       sha256sum,
@@ -88,11 +85,19 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 		Size:         input.Metadata.Size,
 		LastModified: time.Now(),
 		Meta:         input.Metadata.Meta,
-	})
+	}
+
+	err = b.MetadataRepository.SaveTmp(ctx, uploadPath, &metadata)
 	if err != nil {
-		f.Close() //nolint:errcheck
-		rmErr := os.Remove(path)
-		err = errors.Join(err, rmErr)
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+
+	err = os.Rename(uploadPath, path)
+	if err != nil {
 		return err
 	}
 
@@ -110,13 +115,14 @@ func (b *BackendObjects) GetObjectTagging(ctx context.Context, bucket, key strin
 func (b *BackendObjects) GetObject(ctx context.Context, bucket, key string) (*core.ObjectContent, error) {
 	path := b.config.objectPath(bucket, key)
 
-	f, err := os.Open(path)
+	f, err := os.Open(filepath.Join(path, blobFilename))
 	if err != nil {
 		return nil, err
 	}
 
 	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
 	if err != nil {
+		f.Close() //nolint:errcheck
 		return nil, err
 	}
 
@@ -150,17 +156,13 @@ func (b *BackendObjects) ListObjects(_ context.Context, bucket, prefix string) (
 	})
 }
 
-func (b *BackendObjects) DeleteObject(ctx context.Context, bucket, key string) error {
+func (b *BackendObjects) DeleteObject(_ context.Context, bucket, key string) error {
 	path := b.config.objectPath(bucket, key)
 
-	err := os.Remove(path)
+	err := os.RemoveAll(path)
 	if err != nil {
 		return err
 	}
 
-	err = b.MetadataRepository.Delete(ctx, bucket, key)
-	if err != nil {
-		return err
-	}
 	return nil
 }

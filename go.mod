@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.1
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/golang-cz/devslog v0.0.15
+	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v5 v5.0.0
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.38.3
@@ -16,6 +17,7 @@ require (
 	github.com/redis/rueidis/om v1.0.70
 	github.com/samber/lo v1.52.0
 	github.com/zhulik/pal v0.10.1
+	go.yaml.in/yaml/v3 v3.0.4
 )
 
 require (
@@ -63,7 +65,6 @@ require (
 	github.com/spf13/afero v1.14.0 // indirect
 	github.com/spf13/cast v1.9.2 // indirect
 	github.com/tdewolff/parse/v2 v2.8.3 // indirect
-	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/mod v0.32.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
