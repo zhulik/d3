@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/internal/locker"
 	"go.yaml.in/yaml/v3"
 )
 
@@ -17,17 +18,28 @@ var (
 	ErrConfigVersionMismatch = errors.New("config version mismatch")
 )
 
+type configYaml struct {
+	Version int `yaml:"version"`
+}
+
 type Backend struct {
 	*BackendBuckets
 	*BackendObjects
 
-	Cfg *core.Config
+	Cfg    *core.Config
+	Locker *locker.Locker
 
 	config *config
 }
 
 func (b *Backend) Init(ctx context.Context) error {
 	b.config = &config{b.Cfg}
+
+	ctx, cancel, err := b.Locker.Lock(ctx, "folder-backend-init")
+	if err != nil {
+		return err
+	}
+	defer cancel()
 
 	fileInfo, err := os.Stat(b.config.FolderBackendPath)
 	if err != nil {
@@ -59,9 +71,6 @@ func (b *Backend) prepareFileStructure(ctx context.Context) error {
 	if err := os.MkdirAll(b.config.bucketsPath(), 0755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(b.config.metadataPath(), 0755); err != nil {
-		return err
-	}
 	if err := os.MkdirAll(b.config.tmpPath(), 0755); err != nil {
 		return err
 	}
@@ -77,7 +86,7 @@ func (b *Backend) prepareVersionFile(_ context.Context) error {
 			if err != nil {
 				return err
 			}
-			return os.WriteFile(configPath, yamlData, 0644)
+			return os.WriteFile(configPath, yamlData, 0600)
 		}
 		return err
 	}
