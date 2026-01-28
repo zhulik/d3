@@ -19,9 +19,17 @@ import (
 )
 
 type BackendObjects struct {
-	Config             *core.Config
+	Cfg *core.Config
+
 	Locker             *locker.Locker
 	MetadataRepository *MetadataRepository
+
+	config *config
+}
+
+func (b *BackendObjects) Init(_ context.Context) error {
+	b.config = &config{b.Cfg}
+	return nil
 }
 
 func (b *BackendObjects) HeadObject(ctx context.Context, bucket, key string) (*core.ObjectMetadata, error) {
@@ -34,7 +42,7 @@ func (b *BackendObjects) HeadObject(ctx context.Context, bucket, key string) (*c
 }
 
 func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error {
-	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
+	path := b.config.objectPath(bucket, key)
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
@@ -100,7 +108,7 @@ func (b *BackendObjects) GetObjectTagging(ctx context.Context, bucket, key strin
 }
 
 func (b *BackendObjects) GetObject(ctx context.Context, bucket, key string) (*core.ObjectContent, error) {
-	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
+	path := b.config.objectPath(bucket, key)
 
 	f, err := os.Open(path)
 	if err != nil {
@@ -122,7 +130,7 @@ func (b *BackendObjects) ListObjects(_ context.Context, bucket, prefix string) (
 	if prefix == "" {
 		prefix = "/"
 	}
-	entries, err := os.ReadDir(filepath.Join(b.Config.FolderBackendPath, bucket, prefix))
+	entries, err := os.ReadDir(b.config.objectPath(bucket, prefix))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, common.ErrBucketNotFound
@@ -143,7 +151,7 @@ func (b *BackendObjects) ListObjects(_ context.Context, bucket, prefix string) (
 }
 
 func (b *BackendObjects) DeleteObject(ctx context.Context, bucket, key string) error {
-	path := filepath.Join(b.Config.FolderBackendPath, bucket, key)
+	path := b.config.objectPath(bucket, key)
 
 	err := os.Remove(path)
 	if err != nil {
