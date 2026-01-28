@@ -10,6 +10,7 @@ import (
 )
 
 type Object struct {
+	io.ReadCloser
 	Path string
 }
 
@@ -27,8 +28,22 @@ func ObjectFromPath(path string) (*Object, error) {
 	}, nil
 }
 
-func (o *Object) Open() (io.ReadCloser, error) {
-	return os.Open(filepath.Join(o.Path, blobFilename))
+func (o *Object) Read(p []byte) (int, error) {
+	if o.ReadCloser == nil {
+		rc, err := os.Open(filepath.Join(o.Path, blobFilename))
+		if err != nil {
+			return 0, err
+		}
+		o.ReadCloser = rc
+	}
+	return o.ReadCloser.Read(p)
+}
+
+func (o *Object) Close() error {
+	if o.ReadCloser == nil {
+		return nil
+	}
+	return o.ReadCloser.Close()
 }
 
 func (o *Object) Metadata() (*core.ObjectMetadata, error) {

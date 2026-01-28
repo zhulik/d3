@@ -30,18 +30,7 @@ func (b *BackendBuckets) ListBuckets(_ context.Context) ([]*types.Bucket, error)
 		return nil, err
 	}
 
-	return iter.ErrMap(entries, func(entry os.DirEntry) (*types.Bucket, error) {
-		info, err := entry.Info()
-		if err != nil {
-			return nil, err
-		}
-		return &types.Bucket{
-			Name:         aws.String(entry.Name()),
-			CreationDate: aws.Time(info.ModTime()),
-			BucketRegion: aws.String("local"),
-			BucketArn:    aws.String("arn:aws:s3:::" + entry.Name()),
-		}, nil
-	})
+	return iter.ErrMap(entries, dirEntryToBucket)
 }
 
 func (b *BackendBuckets) CreateBucket(_ context.Context, name string) error {
@@ -86,4 +75,17 @@ func (b *BackendBuckets) HeadBucket(_ context.Context, name string) error {
 		return err
 	}
 	return nil
+}
+
+func dirEntryToBucket(entry os.DirEntry) (*types.Bucket, error) {
+	info, err := entry.Info()
+	if err != nil {
+		return nil, err
+	}
+	return &types.Bucket{
+		Name:         aws.String(entry.Name()),
+		CreationDate: aws.Time(info.ModTime()),
+		BucketRegion: aws.String("local"),
+		BucketArn:    aws.String("arn:aws:s3:::" + entry.Name()),
+	}, nil
 }

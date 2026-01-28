@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -73,7 +74,7 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 	}
 
 	if input.Metadata.SHA256 != sha256sum {
-		return common.ErrObjectChecksumMismatch
+		return fmt.Errorf("%w: %s != %s", common.ErrObjectChecksumMismatch, input.Metadata.SHA256, sha256sum)
 	}
 
 	rawSha256, err := hex.DecodeString(sha256sum)
@@ -130,13 +131,8 @@ func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (*core
 		return nil, err
 	}
 
-	reader, err := object.Open()
-	if err != nil {
-		return nil, err
-	}
-
 	return &core.ObjectContent{
-		Reader:   reader,
+		Reader:   object,
 		Metadata: metadata,
 	}, nil
 }
