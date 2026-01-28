@@ -33,12 +33,17 @@ func (b *BackendObjects) Init(_ context.Context) error {
 }
 
 func (b *BackendObjects) HeadObject(_ context.Context, bucket, key string) (*core.ObjectMetadata, error) {
+<<<<<<< HEAD
 	path := b.config.objectPath(bucket, key)
 	object, err := ObjectFromPath(path)
 	if err != nil {
 		if errors.Is(err, ErrNotAnObjectPath) {
 			return nil, common.ErrObjectNotFound
 		}
+=======
+	object, err := b.getObject(bucket, key)
+	if err != nil {
+>>>>>>> 5598164 (Get rid of MetadataRepository)
 		return nil, err
 	}
 	return object.Metadata()
@@ -179,12 +184,23 @@ func (b *BackendObjects) ListObjects(_ context.Context, bucket, prefix string) (
 }
 
 func (b *BackendObjects) DeleteObject(_ context.Context, bucket, key string) error {
-	path := b.config.objectPath(bucket, key)
-
-	err := os.RemoveAll(path)
+	object, err := b.getObject(bucket, key)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return object.Delete()
+}
+
+func (b *BackendObjects) getObject(bucket, key string) (*Object, error) {
+	path := b.config.objectPath(bucket, key)
+
+	object, err := ObjectFromPath(path)
+	if err != nil {
+		return nil, err
+	}
+	if object == nil {
+		return nil, common.ErrObjectNotFound
+	}
+	return object, nil
 }
