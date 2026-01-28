@@ -35,28 +35,23 @@ type Backend struct {
 func (b *Backend) Init(ctx context.Context) error {
 	b.config = &config{b.Cfg}
 
+	// Lock the backend to prevent concurrent initialization
 	ctx, cancel, err := b.Locker.Lock(ctx, "folder-backend-init")
 	if err != nil {
 		return err
 	}
 	defer cancel()
 
-	fileInfo, err := os.Stat(b.config.FolderBackendPath)
+	_, err = os.Stat(b.config.FolderBackendPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return os.MkdirAll(b.config.FolderBackendPath, 0755)
+			err = os.MkdirAll(b.config.FolderBackendPath, 0755)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("%w: unable to access FolderBackendPath: %w", core.ErrInvalidConfig, err)
 		}
-		return fmt.Errorf("%w: unable to access FolderBackendPath: %w", core.ErrInvalidConfig, err)
-	}
-
-	if !fileInfo.IsDir() {
-		return fmt.Errorf("%w: FolderBackendPath is not a directory: %s", core.ErrInvalidConfig, b.config.FolderBackendPath)
-	}
-	if fileInfo.Mode().Perm()&(0400) == 0 {
-		return fmt.Errorf("%w: FolderBackendPath is not readable: %s", core.ErrInvalidConfig, b.config.FolderBackendPath)
-	}
-	if fileInfo.Mode().Perm()&(0200) == 0 {
-		return fmt.Errorf("%w: FolderBackendPath is not writeable: %s", core.ErrInvalidConfig, b.config.FolderBackendPath)
 	}
 
 	return b.prepareFileStructure(ctx)
