@@ -11,6 +11,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
+	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
 	ihttp "github.com/zhulik/d3/internal/http"
 )
@@ -143,12 +144,26 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	prefix := c.QueryParam("prefix")
 	listType := c.QueryParam("list-type")
+	maxKeys := c.QueryParam("max-keys")
+
+	maxKeysInt := common.MaxKeys
+	var err error
+
+	if maxKeys != "" {
+		maxKeysInt, err = strconv.Atoi(maxKeys)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid max-keys")
+		}
+	}
 
 	if listType != "2" {
 		return echo.NewHTTPError(http.StatusNotImplemented, "only ListObjectsV2 is supported")
 	}
 
-	objects, err := a.Backend.ListObjectsV2(c.Request().Context(), bucket, prefix)
+	objects, err := a.Backend.ListObjectsV2(c.Request().Context(), bucket, core.ListObjectsV2Input{
+		MaxKeys: maxKeysInt,
+		Prefix:  prefix,
+	})
 	if err != nil {
 		return err
 	}
@@ -158,8 +173,8 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 		Contents:       objects,
 		Name:           bucket,
 		Prefix:         prefix,
-		Delimiter:      c.QueryParam("delimiter"),
-		MaxKeys:        1000,
+		Delimiter:      common.Delimiter,
+		MaxKeys:        maxKeysInt,
 		CommonPrefixes: []prefixEntry{},
 	}
 

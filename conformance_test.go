@@ -98,14 +98,27 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 
 	Describe("ListObjectsV2", func() {
 		Context("when prefix is specified", func() {
-			It("should list objects", func(ctx context.Context) {
-				listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-					Bucket: aws.String(bucketName),
-					Prefix: aws.String("/"),
+			Context("when there are objects matching the prefix", func() {
+				It("should list objects", func(ctx context.Context) {
+					listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket: aws.String(bucketName),
+						Prefix: aws.String("h"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(listObjectsOutput.Contents).To(HaveLen(1))
+					Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("hello.txt")))
 				})
-				Expect(err).NotTo(HaveOccurred())
-				Expect(listObjectsOutput.Contents).To(HaveLen(1))
-				Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("/hello.txt")))
+			})
+
+			Context("when there are no objects matching the prefix", func() {
+				It("should return an empty list", func(ctx context.Context) {
+					listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket: aws.String(bucketName),
+						Prefix: aws.String("does-not-exist"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(listObjectsOutput.Contents).To(BeEmpty())
+				})
 			})
 		})
 
@@ -116,7 +129,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(listObjectsOutput.Contents).To(HaveLen(1))
-				Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("/hello.txt")))
+				Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("hello.txt")))
 			})
 		})
 	})

@@ -28,6 +28,11 @@ type PutObjectInput struct {
 	Metadata ObjectMetadata
 }
 
+type ListObjectsV2Input struct {
+	Prefix  string
+	MaxKeys int
+}
+
 type Backend interface {
 	ListBuckets(ctx context.Context) ([]*types.Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
@@ -38,6 +43,6 @@ type Backend interface {
 	PutObject(ctx context.Context, bucket, key string, input PutObjectInput) error
 	GetObjectTagging(ctx context.Context, bucket, key string) (map[string]string, error)
 	GetObject(ctx context.Context, bucket, key string) (*ObjectContent, error)
-	ListObjectsV2(ctx context.Context, bucket, prefix string) ([]*types.Object, error)
+	ListObjectsV2(ctx context.Context, bucket string, input ListObjectsV2Input) ([]*types.Object, error)
 	DeleteObject(ctx context.Context, bucket, key string) error
 }

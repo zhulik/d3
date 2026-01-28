@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -15,7 +16,6 @@ import (
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
-	"github.com/zhulik/d3/pkg/iter"
 	"github.com/zhulik/d3/pkg/smartio"
 	"github.com/zhulik/d3/pkg/yaml"
 )
@@ -127,28 +127,59 @@ func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (*core
 	}, nil
 }
 
-func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket, prefix string) ([]*types.Object, error) {
-	if prefix == "" {
-		prefix = "/"
-	}
-	entries, err := os.ReadDir(b.config.objectPath(bucket, prefix))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, common.ErrBucketNotFound
+func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input core.ListObjectsV2Input) ([]*types.Object, error) {
+	objects := []*types.Object{}
+
+	bucketPath := b.config.bucketPath(bucket)
+
+	// TODO: support pagination
+	// TODO: when prefix is given, we should first find all directories that match the prefix and then walk through them
+	err := filepath.WalkDir(bucketPath, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
+		// skip files
+		if !entry.IsDir() {
+			return nil
+		}
+
+		if path == bucketPath {
+			return nil
+		}
+		key, err := filepath.Rel(bucketPath, path)
+		if err != nil {
+			return err
+		}
+		key = filepath.ToSlash(key) // Normalize to forward slashes for S3 keys
+
+		if !strings.HasPrefix(key, input.Prefix) {
+			return nil
+		}
+
+		object, err := ObjectFromPath(path)
+		if err != nil {
+			return err
+		}
+		if object == nil {
+			return nil
+		}
+		metadata, err := object.Metadata()
+		if err != nil {
+			return err
+		}
+
+		objects = append(objects, &types.Object{
+			Key:          aws.String(key),
+			LastModified: &metadata.LastModified,
+			Size:         &metadata.Size,
+		})
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	return iter.ErrMap(entries, func(entry os.DirEntry) (*types.Object, error) {
-		fileInfo, err := entry.Info()
-		if err != nil {
-			return nil, err
-		}
-		return &types.Object{
-			Key:          aws.String(filepath.Join(prefix, entry.Name())),
-			LastModified: aws.Time(fileInfo.ModTime()),
-			Size:         aws.Int64(fileInfo.Size()),
-		}, nil
-	})
+
+	return objects, nil
 }
 
 func (b *BackendObjects) DeleteObject(_ context.Context, bucket, key string) error {
