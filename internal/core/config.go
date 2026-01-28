@@ -32,5 +32,13 @@ func (c *Config) Init(_ context.Context) error {
 		return fmt.Errorf("%w: failed to parse config: %w", ErrInvalidConfig, err)
 	}
 
+	if c.Backend == BackendFolder {
+		if c.FolderBackendPath == "" {
+			return fmt.Errorf("%w: FolderBackendPath is not set", ErrInvalidConfig)
+		}
+	} else {
+		return fmt.Errorf("%w: unknown backend: %s", ErrInvalidConfig, c.Backend)
+	}
+
 	return nil
 }

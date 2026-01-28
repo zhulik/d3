@@ -24,7 +24,7 @@ func (b *BackendBuckets) Init(_ context.Context) error {
 }
 
 func (b *BackendBuckets) ListBuckets(_ context.Context) ([]*types.Bucket, error) {
-	entries, err := os.ReadDir(b.config.FolderBackendPath)
+	entries, err := os.ReadDir(b.config.bucketsPath())
 	if err != nil {
 		return nil, err
 	}
