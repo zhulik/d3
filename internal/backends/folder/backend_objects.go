@@ -182,13 +182,26 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 	return objects, nil
 }
 
-func (b *BackendObjects) DeleteObject(_ context.Context, bucket, key string) error {
-	object, err := b.getObject(bucket, key)
-	if err != nil {
-		return err
+func (b *BackendObjects) DeleteObjects(ctx context.Context, bucket string, verbose bool, keys ...string) ([]core.DeleteResult, error) {
+	results := []core.DeleteResult{}
+	for _, key := range keys {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		object, err := b.getObject(bucket, key)
+		if err != nil {
+			results = append(results, core.DeleteResult{Key: key, Error: err})
+			continue
+		}
+		err = object.Delete()
+		if err != nil {
+			results = append(results, core.DeleteResult{Key: key, Error: err})
+		}
+		if verbose {
+			results = append(results, core.DeleteResult{Key: key, Error: nil})
+		}
 	}
-
-	return object.Delete()
+	return results, nil
 }
 
 func (b *BackendObjects) getObject(bucket, key string) (*Object, error) {

@@ -185,9 +185,13 @@ func (a APIObjects) DeleteObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	err := a.Backend.DeleteObject(c.Request().Context(), bucket, key)
+	results, err := a.Backend.DeleteObjects(c.Request().Context(), bucket, true, key)
 	if err != nil {
 		return err
+	}
+
+	if results[0].Error != nil {
+		return results[0].Error
 	}
 
 	return c.NoContent(http.StatusNoContent)
