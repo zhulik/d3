@@ -41,6 +41,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 
 		s3Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
 			o.UsePathStyle = true
+			o.RetryMaxAttempts = 1
 		})
 
 		_, err = s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
