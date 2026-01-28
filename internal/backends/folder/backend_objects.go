@@ -156,7 +156,7 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 			return nil
 		}
 
-		object, err := b.getObject(bucket, key)
+		object, err := ObjectFromPath(b.config, bucket, key)
 		if err != nil {
 			return err
 		}
@@ -182,7 +182,7 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 	return objects, nil
 }
 
-func (b *BackendObjects) DeleteObjects(ctx context.Context, bucket string, verbose bool, keys ...string) ([]core.DeleteResult, error) {
+func (b *BackendObjects) DeleteObjects(ctx context.Context, bucket string, quiet bool, keys ...string) ([]core.DeleteResult, error) {
 	results := []core.DeleteResult{}
 	for _, key := range keys {
 		if ctx.Err() != nil {
@@ -196,9 +196,10 @@ func (b *BackendObjects) DeleteObjects(ctx context.Context, bucket string, verbo
 		err = object.Delete()
 		if err != nil {
 			results = append(results, core.DeleteResult{Key: key, Error: err})
-		}
-		if verbose {
-			results = append(results, core.DeleteResult{Key: key, Error: nil})
+		} else {
+			if !quiet {
+				results = append(results, core.DeleteResult{Key: key, Error: nil})
+			}
 		}
 	}
 	return results, nil

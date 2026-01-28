@@ -65,7 +65,19 @@ func (o *Object) Metadata() (*core.ObjectMetadata, error) {
 }
 
 func (o *Object) Delete() error {
-	return os.Rename(o.path, o.config.newBinPath())
+	err := os.Rename(o.path, o.config.newBinPath())
+	if err != nil {
+		return err
+	}
+
+	parentDir := filepath.Dir(o.path)
+	entries, readErr := os.ReadDir(parentDir)
+	if readErr == nil && len(entries) == 0 {
+		// we ignore the on purpose because there might be concurrent uploads to the same directory
+		os.Remove(parentDir) //nolint:errcheck
+	}
+
+	return nil
 }
 
 func IsObjectPath(path string) (bool, error) {
@@ -102,6 +114,9 @@ func IsObjectPath(path string) (bool, error) {
 func existsAndIsFile(path string) (bool, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
 		return false, err
 	}
 	return !fi.IsDir(), nil

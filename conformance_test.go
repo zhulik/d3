@@ -51,6 +51,18 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	AfterAll(func(ctx context.Context) {
+		objects := lo.Must(s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket: aws.String(bucketName),
+		}))
+		lo.Must(s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			Bucket: aws.String(bucketName),
+			Delete: &types.Delete{
+				Objects: lo.Map(objects.Contents, func(object types.Object, _ int) types.ObjectIdentifier {
+					return types.ObjectIdentifier{Key: object.Key}
+				}),
+			},
+		}))
+
 		_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
 			Bucket: aws.String(bucketName),
 		})
@@ -97,6 +109,14 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("ListObjectsV2", func() {
+		BeforeAll(func(ctx context.Context) {
+			lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
+				Bucket: aws.String(bucketName),
+				Key:    aws.String("dir/hello.txt"),
+				Body:   strings.NewReader("hello world"),
+			}))
+		})
+
 		Context("when prefix is specified", func() {
 			Context("when there are objects matching the prefix", func() {
 				It("should list objects", func(ctx context.Context) {
@@ -128,8 +148,9 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 					Bucket: aws.String(bucketName),
 				})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(listObjectsOutput.Contents).To(HaveLen(1))
-				Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("hello.txt")))
+				Expect(listObjectsOutput.Contents).To(HaveLen(2))
+				Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("dir/hello.txt")))
+				Expect(listObjectsOutput.Contents[1].Key).To(Equal(aws.String("hello.txt")))
 			})
 		})
 	})
@@ -262,6 +283,42 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 					Key:    aws.String("does-not-exist.txt"),
 				})
 				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("DeleteObjects", func() {
+		var keys = []string{"hello.txt", "hello2.txt"}
+
+		BeforeEach(func(ctx context.Context) {
+			lo.ForEach(keys, func(key string, _ int) {
+				lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String(key),
+					Body:   strings.NewReader("hello world"),
+				}))
+			})
+		})
+
+		Context("when objects exist", func() {
+			It("should delete objects", func(ctx context.Context) {
+				_, err := s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+					Bucket: aws.String(bucketName),
+					Delete: &types.Delete{
+						Objects: lo.Map(keys, func(key string, _ int) types.ObjectIdentifier {
+							return types.ObjectIdentifier{Key: aws.String(key)}
+						}),
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, key := range keys {
+					_, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+						Bucket: aws.String(bucketName),
+						Key:    aws.String(key),
+					})
+					Expect(err).To(HaveOccurred())
+				}
 			})
 		})
 	})

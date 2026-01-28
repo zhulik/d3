@@ -49,5 +49,5 @@ type Backend interface {
 	GetObjectTagging(ctx context.Context, bucket, key string) (map[string]string, error)
 	GetObject(ctx context.Context, bucket, key string) (*ObjectContent, error)
 	ListObjectsV2(ctx context.Context, bucket string, input ListObjectsV2Input) ([]*types.Object, error)
-	DeleteObjects(ctx context.Context, bucket string, verbose bool, keys ...string) ([]DeleteResult, error)
+	DeleteObjects(ctx context.Context, bucket string, quiet bool, keys ...string) ([]DeleteResult, error)
 }

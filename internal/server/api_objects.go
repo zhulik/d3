@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/xml"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -30,6 +31,40 @@ type tagXML struct {
 	Value string `xml:"Value"`
 }
 
+type deleteRequestXML struct {
+	XMLName xml.Name          `xml:"http://s3.amazonaws.com/doc/2006-03-01/ Delete"`
+	Objects []deleteObjectXML `xml:"Object"`
+	Quiet   *bool             `xml:"Quiet"`
+}
+
+type deleteObjectXML struct {
+	ETag             *string `xml:"ETag"`
+	Key              string  `xml:"Key"`
+	LastModifiedTime *string `xml:"LastModifiedTime"`
+	Size             *int64  `xml:"Size"`
+	VersionID        *string `xml:"VersionId"`
+}
+
+type deleteResultXML struct {
+	XMLName xml.Name          `xml:"http://s3.amazonaws.com/doc/2006-03-01/ DeleteResult"`
+	Deleted []deletedEntryXML `xml:"Deleted,omitempty"`
+	Errors  []errorEntryXML   `xml:"Error,omitempty"`
+}
+
+type deletedEntryXML struct {
+	DeleteMarker          *bool   `xml:"DeleteMarker,omitempty"`
+	DeleteMarkerVersionID *string `xml:"DeleteMarkerVersionId,omitempty"`
+	Key                   string  `xml:"Key"`
+	VersionID             *string `xml:"VersionId,omitempty"`
+}
+
+type errorEntryXML struct {
+	Code      string  `xml:"Code"`
+	Key       string  `xml:"Key"`
+	Message   string  `xml:"Message"`
+	VersionID *string `xml:"VersionId,omitempty"`
+}
+
 type APIObjects struct {
 	Logger *slog.Logger
 
@@ -49,6 +84,12 @@ func (a APIObjects) Init(_ context.Context) error {
 		ihttp.NewQueryParamsRouter().
 			SetFallbackHandler(a.GetObject).
 			AddRoute("tagging", a.GetObjectTagging).
+			Handle,
+	)
+
+	a.Echo.POST("/:bucket",
+		ihttp.NewQueryParamsRouter().
+			AddRoute("delete", a.DeleteObjects).
 			Handle,
 	)
 
@@ -185,7 +226,7 @@ func (a APIObjects) DeleteObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	results, err := a.Backend.DeleteObjects(c.Request().Context(), bucket, true, key)
+	results, err := a.Backend.DeleteObjects(c.Request().Context(), bucket, false, key)
 	if err != nil {
 		return err
 	}
@@ -195,6 +236,61 @@ func (a APIObjects) DeleteObject(c *echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (a APIObjects) DeleteObjects(c *echo.Context) error {
+	bucket := c.Param("bucket")
+
+	var deleteReq deleteRequestXML
+	if err := xml.NewDecoder(c.Request().Body).Decode(&deleteReq); err != nil {
+		return err
+	}
+
+	if len(deleteReq.Objects) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "no objects specified")
+	}
+
+	if len(deleteReq.Objects) > 1000 {
+		return echo.NewHTTPError(http.StatusBadRequest, "too many objects specified")
+	}
+
+	keys := lo.Map(deleteReq.Objects, func(obj deleteObjectXML, _ int) string {
+		return obj.Key
+	})
+	quiet := deleteReq.Quiet != nil && *deleteReq.Quiet
+
+	results, err := a.Backend.DeleteObjects(c.Request().Context(), bucket, quiet, keys...)
+	if err != nil {
+		return err
+	}
+
+	response := deleteResultXML{
+		Deleted: []deletedEntryXML{},
+		Errors:  []errorEntryXML{},
+	}
+
+	for _, result := range results {
+		if result.Error != nil {
+			errorCode := "InternalError"
+			errorMessage := result.Error.Error()
+
+			if errors.Is(result.Error, common.ErrObjectNotFound) {
+				errorCode = "NoSuchKey"
+			}
+
+			response.Errors = append(response.Errors, errorEntryXML{
+				Code:    errorCode,
+				Key:     result.Key,
+				Message: errorMessage,
+			})
+		} else if !quiet {
+			response.Deleted = append(response.Deleted, deletedEntryXML{
+				Key: result.Key,
+			})
+		}
+	}
+
+	return c.XML(http.StatusOK, response)
 }
 
 func parseTags(header string) (map[string]string, error) {
