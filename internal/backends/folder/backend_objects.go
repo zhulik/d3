@@ -16,13 +16,13 @@ import (
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/iter"
 	"github.com/zhulik/d3/pkg/smartio"
+	"github.com/zhulik/d3/pkg/yaml"
 )
 
 type BackendObjects struct {
 	Cfg *core.Config
 
-	Locker             *locker.Locker
-	MetadataRepository *MetadataRepository
+	Locker *locker.Locker
 
 	config *config
 }
@@ -32,8 +32,16 @@ func (b *BackendObjects) Init(_ context.Context) error {
 	return nil
 }
 
-func (b *BackendObjects) HeadObject(ctx context.Context, bucket, key string) (*core.ObjectMetadata, error) {
-	return b.MetadataRepository.Get(ctx, bucket, key)
+func (b *BackendObjects) HeadObject(_ context.Context, bucket, key string) (*core.ObjectMetadata, error) {
+	path := b.config.objectPath(bucket, key)
+	object, err := ObjectFromPath(path)
+	if err != nil {
+		if errors.Is(err, ErrNotAnObjectPath) {
+			return nil, common.ErrObjectNotFound
+		}
+		return nil, err
+	}
+	return object.Metadata()
 }
 
 func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error {
@@ -87,7 +95,7 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 		Meta:         input.Metadata.Meta,
 	}
 
-	err = b.MetadataRepository.SaveTmp(ctx, uploadPath, &metadata)
+	err = yaml.MarshalToFile(metadata, filepath.Join(uploadPath, metadataYamlFilename))
 	if err != nil {
 		return err
 	}
@@ -104,30 +112,44 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 	return nil
 }
 
-func (b *BackendObjects) GetObjectTagging(ctx context.Context, bucket, key string) (map[string]string, error) {
-	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
+func (b *BackendObjects) GetObjectTagging(_ context.Context, bucket, key string) (map[string]string, error) {
+	path := b.config.objectPath(bucket, key)
+	object, err := ObjectFromPath(path)
+	if err != nil {
+		if errors.Is(err, ErrNotAnObjectPath) {
+			return nil, common.ErrObjectNotFound
+		}
+		return nil, err
+	}
+	metadata, err := object.Metadata()
 	if err != nil {
 		return nil, err
 	}
 	return metadata.Tags, nil
 }
 
-func (b *BackendObjects) GetObject(ctx context.Context, bucket, key string) (*core.ObjectContent, error) {
+func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (*core.ObjectContent, error) {
 	path := b.config.objectPath(bucket, key)
 
-	f, err := os.Open(filepath.Join(path, blobFilename))
+	object, err := ObjectFromPath(path)
+	if err != nil {
+		if errors.Is(err, ErrNotAnObjectPath) {
+			return nil, common.ErrObjectNotFound
+		}
+		return nil, err
+	}
+	metadata, err := object.Metadata()
 	if err != nil {
 		return nil, err
 	}
 
-	metadata, err := b.MetadataRepository.Get(ctx, bucket, key)
+	reader, err := object.Open()
 	if err != nil {
-		f.Close() //nolint:errcheck
 		return nil, err
 	}
 
 	return &core.ObjectContent{
-		Reader:   f,
+		Reader:   reader,
 		Metadata: metadata,
 	}, nil
 }
