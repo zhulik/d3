@@ -14,6 +14,7 @@ const (
 	uploadsFolder        = "uploads"
 	metadataYamlFilename = "metadata.yaml"
 	blobFilename         = "blob"
+	binFolder            = "bin"
 )
 
 type config struct {
@@ -36,10 +37,18 @@ func (c *config) uploadsPath() string {
 	return filepath.Join(c.FolderBackendPath, tmpFolder, uploadsFolder)
 }
 
+func (c *config) binPath() string {
+	return filepath.Join(c.FolderBackendPath, tmpFolder, binFolder)
+}
+
+func (c *config) newBinPath() string {
+	return filepath.Join(c.binPath(), uuid.NewString())
+}
+
 func (c *config) configYamlPath() string {
 	return filepath.Join(c.FolderBackendPath, configYamlFilename)
 }
 
 func (c *config) newUploadPath() string {
-	return filepath.Join(c.FolderBackendPath, tmpFolder, uploadsFolder, uuid.New().String())
+	return filepath.Join(c.uploadsPath(), uuid.NewString())
 }

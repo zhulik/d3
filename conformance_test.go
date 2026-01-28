@@ -246,6 +246,12 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 					Key:    aws.String("hello.txt"),
 				})
 				Expect(err).NotTo(HaveOccurred())
+
+				_, err = s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("hello.txt"),
+				})
+				Expect(err).To(HaveOccurred())
 			})
 		})
 

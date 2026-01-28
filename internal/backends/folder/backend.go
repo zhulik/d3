@@ -69,6 +69,9 @@ func (b *Backend) prepareFileStructure(ctx context.Context) error {
 	if err := os.MkdirAll(b.config.uploadsPath(), 0755); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(b.config.binPath(), 0755); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -13,10 +13,15 @@ import (
 
 type Object struct {
 	io.ReadCloser
-	Path string
+
+	config       *config
+	path         string
+	blobPath     string
+	metadataPath string
 }
 
-func ObjectFromPath(path string) (*Object, error) {
+func ObjectFromPath(cfg *config, bucket, key string) (*Object, error) {
+	path := cfg.objectPath(bucket, key)
 	isObject, err := IsObjectPath(path)
 	if err != nil {
 		return nil, err
@@ -26,13 +31,16 @@ func ObjectFromPath(path string) (*Object, error) {
 	}
 
 	return &Object{
-		Path: path,
+		config:       cfg,
+		path:         path,
+		blobPath:     filepath.Join(path, blobFilename),
+		metadataPath: filepath.Join(path, metadataYamlFilename),
 	}, nil
 }
 
 func (o *Object) Read(p []byte) (int, error) {
 	if o.ReadCloser == nil {
-		rc, err := os.Open(filepath.Join(o.Path, blobFilename))
+		rc, err := os.Open(o.blobPath)
 		if err != nil {
 			return 0, err
 		}
@@ -49,7 +57,7 @@ func (o *Object) Close() error {
 }
 
 func (o *Object) Metadata() (*core.ObjectMetadata, error) {
-	metadata, err := yaml.UnmarshalFromFile[core.ObjectMetadata](filepath.Join(o.Path, metadataYamlFilename))
+	metadata, err := yaml.UnmarshalFromFile[core.ObjectMetadata](o.metadataPath)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +65,7 @@ func (o *Object) Metadata() (*core.ObjectMetadata, error) {
 }
 
 func (o *Object) Delete() error {
-	return os.RemoveAll(o.Path)
+	return os.Rename(o.path, o.config.newBinPath())
 }
 
 func IsObjectPath(path string) (bool, error) {

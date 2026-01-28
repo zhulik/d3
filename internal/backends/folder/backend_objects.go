@@ -156,7 +156,7 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 			return nil
 		}
 
-		object, err := ObjectFromPath(path)
+		object, err := b.getObject(bucket, key)
 		if err != nil {
 			return err
 		}
@@ -192,9 +192,7 @@ func (b *BackendObjects) DeleteObject(_ context.Context, bucket, key string) err
 }
 
 func (b *BackendObjects) getObject(bucket, key string) (*Object, error) {
-	path := b.config.objectPath(bucket, key)
-
-	object, err := ObjectFromPath(path)
+	object, err := ObjectFromPath(b.config, bucket, key)
 	if err != nil {
 		return nil, err
 	}
