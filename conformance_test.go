@@ -168,6 +168,17 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		})
 	})
 
+	Describe("DeleteBucket", func() {
+		Context("when bucket is not empty", func() {
+			It("should return error", func(ctx context.Context) {
+				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
+					Bucket: aws.String(bucketName),
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
 	Describe("DeleteObject", func() {
 		It("should delete object", func(ctx context.Context) {
 			_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{

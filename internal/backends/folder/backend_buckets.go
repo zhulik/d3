@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"log/slog"
 	"path/filepath"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -14,6 +15,7 @@ import (
 )
 
 type BackendBuckets struct {
+	Logger *slog.Logger
 	Config *core.Config
 }
 
@@ -54,10 +56,19 @@ func (b *BackendBuckets) CreateBucket(_ context.Context, name string) error {
 
 func (b *BackendBuckets) DeleteBucket(_ context.Context, name string) error {
 	path := filepath.Join(b.Config.FolderBackendPath, name)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return common.ErrBucketNotFound
+
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return common.ErrBucketNotFound
+		}
+		return err
 	}
-	return os.RemoveAll(path)
+
+	if len(entries) > 0 {
+		return common.ErrBucketNotEmpty
+	}
+	return os.Remove(path)
 }
 
 func (b *BackendBuckets) HeadBucket(_ context.Context, name string) error {
