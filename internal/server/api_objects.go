@@ -37,9 +37,8 @@ type APIObjects struct {
 }
 
 func (a APIObjects) Init(_ context.Context) error {
-	a.Echo.SetRootQueryFallbackHandler(a.ListObjects)
-	a.Echo.AddQueryParamRoute("prefix", a.ListObjects)
-	a.Echo.AddQueryParamRoute("list-type", a.ListObjects)
+	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2)
+	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2)
 
 	objects := a.Echo.Group("/:bucket/*")
 	objects.HEAD("", a.HeadObject)
@@ -140,16 +139,21 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 	return c.Stream(http.StatusOK, contents.Metadata.ContentType, contents.Reader)
 }
 
-func (a APIObjects) ListObjects(c *echo.Context) error {
+func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	prefix := c.QueryParam("prefix")
+	listType := c.QueryParam("list-type")
 
-	objects, err := a.Backend.ListObjects(c.Request().Context(), bucket, prefix)
+	if listType != "2" {
+		return echo.NewHTTPError(http.StatusNotImplemented, "only ListObjectsV2 is supported")
+	}
+
+	objects, err := a.Backend.ListObjectsV2(c.Request().Context(), bucket, prefix)
 	if err != nil {
 		return err
 	}
 
-	xmlResponse := listObjectsResult{
+	xmlResponse := listObjectsV2Result{
 		IsTruncated:    false,
 		Contents:       objects,
 		Name:           bucket,

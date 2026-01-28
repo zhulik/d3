@@ -15,6 +15,7 @@ tasks:
     deps:
       - lint
       - test
+      - test:conformance-full
 
   build:
     desc: Build the application

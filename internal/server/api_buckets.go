@@ -33,7 +33,7 @@ type prefixEntry struct {
 	Prefix string `xml:"Prefix"`
 }
 
-type listObjectsResult struct {
+type listObjectsV2Result struct {
 	IsTruncated    bool            `xml:"IsTruncated"`
 	Contents       []*types.Object `xml:"Contents"`
 	Name           string          `xml:"Name"`

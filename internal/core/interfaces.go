@@ -38,6 +38,6 @@ type Backend interface {
 	PutObject(ctx context.Context, bucket, key string, input PutObjectInput) error
 	GetObjectTagging(ctx context.Context, bucket, key string) (map[string]string, error)
 	GetObject(ctx context.Context, bucket, key string) (*ObjectContent, error)
-	ListObjects(ctx context.Context, bucket, prefix string) ([]*types.Object, error)
+	ListObjectsV2(ctx context.Context, bucket, prefix string) ([]*types.Object, error)
 	DeleteObject(ctx context.Context, bucket, key string) error
 }

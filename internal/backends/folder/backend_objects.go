@@ -127,7 +127,7 @@ func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (*core
 	}, nil
 }
 
-func (b *BackendObjects) ListObjects(_ context.Context, bucket, prefix string) ([]*types.Object, error) {
+func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket, prefix string) ([]*types.Object, error) {
 	if prefix == "" {
 		prefix = "/"
 	}

@@ -96,10 +96,10 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		})
 	})
 
-	Describe("ListObjects", func() {
+	Describe("ListObjectsV2", func() {
 		Context("when prefix is specified", func() {
 			It("should list objects", func(ctx context.Context) {
-				listObjectsOutput, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+				listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 					Bucket: aws.String(bucketName),
 					Prefix: aws.String("/"),
 				})
@@ -111,7 +111,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 
 		Context("when prefix is not specified", func() {
 			It("should list objects", func(ctx context.Context) {
-				listObjectsOutput, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+				listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 					Bucket: aws.String(bucketName),
 				})
 				Expect(err).NotTo(HaveOccurred())
