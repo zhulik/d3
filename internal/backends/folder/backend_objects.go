@@ -77,19 +77,9 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 		return fmt.Errorf("%w: %s != %s", common.ErrObjectChecksumMismatch, input.Metadata.SHA256, sha256sum)
 	}
 
-	rawSha256, err := hex.DecodeString(sha256sum)
+	metadata, err := objectMetadata(input)
 	if err != nil {
 		return err
-	}
-
-	metadata := core.ObjectMetadata{
-		ContentType:  input.Metadata.ContentType,
-		Tags:         input.Metadata.Tags,
-		SHA256:       sha256sum,
-		SHA256Base64: base64.StdEncoding.EncodeToString(rawSha256),
-		Size:         input.Metadata.Size,
-		LastModified: time.Now(),
-		Meta:         input.Metadata.Meta,
 	}
 
 	err = yaml.MarshalToFile(metadata, filepath.Join(uploadPath, metadataYamlFilename))
@@ -181,4 +171,21 @@ func (b *BackendObjects) getObject(bucket, key string) (*Object, error) {
 		return nil, common.ErrObjectNotFound
 	}
 	return object, nil
+}
+
+func objectMetadata(input core.PutObjectInput) (core.ObjectMetadata, error) {
+	rawSha256, err := hex.DecodeString(input.Metadata.SHA256)
+	if err != nil {
+		return core.ObjectMetadata{}, err
+	}
+
+	return core.ObjectMetadata{
+		ContentType:  input.Metadata.ContentType,
+		Tags:         input.Metadata.Tags,
+		SHA256:       input.Metadata.SHA256,
+		SHA256Base64: base64.StdEncoding.EncodeToString(rawSha256),
+		Size:         input.Metadata.Size,
+		LastModified: time.Now(),
+		Meta:         input.Metadata.Meta,
+	}, nil
 }

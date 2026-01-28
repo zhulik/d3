@@ -69,7 +69,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("ListBuckets", func() {
-		It("should list buckets and include our bucket", func(ctx context.Context) {
+		It("should list buckets", func(ctx context.Context) {
 			listBucketsOutput, err := s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -122,50 +122,86 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("HeadObject", func() {
-		It("should head object", func(ctx context.Context) {
-			content := "hello world"
-			headObjectOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String("hello.txt"),
+		Context("when object exists", func() {
+			It("should head object", func(ctx context.Context) {
+				content := "hello world"
+				headObjectOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("hello.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(headObjectOutput.ContentLength).NotTo(BeNil())
+				Expect(*headObjectOutput.ContentLength).To(Equal(int64(len(content))))
+				Expect(*headObjectOutput.ContentType).To(Equal("text/plain"))
+				Expect(headObjectOutput.Metadata).To(Equal(objectMetadata))
+				Expect(*headObjectOutput.TagCount).To(Equal(int32(1)))
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(headObjectOutput.ContentLength).NotTo(BeNil())
-			Expect(*headObjectOutput.ContentLength).To(Equal(int64(len(content))))
-			Expect(*headObjectOutput.ContentType).To(Equal("text/plain"))
-			Expect(headObjectOutput.Metadata).To(Equal(objectMetadata))
-			Expect(*headObjectOutput.TagCount).To(Equal(int32(1)))
+		})
+
+		Context("when object does not exist", func() {
+			It("should return error", func(ctx context.Context) {
+				_, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("does-not-exist.txt"),
+				})
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 
 	Describe("GetObjectTagging", func() {
-		It("should get object and verify content matches", func(ctx context.Context) {
-			output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String("hello.txt"),
-			})
-			Expect(err).NotTo(HaveOccurred())
+		Context("when object exists", func() {
+			It("should get object tagging", func(ctx context.Context) {
+				output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("hello.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
 
-			Expect(output.TagSet).To(HaveLen(1))
+				Expect(output.TagSet).To(HaveLen(1))
+			})
+		})
+
+		Context("when object does not exist", func() {
+			It("should return error", func(ctx context.Context) {
+				_, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("does-not-exist.txt"),
+				})
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 
 	Describe("GetObject", func() {
-		It("should get object and verify content matches", func(ctx context.Context) {
-			content := "hello world"
-			getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String("hello.txt"),
+		Context("when object exists", func() {
+			It("should get object and verify content matches", func(ctx context.Context) {
+				content := "hello world"
+				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("hello.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				defer getObjectOutput.Body.Close()
+
+				bodyBytes, err := io.ReadAll(getObjectOutput.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(bodyBytes)).To(Equal(content))
+				Expect(*getObjectOutput.ContentType).To(Equal("text/plain"))
+				Expect(getObjectOutput.Metadata).To(Equal(objectMetadata))
+				Expect(*getObjectOutput.TagCount).To(Equal(int32(1)))
 			})
-			Expect(err).NotTo(HaveOccurred())
+		})
 
-			defer getObjectOutput.Body.Close()
-
-			bodyBytes, err := io.ReadAll(getObjectOutput.Body)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(string(bodyBytes)).To(Equal(content))
-			Expect(*getObjectOutput.ContentType).To(Equal("text/plain"))
-			Expect(getObjectOutput.Metadata).To(Equal(objectMetadata))
-			Expect(*getObjectOutput.TagCount).To(Equal(int32(1)))
+		Context("when object does not exist", func() {
+			It("should return error", func(ctx context.Context) {
+				_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("does-not-exist.txt"),
+				})
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 
@@ -190,12 +226,24 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("DeleteObject", func() {
-		It("should delete object", func(ctx context.Context) {
-			_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String("hello.txt"),
+		Context("when object exists", func() {
+			It("should delete object", func(ctx context.Context) {
+				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("hello.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
 			})
-			Expect(err).NotTo(HaveOccurred())
+		})
+
+		Context("when object does not exist", func() {
+			It("should return error", func(ctx context.Context) {
+				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: aws.String(bucketName),
+					Key:    aws.String("does-not-exist.txt"),
+				})
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 })

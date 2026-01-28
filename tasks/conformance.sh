@@ -12,5 +12,5 @@ cleanup() {
 
 trap cleanup EXIT
 
-sleep 0.2
+sleep 1
 task test:conformance

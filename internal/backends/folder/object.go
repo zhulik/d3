@@ -1,10 +1,12 @@
 package folder
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/yaml"
 )
@@ -61,6 +63,9 @@ func (o *Object) Delete() error {
 func IsObjectPath(path string) (bool, error) {
 	fi, err := os.Stat(filepath.Join(path))
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, common.ErrObjectNotFound
+		}
 		return false, err
 	}
 
