@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -176,6 +177,9 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, common.ErrBucketNotFound
+		}
 		return nil, err
 	}
 

@@ -81,6 +81,15 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 					Expect(listObjectsOutput.Contents).To(BeEmpty())
 				})
 			})
+
+			Context("when listing non-existent bucket", func() {
+				It("should return error", func(ctx context.Context) {
+					_, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket: lo.ToPtr("does-not-exist"),
+					})
+					Expect(err).To(HaveOccurred())
+				})
+			})
 		})
 
 		Context("when prefix is not specified", func() {
