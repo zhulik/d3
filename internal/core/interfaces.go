@@ -38,6 +38,11 @@ type DeleteResult struct {
 	Error error
 }
 
+type CompletePart struct {
+	PartNumber int
+	ETag       string
+}
+
 type Backend interface {
 	ListBuckets(ctx context.Context) ([]*types.Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
@@ -50,4 +55,9 @@ type Backend interface {
 	GetObject(ctx context.Context, bucket, key string) (*ObjectContent, error)
 	ListObjectsV2(ctx context.Context, bucket string, input ListObjectsV2Input) ([]*types.Object, error)
 	DeleteObjects(ctx context.Context, bucket string, quiet bool, keys ...string) ([]DeleteResult, error)
+
+	CreateMultipartUpload(ctx context.Context, bucket, key string, metadata ObjectMetadata) (string, error)
+	UploadPart(ctx context.Context, bucket, key string, uploadID string, partNumber int, body io.Reader) error
+	CompleteMultipartUpload(ctx context.Context, bucket, key string, uploadID string, parts []CompletePart) error
+	AbortMultipartUpload(ctx context.Context, bucket, key string, uploadID string) error
 }

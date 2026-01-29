@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
@@ -16,54 +17,6 @@ import (
 	"github.com/zhulik/d3/internal/core"
 	ihttp "github.com/zhulik/d3/internal/http"
 )
-
-type taggingXML struct {
-	XMLName xml.Name  `xml:"Tagging"`
-	TagSet  tagSetXML `xml:"TagSet"`
-}
-
-type tagSetXML struct {
-	Tags []tagXML `xml:"Tag"`
-}
-
-type tagXML struct {
-	Key   string `xml:"Key"`
-	Value string `xml:"Value"`
-}
-
-type deleteRequestXML struct {
-	XMLName xml.Name          `xml:"http://s3.amazonaws.com/doc/2006-03-01/ Delete"`
-	Objects []deleteObjectXML `xml:"Object"`
-	Quiet   *bool             `xml:"Quiet"`
-}
-
-type deleteObjectXML struct {
-	ETag             *string `xml:"ETag"`
-	Key              string  `xml:"Key"`
-	LastModifiedTime *string `xml:"LastModifiedTime"`
-	Size             *int64  `xml:"Size"`
-	VersionID        *string `xml:"VersionId"`
-}
-
-type deleteResultXML struct {
-	XMLName xml.Name          `xml:"http://s3.amazonaws.com/doc/2006-03-01/ DeleteResult"`
-	Deleted []deletedEntryXML `xml:"Deleted,omitempty"`
-	Errors  []errorEntryXML   `xml:"Error,omitempty"`
-}
-
-type deletedEntryXML struct {
-	DeleteMarker          *bool   `xml:"DeleteMarker,omitempty"`
-	DeleteMarkerVersionID *string `xml:"DeleteMarkerVersionId,omitempty"`
-	Key                   string  `xml:"Key"`
-	VersionID             *string `xml:"VersionId,omitempty"`
-}
-
-type errorEntryXML struct {
-	Code      string  `xml:"Code"`
-	Key       string  `xml:"Key"`
-	Message   string  `xml:"Message"`
-	VersionID *string `xml:"VersionId,omitempty"`
-}
 
 type APIObjects struct {
 	Logger *slog.Logger
@@ -78,7 +31,15 @@ func (a APIObjects) Init(_ context.Context) error {
 
 	objects := a.Echo.Group("/:bucket/*")
 	objects.HEAD("", a.HeadObject)
-	objects.PUT("", a.PutObject)
+	objects.PUT("", ihttp.NewQueryParamsRouter().
+		SetFallbackHandler(a.PutObject).
+		AddRoute("uploadId", a.UploadPart).
+		Handle)
+
+	objects.POST("", ihttp.NewQueryParamsRouter().
+		AddRoute("uploads", a.CreateMultipartUpload).
+		AddRoute("uploadId", a.CompleteMultipartUpload).
+		Handle)
 
 	objects.GET("",
 		ihttp.NewQueryParamsRouter().
@@ -87,13 +48,16 @@ func (a APIObjects) Init(_ context.Context) error {
 			Handle,
 	)
 
+	objects.DELETE("", ihttp.NewQueryParamsRouter().
+		SetFallbackHandler(a.DeleteObject).
+		AddRoute("uploadId", a.AbortMultipartUpload).
+		Handle)
+
 	a.Echo.POST("/:bucket",
 		ihttp.NewQueryParamsRouter().
 			AddRoute("delete", a.DeleteObjects).
 			Handle,
 	)
-
-	objects.DELETE("", a.DeleteObject)
 
 	return nil
 }
@@ -121,8 +85,6 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 		return err
 	}
 
-	meta := parseMeta(c)
-
 	err = a.Backend.PutObject(c.Request().Context(), bucket, key, core.PutObjectInput{
 		Reader: c.Request().Body,
 		Metadata: core.ObjectMetadata{
@@ -130,7 +92,7 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 			SHA256:      c.Request().Header.Get("x-amz-content-sha256"),
 			Size:        c.Request().ContentLength,
 			Tags:        tags,
-			Meta:        meta,
+			Meta:        parseMeta(c),
 		},
 	})
 	if err != nil {
@@ -291,6 +253,99 @@ func (a APIObjects) DeleteObjects(c *echo.Context) error {
 	}
 
 	return c.XML(http.StatusOK, response)
+}
+
+func (a APIObjects) CreateMultipartUpload(c *echo.Context) error {
+	bucket := c.Param("bucket")
+	key := c.Param("*")
+
+	tags, err := parseTags(c.Request().Header.Get("x-amz-tagging"))
+	if err != nil {
+		return err
+	}
+
+	uploadID, err := a.Backend.CreateMultipartUpload(c.Request().Context(), bucket, key, core.ObjectMetadata{
+		ContentType:  c.Request().Header.Get("Content-Type"),
+		Tags:         tags,
+		LastModified: time.Now(),
+		Meta:         parseMeta(c),
+	})
+	if err != nil {
+		return err
+	}
+
+	response := initiateMultipartUploadResultXML{
+		Bucket:   bucket,
+		Key:      key,
+		UploadID: uploadID,
+	}
+
+	return c.XML(http.StatusOK, response)
+}
+
+func (a APIObjects) UploadPart(c *echo.Context) error {
+	bucket := c.Param("bucket")
+	key := c.Param("*")
+	uploadID := c.QueryParam("uploadId")
+	partNumber := c.QueryParam("partNumber")
+
+	partNumberInt, err := strconv.Atoi(partNumber)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid part number")
+	}
+
+	err = a.Backend.UploadPart(c.Request().Context(), bucket, key, uploadID, partNumberInt, c.Request().Body)
+	if err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusOK)
+}
+
+func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
+	bucket := c.Param("bucket")
+	key := c.Param("*")
+	uploadID := c.QueryParam("uploadId")
+
+	var req completeMultipartUploadRequestXML
+	if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid XML body")
+	}
+
+	if len(req.Parts) == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "no parts specified")
+	}
+
+	parts := lo.Map(req.Parts, func(part partXML, _ int) core.CompletePart {
+		return core.CompletePart{
+			PartNumber: part.PartNumber,
+			ETag:       part.ETag,
+		}
+	})
+
+	err := a.Backend.CompleteMultipartUpload(c.Request().Context(), bucket, key, uploadID, parts)
+	if err != nil {
+		return err
+	}
+
+	response := completeMultipartUploadResultXML{
+		Bucket: bucket,
+		Key:    key,
+	}
+
+	return c.XML(http.StatusOK, response)
+}
+
+func (a APIObjects) AbortMultipartUpload(c *echo.Context) error {
+	bucket := c.Param("bucket")
+	key := c.Param("*")
+	uploadID := c.QueryParam("uploadId")
+
+	err := a.Backend.AbortMultipartUpload(c.Request().Context(), bucket, key, uploadID)
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }
 
 func parseTags(header string) (map[string]string, error) {

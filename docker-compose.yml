@@ -7,6 +7,34 @@ services:
     volumes:
       - valkey-data:/data
 
+  d3:
+    build:
+      context: .
+    ports:
+      - "9090:8080"
+    environment:
+      - BACKEND=folder
+      - FOLDER_BACKEND_PATH=/data
+      - REDIS_ADDRESS=valkey:6379
+    volumes:
+      - d3_data:/data
+    depends_on:
+      - valkey
+
+  s3manager:
+    image: cloudlena/s3manager:latest
+    container_name: s3manager
+    network_mode: host
+    environment:
+      - ENDPOINT=127.0.0.1:8080
+      - REGION=local
+      - ACCESS_KEY_ID=test
+      - SECRET_ACCESS_KEY=test
+      - USE_SSL=false
+      - SKIP_SSL_VERIFICATION=true
+      - SIGNATURE_TYPE=V4
+      - PORT=9090
+
 volumes:
   valkey-data:
-    driver: local
+  d3_data:

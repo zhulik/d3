@@ -2,11 +2,9 @@ package server
 
 import (
 	"context"
-	"encoding/xml"
 	"fmt"
 	"net/http"
 
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
 	ihttp "github.com/zhulik/d3/internal/http"
@@ -16,31 +14,6 @@ type APIBuckets struct {
 	Backend core.Backend
 
 	Echo *Echo
-}
-
-type bucketsResult struct {
-	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListAllMyBucketsResult"`
-	Owner   *types.Owner
-	Buckets []*types.Bucket `xml:"Buckets>Bucket"`
-}
-
-type locationConstraintResponse struct {
-	XMLName  xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ LocationConstraint"`
-	Location string   `xml:",chardata"`
-}
-
-type prefixEntry struct {
-	Prefix string `xml:"Prefix"`
-}
-
-type listObjectsV2Result struct {
-	IsTruncated    bool            `xml:"IsTruncated"`
-	Contents       []*types.Object `xml:"Contents"`
-	Name           string          `xml:"Name"`
-	Prefix         string          `xml:"Prefix"`
-	Delimiter      string          `xml:"Delimiter,omitempty"`
-	MaxKeys        int             `xml:"MaxKeys"`
-	CommonPrefixes []prefixEntry   `xml:"CommonPrefixes,omitempty"`
 }
 
 func (a APIBuckets) Init(_ context.Context) error {

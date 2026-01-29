@@ -1,6 +1,7 @@
 package folder
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/google/uuid"
@@ -51,4 +52,13 @@ func (c *config) configYamlPath() string {
 
 func (c *config) newUploadPath() string {
 	return filepath.Join(c.uploadsPath(), uuid.NewString())
+}
+
+func (c *config) multipartUploadPath(uploadID string) string {
+	return filepath.Join(c.uploadsPath(), fmt.Sprintf("multipart-%s", uploadID))
+}
+
+func (c *config) newMultipartUploadPath() (string, string) {
+	id := uuid.NewString()
+	return id, filepath.Join(c.uploadsPath(), fmt.Sprintf("multipart-%s", id))
 }

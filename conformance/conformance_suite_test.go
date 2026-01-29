@@ -8,6 +8,8 @@ import (
 )
 
 func TestConformance(t *testing.T) {
+	t.Parallel()
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Conformance Suite")
 }

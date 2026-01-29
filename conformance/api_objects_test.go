@@ -2,6 +2,7 @@ package conformance_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"strings"
 
@@ -249,6 +250,106 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 					})
 					Expect(err).To(HaveOccurred())
 				}
+			})
+		})
+	})
+
+	Describe("Multiplart Upload full cycle", func() {
+		var uploadID *string
+
+		Describe("CreateMultipartUpload", func() {
+			It("should create multipart upload", func(ctx context.Context) {
+				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
+				uploadID = createMultipartUploadOutput.UploadId
+			})
+		})
+
+		Describe("UploadPart", func() {
+			for i := 1; i <= 10; i++ {
+				It(fmt.Sprintf("should upload part %d", i), func(ctx context.Context) {
+					_, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
+						Bucket:     bucketName,
+						Key:        lo.ToPtr("hello.txt"),
+						PartNumber: lo.ToPtr(int32(i)),
+						UploadId:   uploadID,
+						Body:       strings.NewReader(fmt.Sprintf("hello %d\n", i)),
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
+			}
+		})
+
+		Describe("CompleteMultipartUpload", func() {
+			It("should complete multipart upload", func(ctx context.Context) {
+				_, err := s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+					Bucket:   bucketName,
+					Key:      lo.ToPtr("hello.txt"),
+					UploadId: uploadID,
+					MultipartUpload: &types.CompletedMultipartUpload{
+						Parts: []types.CompletedPart{
+							{PartNumber: lo.ToPtr(int32(1))},
+							{PartNumber: lo.ToPtr(int32(2))},
+							{PartNumber: lo.ToPtr(int32(3))},
+							{PartNumber: lo.ToPtr(int32(4))},
+							{PartNumber: lo.ToPtr(int32(5))},
+							{PartNumber: lo.ToPtr(int32(6))},
+							{PartNumber: lo.ToPtr(int32(7))},
+							{PartNumber: lo.ToPtr(int32(8))},
+							{PartNumber: lo.ToPtr(int32(9))},
+							{PartNumber: lo.ToPtr(int32(10))},
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+			})
+		})
+
+		Describe("GetObject", func() {
+			It("should get object", func(ctx context.Context) {
+				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				defer getObjectOutput.Body.Close()
+
+				bodyBytes, err := io.ReadAll(getObjectOutput.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(bodyBytes)).To(Equal("hello 1\nhello 2\nhello 3\nhello 4\nhello 5\nhello 6\nhello 7\nhello 8\nhello 9\nhello 10\n"))
+			})
+		})
+	})
+
+	Describe("Multiplart Upload abort", func() {
+		var uploadID *string
+
+		Describe("CreateMultipartUpload", func() {
+			It("should create multipart upload", func(ctx context.Context) {
+				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
+				uploadID = createMultipartUploadOutput.UploadId
+			})
+		})
+
+		Describe("AbortMultipartUpload", func() {
+			It("should abort multipart upload", func(ctx context.Context) {
+				_, err := s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+					Bucket:   bucketName,
+					Key:      lo.ToPtr("hello.txt"),
+					UploadId: uploadID,
+				})
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})
