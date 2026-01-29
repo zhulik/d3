@@ -15,15 +15,9 @@ import (
 	"github.com/zhulik/pal"
 )
 
-func Run() {
-	config := &core.Config{}
-	if err := config.Init(context.Background()); err != nil {
-		slog.Error("failed to initialize config", "error", err)
-		os.Exit(1)
-	}
-
-	if config.Environment == "development" {
-		// new logger with options
+func New(config *core.Config) *pal.Pal {
+	if config.Environment == "development" ||
+		config.Environment == "test" {
 		opts := &devslog.Options{
 			MaxSlicePrintSize: 4,
 			SortKeys:          true,
@@ -37,7 +31,7 @@ func Run() {
 		slog.SetDefault(logger)
 	}
 
-	p := pal.New(
+	return pal.New(
 		server.Provide(),
 		backends.Provide(config),
 		pal.Provide(config),
@@ -47,7 +41,16 @@ func Run() {
 		HealthCheckTimeout(5*time.Second).
 		ShutdownTimeout(1*time.Minute).
 		InjectSlog().
-		RunHealthCheckServer(fmt.Sprintf("0.0.0.0:%s", config.HealthCheckPort), "/healthz")
+		RunHealthCheckServer(fmt.Sprintf("0.0.0.0:%d", config.HealthCheckPort), "/healthz")
+}
+
+func Run() {
+	config := &core.Config{}
+	if err := config.Init(context.Background()); err != nil {
+		slog.Error("failed to initialize config", "error", err)
+		os.Exit(1)
+	}
+	p := New(config)
 
 	err := p.Run(context.Background())
 	if err != nil {

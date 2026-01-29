@@ -1,15 +1,10 @@
-package d3
+package conformance_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 
@@ -19,61 +14,31 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	endpoint = "http://localhost:8080"
-)
-
 var objectMetadata = map[string]string{
 	"foo": "bar",
 }
 
 var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	var s3Client *s3.Client
-	bucketName := fmt.Sprintf("conformance-bucket-%d", time.Now().Unix())
+	var bucketName *string
+
+	var cancelApp context.CancelFunc
 
 	BeforeAll(func(ctx context.Context) {
-		cfg, err := config.LoadDefaultConfig(ctx,
-			config.WithRegion("local"),
-			config.WithBaseEndpoint(endpoint),
-			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("test", "test", "test")),
-		)
-		Expect(err).NotTo(HaveOccurred())
-
-		s3Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
-			o.UsePathStyle = true
-			o.RetryMaxAttempts = 1
-		})
-
-		_, err = s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
-			Bucket: aws.String(bucketName),
-		})
-		Expect(err).NotTo(HaveOccurred())
+		s3Client, bucketName, cancelApp = prepareConformanceTests(ctx)
 	})
 
 	AfterAll(func(ctx context.Context) {
-		objects := lo.Must(s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-			Bucket: aws.String(bucketName),
-		}))
-		lo.Must(s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-			Bucket: aws.String(bucketName),
-			Delete: &types.Delete{
-				Objects: lo.Map(objects.Contents, func(object types.Object, _ int) types.ObjectIdentifier {
-					return types.ObjectIdentifier{Key: object.Key}
-				}),
-			},
-		}))
+		cleanupS3(ctx, s3Client, bucketName)
 
-		_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
-			Bucket: aws.String(bucketName),
-		})
-		Expect(err).NotTo(HaveOccurred())
+		cancelApp()
 	})
 
 	Describe("CreateBucket", func() {
 		Context("when bucket already exists", func() {
 			It("should return error", func(ctx context.Context) {
 				_, err := s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
-					Bucket: aws.String(bucketName),
+					Bucket: bucketName,
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -86,7 +51,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			found := lo.ContainsBy(listBucketsOutput.Buckets, func(bucket types.Bucket) bool {
-				return *bucket.Name == bucketName
+				return *bucket.Name == *bucketName
 			})
 
 			Expect(found).To(BeTrue())
@@ -97,12 +62,12 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		It("should put object", func(ctx context.Context) {
 			content := "hello world"
 			_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
-				Bucket:      aws.String(bucketName),
-				Key:         aws.String("hello.txt"),
+				Bucket:      bucketName,
+				Key:         lo.ToPtr("hello.txt"),
 				Body:        strings.NewReader(content),
-				ContentType: aws.String("text/plain"),
+				ContentType: lo.ToPtr("text/plain"),
 				Metadata:    objectMetadata,
-				Tagging:     aws.String("bar=baz"),
+				Tagging:     lo.ToPtr("bar=baz"),
 			})
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -111,8 +76,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	Describe("ListObjectsV2", func() {
 		BeforeAll(func(ctx context.Context) {
 			lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String("dir/hello.txt"),
+				Bucket: bucketName,
+				Key:    lo.ToPtr("dir/hello.txt"),
 				Body:   strings.NewReader("hello world"),
 			}))
 		})
@@ -121,20 +86,20 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			Context("when there are objects matching the prefix", func() {
 				It("should list objects", func(ctx context.Context) {
 					listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-						Bucket: aws.String(bucketName),
-						Prefix: aws.String("h"),
+						Bucket: bucketName,
+						Prefix: lo.ToPtr("h"),
 					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listObjectsOutput.Contents).To(HaveLen(1))
-					Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("hello.txt")))
+					Expect(listObjectsOutput.Contents[0].Key).To(Equal(lo.ToPtr("hello.txt")))
 				})
 			})
 
 			Context("when there are no objects matching the prefix", func() {
 				It("should return an empty list", func(ctx context.Context) {
 					listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-						Bucket: aws.String(bucketName),
-						Prefix: aws.String("does-not-exist"),
+						Bucket: bucketName,
+						Prefix: lo.ToPtr("does-not-exist"),
 					})
 					Expect(err).NotTo(HaveOccurred())
 					Expect(listObjectsOutput.Contents).To(BeEmpty())
@@ -145,12 +110,12 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when prefix is not specified", func() {
 			It("should list objects", func(ctx context.Context) {
 				listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-					Bucket: aws.String(bucketName),
+					Bucket: bucketName,
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(listObjectsOutput.Contents).To(HaveLen(2))
-				Expect(listObjectsOutput.Contents[0].Key).To(Equal(aws.String("dir/hello.txt")))
-				Expect(listObjectsOutput.Contents[1].Key).To(Equal(aws.String("hello.txt")))
+				Expect(listObjectsOutput.Contents[0].Key).To(Equal(lo.ToPtr("dir/hello.txt")))
+				Expect(listObjectsOutput.Contents[1].Key).To(Equal(lo.ToPtr("hello.txt")))
 			})
 		})
 	})
@@ -160,8 +125,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			It("should head object", func(ctx context.Context) {
 				content := "hello world"
 				headObjectOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("hello.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(headObjectOutput.ContentLength).NotTo(BeNil())
@@ -175,8 +140,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when object does not exist", func() {
 			It("should return error", func(ctx context.Context) {
 				_, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("does-not-exist.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("does-not-exist.txt"),
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -187,8 +152,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when object exists", func() {
 			It("should get object tagging", func(ctx context.Context) {
 				output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("hello.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -199,8 +164,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when object does not exist", func() {
 			It("should return error", func(ctx context.Context) {
 				_, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("does-not-exist.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("does-not-exist.txt"),
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -212,8 +177,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			It("should get object and verify content matches", func(ctx context.Context) {
 				content := "hello world"
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("hello.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -231,8 +196,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when object does not exist", func() {
 			It("should return error", func(ctx context.Context) {
 				_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("does-not-exist.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("does-not-exist.txt"),
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -243,7 +208,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when bucket is not empty", func() {
 			It("should return error", func(ctx context.Context) {
 				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
-					Bucket: aws.String(bucketName),
+					Bucket: bucketName,
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -252,7 +217,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when bucket does not exist", func() {
 			It("should return error", func(ctx context.Context) {
 				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
-					Bucket: aws.String("does-not-exist"),
+					Bucket: lo.ToPtr("does-not-exist"),
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -263,14 +228,14 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when object exists", func() {
 			It("should delete object", func(ctx context.Context) {
 				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("hello.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
 				})
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err = s3Client.HeadObject(ctx, &s3.HeadObjectInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("hello.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -279,8 +244,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when object does not exist", func() {
 			It("should return error", func(ctx context.Context) {
 				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String("does-not-exist.txt"),
+					Bucket: bucketName,
+					Key:    lo.ToPtr("does-not-exist.txt"),
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -293,8 +258,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		BeforeEach(func(ctx context.Context) {
 			lo.ForEach(keys, func(key string, _ int) {
 				lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
-					Bucket: aws.String(bucketName),
-					Key:    aws.String(key),
+					Bucket: bucketName,
+					Key:    lo.ToPtr(key),
 					Body:   strings.NewReader("hello world"),
 				}))
 			})
@@ -303,10 +268,10 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		Context("when objects exist", func() {
 			It("should delete objects", func(ctx context.Context) {
 				_, err := s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-					Bucket: aws.String(bucketName),
+					Bucket: bucketName,
 					Delete: &types.Delete{
 						Objects: lo.Map(keys, func(key string, _ int) types.ObjectIdentifier {
-							return types.ObjectIdentifier{Key: aws.String(key)}
+							return types.ObjectIdentifier{Key: lo.ToPtr(key)}
 						}),
 					},
 				})
@@ -314,8 +279,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 
 				for _, key := range keys {
 					_, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
-						Bucket: aws.String(bucketName),
-						Key:    aws.String(key),
+						Bucket: bucketName,
+						Key:    lo.ToPtr(key),
 					})
 					Expect(err).To(HaveOccurred())
 				}

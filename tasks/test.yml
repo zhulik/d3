@@ -14,8 +14,4 @@ tasks:
 
   conformance:
     desc: Run conformance tests
-    cmd: ginkgo run --label-filter=conformance
-
-  conformance-full:
-    desc: Run server and conformance tests against it
-    cmd: ./tasks/conformance.sh
+    cmd: ginkgo run --label-filter=conformance ./...
