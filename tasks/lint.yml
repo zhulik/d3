@@ -14,6 +14,7 @@ tasks:
       - '**/*.go'
       - 'go.mod'
       - 'go.sum'
+      - '.golangci.yaml'
     cmd: golangci-lint run
 
   fix:
@@ -22,4 +23,5 @@ tasks:
       - '**/*.go'
       - 'go.mod'
       - 'go.sum'
+      - '.golangci.yaml'
     cmd: golangci-lint run --fix
