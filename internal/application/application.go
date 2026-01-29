@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"time"
@@ -46,7 +47,7 @@ func Run() {
 		HealthCheckTimeout(5*time.Second).
 		ShutdownTimeout(1*time.Minute).
 		InjectSlog().
-		RunHealthCheckServer("0.0.0.0:8081", "/healthz")
+		RunHealthCheckServer(fmt.Sprintf("0.0.0.0:%s", config.HealthCheckPort), "/healthz")
 
 	err := p.Run(context.Background())
 	if err != nil {

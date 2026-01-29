@@ -24,6 +24,8 @@ type Config struct {
 	Backend           BackendType `env:"BACKEND" envDefault:"folder"`
 	FolderBackendPath string      `env:"FOLDER_BACKEND_PATH" envDefault:"./d3_data"`
 	RedisAddress      string      `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
+	Port              string      `env:"PORT" envDefault:"8080"`
+	HealthCheckPort   string      `env:"HEALTH_CHECK_PORT" envDefault:"8081"`
 }
 
 func (c *Config) Init(_ context.Context) error {
