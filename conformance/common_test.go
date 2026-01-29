@@ -75,14 +75,16 @@ func cleanupS3(ctx context.Context, s3Client *s3.Client, bucketName *string) {
 	objects := lo.Must(s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: bucketName,
 	}))
-	lo.Must(s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-		Bucket: bucketName,
-		Delete: &types.Delete{
-			Objects: lo.Map(objects.Contents, func(object types.Object, _ int) types.ObjectIdentifier {
-				return types.ObjectIdentifier{Key: object.Key}
-			}),
-		},
-	}))
+	if len(objects.Contents) > 0 {
+		lo.Must(s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			Bucket: bucketName,
+			Delete: &types.Delete{
+				Objects: lo.Map(objects.Contents, func(object types.Object, _ int) types.ObjectIdentifier {
+					return types.ObjectIdentifier{Key: object.Key}
+				}),
+			},
+		}))
+	}
 
 	lo.Must(s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
 		Bucket: bucketName,

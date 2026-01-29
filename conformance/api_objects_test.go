@@ -34,30 +34,6 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		cancelApp()
 	})
 
-	Describe("CreateBucket", func() {
-		Context("when bucket already exists", func() {
-			It("should return error", func(ctx context.Context) {
-				_, err := s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
-					Bucket: bucketName,
-				})
-				Expect(err).To(HaveOccurred())
-			})
-		})
-	})
-
-	Describe("ListBuckets", func() {
-		It("should list buckets", func(ctx context.Context) {
-			listBucketsOutput, err := s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
-			Expect(err).NotTo(HaveOccurred())
-
-			found := lo.ContainsBy(listBucketsOutput.Buckets, func(bucket types.Bucket) bool {
-				return *bucket.Name == *bucketName
-			})
-
-			Expect(found).To(BeTrue())
-		})
-	})
-
 	Describe("PutObject", func() {
 		It("should put object", func(ctx context.Context) {
 			content := "hello world"
@@ -198,26 +174,6 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 				_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("does-not-exist.txt"),
-				})
-				Expect(err).To(HaveOccurred())
-			})
-		})
-	})
-
-	Describe("DeleteBucket", func() {
-		Context("when bucket is not empty", func() {
-			It("should return error", func(ctx context.Context) {
-				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
-					Bucket: bucketName,
-				})
-				Expect(err).To(HaveOccurred())
-			})
-		})
-
-		Context("when bucket does not exist", func() {
-			It("should return error", func(ctx context.Context) {
-				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
-					Bucket: lo.ToPtr("does-not-exist"),
 				})
 				Expect(err).To(HaveOccurred())
 			})

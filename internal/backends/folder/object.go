@@ -15,6 +15,7 @@ type Object struct {
 	io.ReadCloser
 
 	config       *config
+	bucket       string
 	path         string
 	blobPath     string
 	metadataPath string
@@ -33,6 +34,7 @@ func ObjectFromPath(cfg *config, bucket, key string) (*Object, error) {
 	return &Object{
 		config:       cfg,
 		path:         path,
+		bucket:       bucket,
 		blobPath:     filepath.Join(path, blobFilename),
 		metadataPath: filepath.Join(path, metadataYamlFilename),
 	}, nil
@@ -74,7 +76,9 @@ func (o *Object) Delete() error {
 	entries, readErr := os.ReadDir(parentDir)
 	if readErr == nil && len(entries) == 0 {
 		// we ignore the on purpose because there might be concurrent uploads to the same directory
-		os.Remove(parentDir) //nolint:errcheck
+		if parentDir != o.config.bucketPath(o.bucket) {
+			os.Remove(parentDir) //nolint:errcheck
+		}
 	}
 
 	return nil
