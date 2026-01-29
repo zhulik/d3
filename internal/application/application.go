@@ -29,6 +29,9 @@ func New(config *core.Config) *pal.Pal {
 
 		logger := slog.New(devslog.NewHandler(os.Stdout, opts))
 		slog.SetDefault(logger)
+	} else {
+		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+		slog.SetDefault(logger)
 	}
 
 	return pal.New(
