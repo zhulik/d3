@@ -1,0 +1,286 @@
+package sigv4
+
+import (
+	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/url"
+	"sort"
+	"strings"
+	"time"
+)
+
+var (
+	ErrMissingDateHeader      = errors.New("missing date header")
+	ErrInvalidDigest          = errors.New("invalid digest")
+	ErrExpiredPresignRequest  = errors.New("expired presign request")
+	ErrMalformedPresignedDate = errors.New("malformed presigned date")
+	ErrAccessDenied           = errors.New("access denied")
+	ErrSignatureDoesNotMatch  = errors.New("signature does not match")
+	ErrCredMalformed          = errors.New("credential malformed")
+	ErrRequestNotReadyYet     = errors.New("request not ready yet")
+	ErrInvalidAccessKeyID     = errors.New("invalid access key ID")
+)
+
+type CredentialStore interface {
+	Get(ctx context.Context, accessKey string) (string, error)
+}
+
+func Validate(ctx context.Context, r *http.Request, credentialStore CredentialStore) error {
+	// Support both header-based SigV4 and presigned URL SigV4.
+	hp, err := extractAuthHeaderParameters(r)
+	if err != nil {
+		return err
+	}
+
+	canURI := buildCanonicalURI(r)
+	canQuery := buildCanonicalQueryString(r)
+	canHeaders := buildCanonicalHeaders(hp.signedHeaders, r)
+
+	canReq := strings.Join([]string{
+		r.Method,
+		canURI,
+		canQuery,
+		canHeaders,
+		strings.ToLower(hp.signedHeaders),
+		hp.hashedPayload,
+	}, "\n")
+	hash := sha256.Sum256([]byte(canReq))
+	canReqHashHex := hex.EncodeToString(hash[:])
+
+	// Build StringToSign
+	scope := strings.Join([]string{hp.scopeDate, hp.scopeRegion, hp.scopeService, "aws4_request"}, "/")
+	sts := strings.Join([]string{
+		"AWS4-HMAC-SHA256",
+		hp.requestTime,
+		scope,
+		canReqHashHex,
+	}, "\n")
+
+	secretKey, err := credentialStore.Get(ctx, hp.accessKey)
+	if err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidAccessKeyID, err)
+	}
+
+	// Derive signing key and compute signature
+	kDate := hmacSHA256([]byte("AWS4"+secretKey), hp.scopeDate)
+	kRegion := hmacSHA256(kDate, hp.scopeRegion)
+	kService := hmacSHA256(kRegion, hp.scopeService)
+	kSigning := hmacSHA256(kService, "aws4_request")
+	sigBytes := hmacSHA256(kSigning, sts)
+	calcSig := hex.EncodeToString(sigBytes)
+
+	if !hmac.Equal([]byte(hp.signature), []byte(calcSig)) {
+		return ErrSignatureDoesNotMatch
+	}
+
+	return nil
+}
+
+// extractAuthHeaderParameters extracts parameters from either the Authorization header or X-Amz-* query params.
+func extractAuthHeaderParameters(r *http.Request) (*AuthHeaderParameters, error) {
+	headerParams := &AuthHeaderParameters{}
+	headerParams.hashedPayload = r.Header.Get("x-amz-content-sha256")
+	qs := r.URL.Query()
+
+	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "AWS4-HMAC-SHA256 ") {
+		headerParams.algo = "AWS4-HMAC-SHA256"
+		// Parse comma-separated k=v parts
+		parts := strings.Split(auth[len("AWS4-HMAC-SHA256 "):], ",")
+		for _, part := range parts {
+			kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
+			if len(kv) != 2 {
+				continue
+			}
+			key := kv[0]
+			val := strings.Trim(kv[1], " ")
+			switch key {
+			case "Credential":
+				credParts := strings.Split(val, "/")
+				if len(credParts) >= 5 {
+					headerParams.accessKey = credParts[0]
+					headerParams.scopeDate = credParts[1]
+					headerParams.scopeRegion = credParts[2]
+					headerParams.scopeService = credParts[3]
+				}
+			case "SignedHeaders":
+				headerParams.signedHeaders = val
+			case "Signature":
+				headerParams.signature = strings.ToLower(val)
+			}
+		}
+		headerParams.requestTime = r.Header.Get("x-amz-date")
+		if headerParams.requestTime == "" {
+			// fallback to Date header is not supported for SigV4 here
+			return nil, ErrMissingDateHeader
+		}
+		if headerParams.hashedPayload == "" {
+			return nil, ErrInvalidDigest
+		}
+	} else if qs.Get("X-Amz-Algorithm") == "AWS4-HMAC-SHA256" {
+		headerParams.algo = "AWS4-HMAC-SHA256"
+		headerParams.requestTime = qs.Get("X-Amz-Date")
+		headerParams.signedHeaders = qs.Get("X-Amz-SignedHeaders")
+		headerParams.signature = strings.ToLower(qs.Get("X-Amz-Signature"))
+		cred := qs.Get("X-Amz-Credential")
+		credParts := strings.Split(cred, "/")
+		if len(credParts) >= 5 {
+			headerParams.accessKey = credParts[0]
+			headerParams.scopeDate = credParts[1]
+			headerParams.scopeRegion = credParts[2]
+			headerParams.scopeService = credParts[3]
+		}
+		// For presigned GET, payload is usually UNSIGNED-PAYLOAD
+		if headerParams.hashedPayload == "" {
+			headerParams.hashedPayload = qs.Get("X-Amz-Content-Sha256")
+		}
+		if headerParams.hashedPayload == "" {
+			headerParams.hashedPayload = "UNSIGNED-PAYLOAD"
+		}
+		// Expires validation
+		if expStr := qs.Get("X-Amz-Expires"); expStr != "" {
+			// Parse requestTime then compare now <= reqTime + exp seconds
+			if tReq, err := time.Parse("20060102T150405Z", headerParams.requestTime); err == nil {
+				// Accept small clock skew of 5 minutes
+				maxT := tReq.Add(time.Duration(parseIntDefault(expStr, 0)) * time.Second).Add(5 * time.Minute)
+				if time.Now().UTC().After(maxT) {
+					return nil, ErrExpiredPresignRequest
+				}
+			} else {
+				return nil, ErrMalformedPresignedDate
+			}
+		}
+	} else {
+		return nil, ErrAccessDenied
+	}
+
+	if headerParams.hashedPayload == "" {
+		headerParams.hashedPayload = "UNSIGNED-PAYLOAD"
+	}
+
+	if err := headerParams.Validate(); err != nil {
+		return nil, err
+	}
+
+	return headerParams, nil
+}
+
+func buildCanonicalURI(r *http.Request) string {
+	canURI := r.URL.EscapedPath()
+	if canURI == "" {
+		canURI = "/"
+	}
+	return canURI
+}
+
+// buildCanonicalQueryString build canonical query params, for presign include all, otherwise include existing sorted
+func buildCanonicalQueryString(r *http.Request) string {
+	var canQuery string
+	{
+		// Copy query parameters, excluding X-Amz-Signature for presigned URLs
+		qp := url.Values{}
+		for k, vs := range r.URL.Query() {
+			// Exclude X-Amz-Signature as it's not part of the canonical request for presigned URLs
+			if k == "X-Amz-Signature" {
+				continue
+			}
+			for _, v := range vs {
+				qp.Add(k, v)
+			}
+		}
+		// AWS requires sorting by key and then by value
+		keys := make([]string, 0, len(qp))
+		for k := range qp {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		var parts []string
+		for _, k := range keys {
+			vals := qp[k]
+			sort.Strings(vals)
+			for _, v := range vals {
+				parts = append(parts, awsURLEncode(k, true)+"="+awsURLEncode(v, true))
+			}
+		}
+		canQuery = strings.Join(parts, "&")
+	}
+
+	return canQuery
+}
+
+func buildCanonicalHeaders(signedHeaders string, r *http.Request) string {
+	sh := strings.Split(signedHeaders, ";")
+	sort.Strings(sh)
+	var canonicalHeaders strings.Builder
+	for _, h := range sh {
+		name := strings.ToLower(strings.TrimSpace(h))
+		val := strings.TrimSpace(r.Header.Get(name))
+		if name == "host" && val == "" {
+			val = r.Host
+		}
+		val = collapseSpaces(val)
+		canonicalHeaders.WriteString(name)
+		canonicalHeaders.WriteString(":")
+		canonicalHeaders.WriteString(val)
+		canonicalHeaders.WriteString("\n")
+	}
+
+	return canonicalHeaders.String()
+}
+
+func hmacSHA256(key []byte, data string) []byte {
+	mac := hmac.New(sha256.New, key)
+	mac.Write([]byte(data))
+	return mac.Sum(nil)
+}
+
+func collapseSpaces(s string) string {
+	// Replace consecutive spaces and tabs with a single space
+	var b strings.Builder
+	lastSpace := false
+	for _, r := range s {
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			if !lastSpace {
+				b.WriteByte(' ')
+				lastSpace = true
+			}
+		} else {
+			b.WriteRune(r)
+			lastSpace = false
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
+
+// awsURLEncode encodes a string per AWS SigV4 rules (RFC3986),
+// optionally encoding '/' when encodeSlash is true.
+func awsURLEncode(s string, encodeSlash bool) string {
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		isUnreserved := (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~'
+		if isUnreserved || (!encodeSlash && c == '/') {
+			b.WriteByte(c)
+		} else {
+			// percent-encode
+			b.WriteString("%")
+			b.WriteString(strings.ToUpper(hex.EncodeToString([]byte{c})))
+		}
+	}
+	return b.String()
+}
+
+func parseIntDefault(s string, def int) int {
+	var n int
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return def
+		}
+		n = n*10 + int(s[i]-'0')
+	}
+	return n
+}
