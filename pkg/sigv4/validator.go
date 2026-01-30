@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+const (
+	AlgoHMAC256      = "AWS4-HMAC-SHA256"
+	ScopeAWS4Request = "aws4_request"
+)
+
 var (
 	ErrMissingDateHeader      = errors.New("missing date header")
 	ErrInvalidDigest          = errors.New("invalid digest")
@@ -31,7 +36,6 @@ type CredentialStore interface {
 }
 
 func Validate(ctx context.Context, r *http.Request, credentialStore CredentialStore) error {
-	// Support both header-based SigV4 and presigned URL SigV4.
 	hp, err := extractAuthHeaderParameters(r)
 	if err != nil {
 		return err
@@ -49,13 +53,13 @@ func Validate(ctx context.Context, r *http.Request, credentialStore CredentialSt
 		strings.ToLower(hp.signedHeaders),
 		hp.hashedPayload,
 	}, "\n")
+
 	hash := sha256.Sum256([]byte(canReq))
 	canReqHashHex := hex.EncodeToString(hash[:])
 
-	// Build StringToSign
-	scope := strings.Join([]string{hp.scopeDate, hp.scopeRegion, hp.scopeService, "aws4_request"}, "/")
+	scope := strings.Join([]string{hp.scopeDate, hp.scopeRegion, hp.scopeService, ScopeAWS4Request}, "/")
 	sts := strings.Join([]string{
-		"AWS4-HMAC-SHA256",
+		AlgoHMAC256,
 		hp.requestTime,
 		scope,
 		canReqHashHex,
@@ -66,11 +70,10 @@ func Validate(ctx context.Context, r *http.Request, credentialStore CredentialSt
 		return fmt.Errorf("%w: %w", ErrInvalidAccessKeyID, err)
 	}
 
-	// Derive signing key and compute signature
 	kDate := hmacSHA256([]byte("AWS4"+secretKey), hp.scopeDate)
 	kRegion := hmacSHA256(kDate, hp.scopeRegion)
 	kService := hmacSHA256(kRegion, hp.scopeService)
-	kSigning := hmacSHA256(kService, "aws4_request")
+	kSigning := hmacSHA256(kService, ScopeAWS4Request)
 	sigBytes := hmacSHA256(kSigning, sts)
 	calcSig := hex.EncodeToString(sigBytes)
 
@@ -81,91 +84,108 @@ func Validate(ctx context.Context, r *http.Request, credentialStore CredentialSt
 	return nil
 }
 
-// extractAuthHeaderParameters extracts parameters from either the Authorization header or X-Amz-* query params.
 func extractAuthHeaderParameters(r *http.Request) (*AuthHeaderParameters, error) {
-	headerParams := &AuthHeaderParameters{}
-	headerParams.hashedPayload = r.Header.Get("x-amz-content-sha256")
+	var headerParams *AuthHeaderParameters
 	qs := r.URL.Query()
+	var err error
 
 	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "AWS4-HMAC-SHA256 ") {
-		headerParams.algo = "AWS4-HMAC-SHA256"
-		// Parse comma-separated k=v parts
-		parts := strings.Split(auth[len("AWS4-HMAC-SHA256 "):], ",")
-		for _, part := range parts {
-			kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
-			if len(kv) != 2 {
-				continue
-			}
-			key := kv[0]
-			val := strings.Trim(kv[1], " ")
-			switch key {
-			case "Credential":
-				credParts := strings.Split(val, "/")
-				if len(credParts) >= 5 {
-					headerParams.accessKey = credParts[0]
-					headerParams.scopeDate = credParts[1]
-					headerParams.scopeRegion = credParts[2]
-					headerParams.scopeService = credParts[3]
-				}
-			case "SignedHeaders":
-				headerParams.signedHeaders = val
-			case "Signature":
-				headerParams.signature = strings.ToLower(val)
-			}
+		headerParams, err = extractAuthHeadersParamsFromAuthHeader(r)
+		if err != nil {
+			return nil, err
 		}
-		headerParams.requestTime = r.Header.Get("x-amz-date")
-		if headerParams.requestTime == "" {
-			// fallback to Date header is not supported for SigV4 here
-			return nil, ErrMissingDateHeader
-		}
-		if headerParams.hashedPayload == "" {
-			return nil, ErrInvalidDigest
-		}
-	} else if qs.Get("X-Amz-Algorithm") == "AWS4-HMAC-SHA256" {
-		headerParams.algo = "AWS4-HMAC-SHA256"
-		headerParams.requestTime = qs.Get("X-Amz-Date")
-		headerParams.signedHeaders = qs.Get("X-Amz-SignedHeaders")
-		headerParams.signature = strings.ToLower(qs.Get("X-Amz-Signature"))
-		cred := qs.Get("X-Amz-Credential")
-		credParts := strings.Split(cred, "/")
-		if len(credParts) >= 5 {
-			headerParams.accessKey = credParts[0]
-			headerParams.scopeDate = credParts[1]
-			headerParams.scopeRegion = credParts[2]
-			headerParams.scopeService = credParts[3]
-		}
-		// For presigned GET, payload is usually UNSIGNED-PAYLOAD
-		if headerParams.hashedPayload == "" {
-			headerParams.hashedPayload = qs.Get("X-Amz-Content-Sha256")
-		}
-		if headerParams.hashedPayload == "" {
-			headerParams.hashedPayload = "UNSIGNED-PAYLOAD"
-		}
-		// Expires validation
-		if expStr := qs.Get("X-Amz-Expires"); expStr != "" {
-			// Parse requestTime then compare now <= reqTime + exp seconds
-			if tReq, err := time.Parse("20060102T150405Z", headerParams.requestTime); err == nil {
-				// Accept small clock skew of 5 minutes
-				maxT := tReq.Add(time.Duration(parseIntDefault(expStr, 0)) * time.Second).Add(5 * time.Minute)
-				if time.Now().UTC().After(maxT) {
-					return nil, ErrExpiredPresignRequest
-				}
-			} else {
-				return nil, ErrMalformedPresignedDate
-			}
+	} else if qs.Get("X-Amz-Algorithm") == AlgoHMAC256 {
+		headerParams, err = extractAuthHeadersParamsFromSignedURL(r)
+		if err != nil {
+			return nil, err
 		}
 	} else {
 		return nil, ErrAccessDenied
-	}
-
-	if headerParams.hashedPayload == "" {
-		headerParams.hashedPayload = "UNSIGNED-PAYLOAD"
 	}
 
 	if err := headerParams.Validate(); err != nil {
 		return nil, err
 	}
 
+	return headerParams, nil
+}
+
+func extractAuthHeadersParamsFromAuthHeader(r *http.Request) (*AuthHeaderParameters, error) {
+	auth := r.Header.Get("Authorization")
+
+	headerParams := &AuthHeaderParameters{
+		algo:          AlgoHMAC256,
+		hashedPayload: r.Header.Get("x-amz-content-sha256"),
+		requestTime:   r.Header.Get("x-amz-date"),
+	}
+
+	if headerParams.requestTime == "" {
+		return nil, ErrMissingDateHeader
+	}
+	if headerParams.hashedPayload == "" {
+		return nil, ErrInvalidDigest
+	}
+
+	parts := strings.Split(auth[len("AWS4-HMAC-SHA256 "):], ",")
+	for _, part := range parts {
+		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key := kv[0]
+		val := strings.Trim(kv[1], " ")
+		switch key {
+		case "Credential":
+			credParts := strings.Split(val, "/")
+			if len(credParts) >= 5 {
+				headerParams.accessKey = credParts[0]
+				headerParams.scopeDate = credParts[1]
+				headerParams.scopeRegion = credParts[2]
+				headerParams.scopeService = credParts[3]
+			}
+		case "SignedHeaders":
+			headerParams.signedHeaders = val
+		case "Signature":
+			headerParams.signature = strings.ToLower(val)
+		}
+	}
+
+	return headerParams, nil
+}
+
+func extractAuthHeadersParamsFromSignedURL(r *http.Request) (*AuthHeaderParameters, error) {
+	qs := r.URL.Query()
+	headerParams := &AuthHeaderParameters{
+		algo:          AlgoHMAC256,
+		requestTime:   qs.Get("X-Amz-Date"),
+		signedHeaders: qs.Get("X-Amz-SignedHeaders"),
+		signature:     strings.ToLower(qs.Get("X-Amz-Signature")),
+		hashedPayload: qs.Get("X-Amz-Content-Sha256"),
+	}
+
+	if headerParams.hashedPayload == "" {
+		headerParams.hashedPayload = "UNSIGNED-PAYLOAD"
+	}
+
+	cred := qs.Get("X-Amz-Credential")
+	credParts := strings.Split(cred, "/")
+	if len(credParts) >= 5 {
+		headerParams.accessKey = credParts[0]
+		headerParams.scopeDate = credParts[1]
+		headerParams.scopeRegion = credParts[2]
+		headerParams.scopeService = credParts[3]
+	}
+
+	if expStr := qs.Get("X-Amz-Expires"); expStr != "" {
+		if tReq, err := time.Parse("20060102T150405Z", headerParams.requestTime); err == nil {
+			maxT := tReq.Add(time.Duration(parseIntDefault(expStr, 0)) * time.Second).Add(5 * time.Minute)
+			if time.Now().UTC().After(maxT) {
+				return nil, ErrExpiredPresignRequest
+			}
+		} else {
+			return nil, ErrMalformedPresignedDate
+		}
+	}
 	return headerParams, nil
 }
 
@@ -177,37 +197,32 @@ func buildCanonicalURI(r *http.Request) string {
 	return canURI
 }
 
-// buildCanonicalQueryString build canonical query params, for presign include all, otherwise include existing sorted
 func buildCanonicalQueryString(r *http.Request) string {
 	var canQuery string
-	{
-		// Copy query parameters, excluding X-Amz-Signature for presigned URLs
-		qp := url.Values{}
-		for k, vs := range r.URL.Query() {
-			// Exclude X-Amz-Signature as it's not part of the canonical request for presigned URLs
-			if k == "X-Amz-Signature" {
-				continue
-			}
-			for _, v := range vs {
-				qp.Add(k, v)
-			}
+	qp := url.Values{}
+	for k, vs := range r.URL.Query() {
+		if k == "X-Amz-Signature" {
+			continue
 		}
-		// AWS requires sorting by key and then by value
-		keys := make([]string, 0, len(qp))
-		for k := range qp {
-			keys = append(keys, k)
+		for _, v := range vs {
+			qp.Add(k, v)
 		}
-		sort.Strings(keys)
-		var parts []string
-		for _, k := range keys {
-			vals := qp[k]
-			sort.Strings(vals)
-			for _, v := range vals {
-				parts = append(parts, awsURLEncode(k, true)+"="+awsURLEncode(v, true))
-			}
-		}
-		canQuery = strings.Join(parts, "&")
 	}
+	var keys []string
+	for k := range qp {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+	var parts []string
+	for _, k := range keys {
+		vals := qp[k]
+		sort.Strings(vals)
+		for _, v := range vals {
+			parts = append(parts, awsURLEncode(k, true)+"="+awsURLEncode(v, true))
+		}
+	}
+	canQuery = strings.Join(parts, "&")
 
 	return canQuery
 }
@@ -239,7 +254,6 @@ func hmacSHA256(key []byte, data string) []byte {
 }
 
 func collapseSpaces(s string) string {
-	// Replace consecutive spaces and tabs with a single space
 	var b strings.Builder
 	lastSpace := false
 	for _, r := range s {
@@ -256,8 +270,6 @@ func collapseSpaces(s string) string {
 	return strings.TrimSpace(b.String())
 }
 
-// awsURLEncode encodes a string per AWS SigV4 rules (RFC3986),
-// optionally encoding '/' when encodeSlash is true.
 func awsURLEncode(s string, encodeSlash bool) string {
 	var b strings.Builder
 	for i := 0; i < len(s); i++ {
@@ -266,7 +278,6 @@ func awsURLEncode(s string, encodeSlash bool) string {
 		if isUnreserved || (!encodeSlash && c == '/') {
 			b.WriteByte(c)
 		} else {
-			// percent-encode
 			b.WriteString("%")
 			b.WriteString(strings.ToUpper(hex.EncodeToString([]byte{c})))
 		}

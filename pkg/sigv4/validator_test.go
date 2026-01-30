@@ -12,7 +12,7 @@ import (
 var _ = Describe("Validate", func() {
 	When("using a signed request", func() {
 		It("validates a valid request", func(ctx context.Context) {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/foo/bar?baz=qux", nil)
 			req.Header.Set("x-amz-content-sha256", "UNSIGNED-PAYLOAD")
 
 			signRequest(ctx, req)
@@ -24,7 +24,7 @@ var _ = Describe("Validate", func() {
 
 	When("using a presigned URL", func() {
 		It("validates a valid request", func(ctx context.Context) {
-			req := httptest.NewRequest("GET", "/", nil)
+			req := httptest.NewRequest("GET", "/foo/bar?baz=qux", nil)
 			url := preSignURL(ctx, req)
 
 			req = httptest.NewRequest("GET", url, nil)
