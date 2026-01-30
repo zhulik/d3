@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/xml"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -19,8 +18,6 @@ import (
 )
 
 type APIObjects struct {
-	Logger *slog.Logger
-
 	Backend core.Backend
 	Echo    *Echo
 }

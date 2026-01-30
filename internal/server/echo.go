@@ -25,9 +25,10 @@ func (e *Echo) Init(_ context.Context) error {
 	e.rootQueryRouter = ihttp.NewQueryParamsRouter()
 
 	e.Pre(middleware.RemoveTrailingSlash())
-	e.Use(apictx.ApiCtxMiddleware())
+	e.Use(apictx.Middleware())
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
+	e.Use(apictx.Middleware())
 
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
