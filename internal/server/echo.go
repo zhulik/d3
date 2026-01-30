@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
+	"github.com/zhulik/d3/internal/apictx"
 	"github.com/zhulik/d3/internal/backends/common"
 	ihttp "github.com/zhulik/d3/internal/http"
 )
@@ -24,6 +25,7 @@ func (e *Echo) Init(_ context.Context) error {
 	e.rootQueryRouter = ihttp.NewQueryParamsRouter()
 
 	e.Pre(middleware.RemoveTrailingSlash())
+	e.Use(apictx.ApiCtxMiddleware())
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
 

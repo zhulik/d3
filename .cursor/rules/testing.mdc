@@ -1,0 +1,184 @@
+---
+description: Testing patterns using Ginkgo/Gomega framework
+globs:
+  - "**/*_test.go"
+---
+
+# Testing Patterns
+
+This rule defines testing patterns and conventions using Ginkgo/Gomega framework.
+
+## Test Package Structure
+
+- Use `package conformance_test` for conformance test suites
+- Use `package <pkg>_test` when testing from external package perspective
+- Before adding tests to any package, run `ginkgo init` in the target directory to initialize suite.
+
+```go
+// ✅ Correct - suite test
+package package_test
+
+import (
+    . "github.com/onsi/ginkgo/v2"
+    . "github.com/onsi/gomega"
+)
+
+var _ = Describe("FooBar", func() {
+
+})
+```
+
+## Ginkgo/Gomega Usage
+
+- Use Ginkgo for test structure: `Describe`, `Context`, `When`, `It`, `BeforeEach`, `AfterEach`
+- Use Gomega matchers: `Expect(...).To(...)`, `Expect(...).NotTo(...)`
+- Import with dot notation: `. "github.com/onsi/ginkgo/v2"` and `. "github.com/onsi/gomega"`
+- `Describe` should be used to group `Context` and `When`,
+- Never put `It` directory into `Describe`, always wrap `It` with `Context` or `When`
+- `Context` and `When` should be used to group other `Context` and `When` as well as `It`.
+- Never mix `Context` or `When` in a single group with `It`
+- Prefer `When` over `Context`
+- Don't use "should" in `It` descriptions, use a verb instead.
+
+```go
+// ✅ Correct
+var _ = Describe("Object Operations", func() {
+    When("object exists", func() {
+        It("returns object metadata", func() {
+            result, err := backend.HeadObject(ctx, bucket, key)
+            Expect(err).NotTo(HaveOccurred())
+            Expect(result).NotTo(BeNil())
+        })
+    })
+})
+```
+
+```go
+// ❌ Wrong
+var _ = Describe("Object Operations", func() {
+    Context("when object exists", func() { // Use `When` here
+        It("should return object metadata", func() { // Don't use should
+            result, err := backend.HeadObject(ctx, bucket, key)
+            Expect(err).NotTo(HaveOccurred())
+            Expect(result).NotTo(BeNil())
+        })
+    })
+})
+```
+
+```go
+// ❌ Wrong
+var _ = Describe("Object Operations", func() {
+    When("object exists", func() { // Use `When` here
+        It("returns object metadata", func() { // Don't use should
+            result, err := backend.HeadObject(ctx, bucket, key)
+            Expect(err).NotTo(HaveOccurred())
+            Expect(result).NotTo(BeNil())
+        })
+    })
+
+    It("does something", func() { // Don't mix `It` and `When` in the same group, don't put `It` to `Describe`
+        result, err := backend.HeadObject(ctx, bucket, key)
+        Expect(err).NotTo(HaveOccurred())
+        Expect(result).NotTo(BeNil())
+    })
+})
+```
+
+## Test Setup and Cleanup
+
+- Use `lo.Must()` and `lo.Must0()` in test setup for fail-fast behavior
+- Cleanup resources in `AfterEach` or `DeferCleanup`
+- Use `prepareConformanceTests()` helper for conformance test setup
+- In ordered tests you can use `BeforeAll` and `AfterAll` for Setup and Clean actions that needs to be executed once per group.
+
+```go
+// ✅ Correct
+func prepareConformanceTests(ctx context.Context) (*s3.Client, *string, context.CancelFunc) {
+    port, cancelApp := runApp(context.Background())
+    time.Sleep(100 * time.Millisecond)
+
+    s3Client, bucketName := prepareS3(ctx, port)
+
+    return s3Client, bucketName, cancelApp
+}
+
+// ✅ Correct - using lo.Must for fail-fast
+cfg := lo.Must(config.LoadDefaultConfig(ctx,
+    config.WithBaseEndpoint(fmt.Sprintf("http://localhost:%d", port)),
+    config.WithRegion("local"),
+    config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("test", "test", "test")),
+))
+
+s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+    o.UsePathStyle = true
+    o.RetryMaxAttempts = 1
+})
+
+lo.Must(s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
+    Bucket: bucketName,
+}))
+```
+
+## Contexts in tests
+- Neven use manually created contexts in tests like `context.Background` unless it's unavoidable.
+- `It`, `Before*` and `After*` nodes can receive context: `It("does something", func(ctx context.Context){})`, define callbacks with `ctx` in the arguments when test requires a context.
+
+
+// ✅ Correct - use Ginkgo-provided context
+```go
+It("does something", func(ctx context.Context){
+    err := Something(ctx)
+    Expect(err).NotTo(HaveOccurred())
+})
+```
+
+// ❌ Wrong - creating context manually.
+```go
+It("does something", func(){
+    err := Something(context.Background)
+    Expect(err).NotTo(HaveOccurred())
+})
+```
+
+## Test Helpers
+
+- Create helper functions for common test setup patterns, put them into `common_test.go` files
+- Use context for test lifecycle management
+- Cleanup resources properly in helper functions
+
+```go
+// ✅ Correct
+func cleanupS3(ctx context.Context, s3Client *s3.Client, bucketName *string) {
+    objects := lo.Must(s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+        Bucket: bucketName,
+    }))
+    if len(objects.Contents) > 0 {
+        lo.Must(s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+            Bucket: bucketName,
+            Delete: &types.Delete{
+                Objects: lo.Map(objects.Contents, func(object types.Object, _ int) types.ObjectIdentifier {
+                    return types.ObjectIdentifier{Key: object.Key}
+                }),
+            },
+        }))
+    }
+
+    lo.Must(s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
+        Bucket: bucketName,
+    }))
+}
+```
+
+## Running Tests
+
+Use Taskfile.yml commands:
+
+- `task test` - Run unit tests (excludes conformance)
+- `task test:conformance` - Run conformance tests
+- `task` (default) - Run lint, unit tests, and conformance tests
+
+## References
+
+- See `conformance/api_objects_test.go` and `conformance/api_buckets_test.go` for test examples
+- See `tasks/test.yml` for test command configuration

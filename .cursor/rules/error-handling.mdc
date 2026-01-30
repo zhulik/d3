@@ -1,0 +1,156 @@
+---
+description: Error handling conventions and error-to-HTTP conversion patterns
+alwaysApply: true
+---
+
+# Error Handling
+
+This rule defines error handling conventions and patterns for the d3 project.
+
+## Sentinel Errors
+
+- Define sentinel errors as package-level variables: `var ErrSomething = errors.New("something")`
+- Place common errors in `internal/backends/common` package
+- Use descriptive, consistent error messages
+
+```go
+// ✅ Correct - in backends/common/errors.go
+var (
+    ErrBucketAlreadyExists = errors.New("bucket already exists")
+    ErrBucketNotFound      = errors.New("bucket not found")
+    ErrBucketNotEmpty      = errors.New("bucket is not empty")
+
+    ErrObjectNotFound         = errors.New("object not found")
+    ErrObjectAlreadyExists    = errors.New("object already exists")
+    ErrObjectChecksumMismatch = errors.New("object checksum mismatch")
+)
+
+// ❌ Wrong - inline error creation
+return errors.New("bucket not found")
+```
+
+## Error Wrapping
+
+- Prefer to wrap errors with context using `fmt.Errorf` and `%w` verb, but keep it balanced, somethings it's simpler to just return `err` it's alreadyy wrapped somewhere in the same package.
+- Preserve the error chain for proper error checking
+- Add contextual information when wrapping
+
+```go
+// ✅ Correct
+if errors.Is(err, os.ErrNotExist) {
+    return nil, fmt.Errorf("%w: bucket %s does not exist: %w", common.ErrBucketNotFound, bucket, err)
+}
+
+// ✅ Correct - wrapping with additional context
+if input.Metadata.SHA256 != sha256sum {
+    return fmt.Errorf("%w: %s != %s", common.ErrObjectChecksumMismatch, input.Metadata.SHA256, sha256sum)
+}
+
+// ❌ Wrong - losing error chain
+if err != nil {
+    return fmt.Errorf("bucket not found: %v", err)
+}
+```
+
+## Error Checking
+
+- Use `errors.Is()` for error checking, not direct comparison
+- Check for underlying errors in the error chain
+
+```go
+// ✅ Correct
+if errors.Is(err, common.ErrObjectNotFound) {
+    return nil, err
+}
+
+if errors.Is(err, os.ErrNotExist) {
+    return nil, common.ErrBucketNotFound
+}
+
+// ❌ Wrong - direct comparison loses error chain
+if err == common.ErrObjectNotFound {
+    return nil, err
+}
+```
+
+## HTTP Error Conversion
+
+- HTTP error conversion happens in middleware (`internal/server/echo.go`)
+- Map backend errors to appropriate HTTP status codes:
+  - `ErrBucketNotFound` / `ErrObjectNotFound` → 404 Not Found
+  - `ErrBucketAlreadyExists` / `ErrObjectAlreadyExists` → 409 Conflict
+  - `ErrBucketNotEmpty` → 400 Bad Request
+  - `ErrObjectChecksumMismatch` → 400 Bad Request
+- Return errors directly from handlers - middleware handles conversion
+
+```go
+// ✅ Correct - middleware in echo.go
+e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+    return func(c *echo.Context) error {
+        err := next(c)
+        switch {
+        case errors.Is(err, common.ErrBucketNotFound):
+            return echo.NewHTTPError(http.StatusNotFound, err.Error())
+        case errors.Is(err, common.ErrObjectNotFound):
+            return echo.NewHTTPError(http.StatusNotFound, err.Error())
+        case errors.Is(err, common.ErrBucketAlreadyExists) || errors.Is(err, common.ErrObjectAlreadyExists):
+            return echo.NewHTTPError(http.StatusConflict, err.Error())
+        case errors.Is(err, common.ErrBucketNotEmpty):
+            return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+        case err == nil:
+            return nil
+        default:
+            return err
+        }
+    }
+})
+
+// ✅ Correct - handler returns error directly
+func (a APIObjects) HeadObject(c *echo.Context) error {
+    result, err := a.Backend.HeadObject(c.Request().Context(), bucket, key)
+    if err != nil {
+        return err  // Middleware converts to HTTP error
+    }
+    return c.NoContent(http.StatusOK)
+}
+```
+
+## Error Handling in Loops
+
+- Check `ctx.Err()` in loops for cancellation
+- Handle errors appropriately in batch operations
+
+```go
+// ✅ Correct
+for _, key := range keys {
+    if ctx.Err() != nil {
+        return nil, ctx.Err()
+    }
+    object, err := b.getObject(bucket, key)
+    if err != nil {
+        results = append(results, core.DeleteResult{Key: key, Error: err})
+        continue
+    }
+    // ...
+}
+```
+
+## Never Return Unhandled Errors
+
+- Always handle or return errors from handlers
+- Use `//nolint:errcheck` only for cleanup operations where errors are non-critical
+
+```go
+// ✅ Correct - error handled
+defer uploadFile.Close() //nolint:errcheck
+
+// ❌ Wrong - unhandled error
+defer uploadFile.Close()
+```
+
+## References
+
+- See `internal/backends/common/errors.go` for sentinel error definitions
+- See `internal/server/echo.go` for HTTP error conversion middleware
+- See `internal/backends/folder/backend_objects.go` for error wrapping examples
+- See `internal/server/api_objects.go` for handler error handling

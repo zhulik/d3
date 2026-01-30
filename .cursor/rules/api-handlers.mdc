@@ -1,0 +1,146 @@
+---
+description: Echo HTTP handler patterns and conventions
+globs:
+  - "internal/server/**/*.go"
+---
+
+# API Handler Patterns
+
+This rule defines patterns for Echo HTTP handlers in the d3 project.
+
+## Handler Signature
+
+- Echo handlers: `func (a APIService) HandlerName(c *echo.Context) error`
+- Always return errors directly - middleware converts to HTTP errors
+- Use `c.Request().Context()` for backend calls
+
+```go
+// ✅ Correct
+func (a APIObjects) HeadObject(c *echo.Context) error {
+    bucket := c.Param("bucket")
+    key := c.Param("*")
+
+    result, err := a.Backend.HeadObject(c.Request().Context(), bucket, key)
+    if err != nil {
+        return err
+    }
+
+    setObjectHeaders(c, result)
+    return c.NoContent(http.StatusOK)
+}
+
+// ❌ Wrong - not extracting context
+func (a APIObjects) HeadObject(c *echo.Context) error {
+    result, err := a.Backend.HeadObject(context.Background(), bucket, key)
+    // ...
+}
+```
+
+## Parameter Extraction
+
+- Extract path parameters: `bucket := c.Param("bucket")`, `key := c.Param("*")`
+- Extract query parameters: `prefix := c.QueryParam("prefix")`
+- Parse request headers: `c.Request().Header.Get("Content-Type")`
+
+```go
+// ✅ Correct
+func (a APIObjects) ListObjectsV2(c *echo.Context) error {
+    bucket := c.Param("bucket")
+    prefix := c.QueryParam("prefix")
+    maxKeys := c.QueryParam("max-keys")
+    // ...
+}
+```
+
+## Query Parameter Routing
+
+- Use `ihttp.NewQueryParamsRouter()` for query-parameter-based routing
+- Set fallback handler with `SetFallbackHandler()`
+- Add routes with `AddRoute(queryParam, handler)`
+
+```go
+// ✅ Correct
+objects.PUT("", ihttp.NewQueryParamsRouter().
+    SetFallbackHandler(a.PutObject).
+    AddRoute("uploadId", a.UploadPart).
+    Handle)
+
+objects.GET("",
+    ihttp.NewQueryParamsRouter().
+        SetFallbackHandler(a.GetObject).
+        AddRoute("tagging", a.GetObjectTagging).
+        Handle,
+)
+```
+
+## Response Handling
+
+- Use `c.NoContent(http.StatusOK)` for empty responses
+- Use `c.XML(http.StatusOK, data)` for XML responses
+- Use `c.Stream(http.StatusOK, contentType, reader)` for streaming responses
+- Use `ihttp.SetHeaders()` for setting response headers
+
+```go
+// ✅ Correct
+return c.NoContent(http.StatusOK)
+
+// ✅ Correct
+return c.XML(http.StatusOK, tagging)
+
+// ✅ Correct
+defer contents.Reader.Close() //nolint:errcheck
+setObjectHeaders(c, contents.Metadata)
+return c.Stream(http.StatusOK, contents.Metadata.ContentType, contents.Reader)
+```
+
+## Error Handling
+
+- Return errors directly from handlers - middleware converts to HTTP status codes
+- Use `echo.NewHTTPError()` for explicit HTTP errors with custom messages
+- Never return unhandled errors from handlers
+
+```go
+// ✅ Correct - return error, middleware handles conversion
+result, err := a.Backend.HeadObject(c.Request().Context(), bucket, key)
+if err != nil {
+    return err
+}
+
+// ✅ Correct - explicit HTTP error for validation
+if maxKeys != "" {
+    maxKeysInt, err = strconv.Atoi(maxKeys)
+    if err != nil {
+        return echo.NewHTTPError(http.StatusBadRequest, "invalid max-keys")
+    }
+}
+```
+
+## Route Registration
+
+- Register routes in `Init()` method
+- Use `a.Echo.Group("/:bucket/*")` for route groups
+- Use `a.Echo.AddQueryParamRoute()` for query parameter routes at root level
+
+```go
+// ✅ Correct
+func (a APIObjects) Init(_ context.Context) error {
+    a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2)
+    a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2)
+
+    objects := a.Echo.Group("/:bucket/*")
+    objects.HEAD("", a.HeadObject)
+    objects.PUT("", ihttp.NewQueryParamsRouter().
+        SetFallbackHandler(a.PutObject).
+        AddRoute("uploadId", a.UploadPart).
+        Handle)
+
+    return nil
+}
+```
+
+## References
+
+- See `internal/server/api_objects.go` for complete handler examples
+- See `internal/server/api_buckets.go` for bucket handler examples
+- See `internal/server/echo.go` for error handling middleware
+- See `internal/http/query_params_router.go` for query parameter routing

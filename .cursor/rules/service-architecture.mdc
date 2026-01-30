@@ -1,0 +1,130 @@
+---
+description: Service architecture and dependency injection patterns using pal framework
+alwaysApply: true
+---
+
+# Service Architecture
+
+This rule defines the service architecture and dependency injection patterns using the `pal` framework. Pal
+manages dependency lifecycle and maintains initialization order, so no need to use constructor functions.
+
+## Service Lifecycle
+
+Services implement lifecycle methods:
+
+- **`Init(ctx context.Context) error`** - Optional, for initialization (setup routes, config, etc.), some components do not need it.
+- **`Run(ctx context.Context) error`** - Optional, for long-running services
+- **`Shutdown(ctx context.Context) error`** - Optional, for cleanup operations
+
+```go
+// ✅ Correct
+type APIObjects struct {
+    Logger *slog.Logger
+    Backend core.Backend
+    Echo    *Echo
+}
+
+func (a APIObjects) Init(_ context.Context) error {
+    a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2)
+    // ... setup routes
+    return nil
+}
+
+// ❌ Wrong - constructor function
+type APIObjects struct {
+    Logger *slog.Logger
+}
+
+func NewApiObjects() *APIObjects {
+
+}
+```
+
+## Service Registration
+
+- Create a `Provide()` function in each service package returning `pal.ServiceDef`
+- Use `pal.Provide()` to register individual services
+- Use `pal.ProvideList()` when providing multiple services from one package
+- Services receive dependencies via struct fields, injected by `pal`
+
+```go
+// ✅ Correct - single service
+func Provide() pal.ServiceDef {
+    return pal.Provide(&Locker{})
+}
+
+// ✅ Correct - multiple services
+func Provide() pal.ServiceDef {
+    return pal.ProvideList(
+        pal.Provide(&Server{}),
+        pal.Provide(&APIObjects{}),
+        pal.Provide(&APIBuckets{}),
+        pal.Provide(&Echo{}),
+    )
+}
+
+// ✅ Correct - typed service registration
+func Provide() pal.ServiceDef {
+    return pal.ProvideList(
+        pal.Provide[core.Backend](&Backend{}),
+        pal.Provide(&BackendObjects{}),
+        pal.Provide(&BackendBuckets{}),
+    )
+}
+```
+
+## Dependency Injection
+
+- Dependencies are injected via struct fields
+- Use pointer receivers for services that need to modify state
+- Use value receivers for stateless services
+
+```go
+// ✅ Correct - dependencies injected via struct fields
+type BackendObjects struct {
+    Cfg *core.Config
+    Locker *locker.Locker
+    config *config
+}
+
+func (b *BackendObjects) Init(_ context.Context) error {
+    b.config = &config{b.Cfg}
+    return nil
+}
+```
+
+## Application Setup
+
+- Use `pal.New()` to create application with service providers
+- Chain configuration methods: `InitTimeout()`, `ShutdownTimeout()`, `InjectSlog()`, etc.
+- Call `p.Run(context.Background())` to start the application
+
+```go
+// ✅ Correct
+return pal.New(
+    server.Provide(),
+    backends.Provide(config),
+    pal.Provide(config),
+    locker.Provide(),
+).
+    InitTimeout(1*time.Minute).
+    HealthCheckTimeout(5*time.Second).
+    ShutdownTimeout(1*time.Minute).
+    InjectSlog().
+    RunHealthCheckServer(fmt.Sprintf("0.0.0.0:%d", config.HealthCheckPort), "/healthz")
+```
+
+## Identifying services
+A piece of code should be defined as a service if:
+- It dependes on other services
+- It is stateless or it's safe is thread-safe
+- It has a lifecycle - it shuld be initialized or shut down
+- It is a runner - it should persistently run some code in the background, eg an http server.
+
+
+## References
+
+- See `internal/server/services.go` for service registration examples
+- See `internal/backends/folder/services.go` for typed service registration
+- See `internal/application/application.go` for application setup
+- See `internal/server/api_objects.go` for service initialization example

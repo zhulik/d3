@@ -1,0 +1,169 @@
+---
+description: Core Go coding standards and conventions for the d3 project
+alwaysApply: true
+---
+
+# Go Coding Standards
+
+This rule enforces core Go coding standards and conventions used throughout the d3 project.
+
+## Context Parameter
+
+- **Always** pass `context.Context` as the first parameter in all functions that may potentially involve IO or start any background tasks.
+- Use `c.Request().Context()` in Echo handlers to extract context from requests
+
+```go
+// ✅ Correct
+func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error
+
+// ❌ Wrong
+func (b *BackendObjects) PutObject(bucket, key string, input core.PutObjectInput) error
+```
+
+## Error Handling
+
+- **Always** wrap errors with `fmt.Errorf` and the `%w` verb to preserve error chain
+- Use sentinel errors from `backends/common` package: `ErrBucketNotFound`, `ErrObjectNotFound`, `ErrBucketAlreadyExists`, etc.
+- Use `errors.Is()` for error checking, not direct comparison
+
+```go
+// ✅ Correct
+if errors.Is(err, common.ErrObjectNotFound) {
+    return fmt.Errorf("%w: failed to get object %s: %w", common.ErrObjectNotFound, key, err)
+}
+
+// ❌ Wrong
+if err == common.ErrObjectNotFound {
+    return err
+}
+```
+
+## Logging
+
+- Use structured logging with `slog` package (not `log` or `fmt.Print`)
+- Use `slog.Default()` or inject logger via dependency injection
+- Include context in log messages with key-value pairs
+- When logging from a pal managed component, add logger to the struct first and use the injected logger instead of the default one
+
+
+```go
+// ✅ Correct
+
+type Component struct {
+    Logger *slog.Logger
+}
+
+func (c Component) SomeFunction() {
+    c.Logger.Error("failed to initialize config", "error", err)
+    c.Logger.Info("starting server", "port", port)
+}
+
+// ❌ Wrong
+log.Printf("failed to initialize config: %v", err)
+fmt.Println("starting server")
+slog.Info("some log")
+```
+
+## Resource Cleanup
+
+- Use `defer` for resource cleanup (file handles, locks, temp directories)
+- Use `//nolint:errcheck` comment for cleanup operations where errors are non-critical
+
+```go
+// ✅ Correct
+defer uploadFile.Close() //nolint:errcheck
+defer os.RemoveAll(uploadPath) //nolint:errcheck
+
+// ✅ Correct - always defer cancel() after acquiring locks
+ctx, cancel, err := b.Locker.Lock(ctx, path)
+if err != nil {
+    return err
+}
+defer cancel()
+```
+
+## File Path Operations
+
+- Use `filepath` package for all path operations (never string concatenation)
+- Normalize S3 keys to forward slashes: `key = filepath.ToSlash(key)` after `filepath.Rel()`
+- Use `filepath.Join()` for constructing paths
+
+```go
+// ✅ Correct
+path := filepath.Join(uploadPath, blobFilename)
+key, err := filepath.Rel(bucketPath, path)
+if err != nil {
+    return err
+}
+key = filepath.ToSlash(key) // Normalize to forward slashes for S3 keys
+
+// ❌ Wrong
+path := uploadPath + "/" + blobFilename
+key := strings.Replace(path, "\\", "/", -1)
+```
+
+## Using lo helpers
+- **Always** prefer collection helpers functions from `github.com/samber/lo` over plain `for` loops
+- Same applied to filtering, filter mapping and so on.
+- Use for loops only if you want to return from the loop body.
+- Do not call `panic` directly, use `lo.Must` or `lo.Must{0-9}` instead.
+
+
+```go
+// ✅ Correct
+var slice = []int{1,2,3}
+
+doubled := lo.Map(slice, func(int n, _int) int {
+    return n * 2
+})
+
+// ❌ Wrong
+var slice = []int{1,2,3}
+var doubled = []int{}
+for _, n := range(slice) {
+  doubled = apped(doubled, n*2)
+}
+
+// ✅ Correct
+val := lo.Must(SomeFunction())
+
+// ❌ Wrong
+val, err := SomeFunction()
+if err != nil {
+    panic(err)
+}
+```
+
+## Using generics
+- **Always** `any` instead of `interface{}`
+- Prefer using generics over `any` arguments and return values, use any only if gives the smoothest dev experience
+
+```go
+// ✅ Correct
+type SomeService struct {}
+
+func DoSomething[I any, O any](ctx context.Context, serv *SomeService, argument T) (O, error) {}
+
+// ❌ Wrong
+type SomeService struct {}
+
+func (s *SomeService) DoSomething(ctx context.Context, serv *SomeService, argument any) (any, error) {}
+```
+
+## Development Commands
+
+Use Taskfile.yml commands for development:
+
+- `task lint` - Run golangci-lint
+- `task lint:fix` - Run golangci-lint with --fix
+- `task test` - Run unit tests
+- `task test:conformance` - Run conformance tests
+- `task` (default) - Run all checks (lint + tests)
+- `task build` - Build the application
+- `task run` - Run with hot reload (air)
+
+## References
+
+- See `internal/backends/folder/backend_objects.go` for examples of context usage, error wrapping, and file operations
+- See `internal/server/echo.go` for error handling middleware
+- See `internal/backends/common/errors.go` for sentinel error definitions

@@ -36,7 +36,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("PutObject", func() {
-		It("should put object", func(ctx context.Context) {
+		It("creats an object", func(ctx context.Context) {
 			content := "hello world"
 			_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 				Bucket:      bucketName,
@@ -59,9 +59,9 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			}))
 		})
 
-		Context("when prefix is specified", func() {
-			Context("when there are objects matching the prefix", func() {
-				It("should list objects", func(ctx context.Context) {
+		When("prefix is specified", func() {
+			When("there are objects matching the prefix", func() {
+				It("lists objects", func(ctx context.Context) {
 					listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 						Bucket: bucketName,
 						Prefix: lo.ToPtr("h"),
@@ -72,8 +72,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 				})
 			})
 
-			Context("when there are no objects matching the prefix", func() {
-				It("should return an empty list", func(ctx context.Context) {
+			When("there are no objects matching the prefix", func() {
+				It("returnsan empty list", func(ctx context.Context) {
 					listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 						Bucket: bucketName,
 						Prefix: lo.ToPtr("does-not-exist"),
@@ -83,8 +83,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 				})
 			})
 
-			Context("when listing non-existent bucket", func() {
-				It("should return error", func(ctx context.Context) {
+			When("listing non-existent bucket", func() {
+				It("returnserror", func(ctx context.Context) {
 					_, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 						Bucket: lo.ToPtr("does-not-exist"),
 					})
@@ -93,8 +93,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			})
 		})
 
-		Context("when prefix is not specified", func() {
-			It("should list objects", func(ctx context.Context) {
+		When("prefix is not specified", func() {
+			It("lists all objects", func(ctx context.Context) {
 				listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 					Bucket: bucketName,
 				})
@@ -107,8 +107,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("HeadObject", func() {
-		Context("when object exists", func() {
-			It("should head object", func(ctx context.Context) {
+		When("object exists", func() {
+			It("returns object metadata", func(ctx context.Context) {
 				content := "hello world"
 				headObjectOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
 					Bucket: bucketName,
@@ -123,8 +123,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			})
 		})
 
-		Context("when object does not exist", func() {
-			It("should return error", func(ctx context.Context) {
+		When("object does not exist", func() {
+			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("does-not-exist.txt"),
@@ -135,8 +135,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("GetObjectTagging", func() {
-		Context("when object exists", func() {
-			It("should get object tagging", func(ctx context.Context) {
+		When("object exists", func() {
+			It("returns object tagging", func(ctx context.Context) {
 				output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("hello.txt"),
@@ -147,8 +147,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			})
 		})
 
-		Context("when object does not exist", func() {
-			It("should return error", func(ctx context.Context) {
+		When("object does not exist", func() {
+			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("does-not-exist.txt"),
@@ -159,8 +159,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("GetObject", func() {
-		Context("when object exists", func() {
-			It("should get object and verify content matches", func(ctx context.Context) {
+		When("object exists", func() {
+			It("returns object and verifies content matches", func(ctx context.Context) {
 				content := "hello world"
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: bucketName,
@@ -179,8 +179,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			})
 		})
 
-		Context("when object does not exist", func() {
-			It("should return error", func(ctx context.Context) {
+		When("object does not exist", func() {
+			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("does-not-exist.txt"),
@@ -191,8 +191,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 	})
 
 	Describe("DeleteObject", func() {
-		Context("when object exists", func() {
-			It("should delete object", func(ctx context.Context) {
+		When("object exists", func() {
+			It("deletes object", func(ctx context.Context) {
 				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("hello.txt"),
@@ -207,8 +207,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			})
 		})
 
-		Context("when object does not exist", func() {
-			It("should return error", func(ctx context.Context) {
+		When("object does not exist", func() {
+			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("does-not-exist.txt"),
@@ -231,8 +231,8 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 			})
 		})
 
-		Context("when objects exist", func() {
-			It("should delete objects", func(ctx context.Context) {
+		When("objects exist", func() {
+			It("deletes objects", func(ctx context.Context) {
 				_, err := s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 					Bucket: bucketName,
 					Delete: &types.Delete{
@@ -258,7 +258,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		var uploadID *string
 
 		Describe("CreateMultipartUpload", func() {
-			It("should create multipart upload", func(ctx context.Context) {
+			It("creates multipart upload", func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("hello.txt"),
@@ -271,7 +271,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 
 		Describe("UploadPart", func() {
 			for i := 1; i <= 10; i++ {
-				It(fmt.Sprintf("should upload part %d", i), func(ctx context.Context) {
+				It(fmt.Sprintf("uploads part %d", i), func(ctx context.Context) {
 					_, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
 						Bucket:     bucketName,
 						Key:        lo.ToPtr("hello.txt"),
@@ -285,7 +285,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		})
 
 		Describe("CompleteMultipartUpload", func() {
-			It("should complete multipart upload", func(ctx context.Context) {
+			It("completes multipart upload", func(ctx context.Context) {
 				_, err := s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 					Bucket:   bucketName,
 					Key:      lo.ToPtr("hello.txt"),
@@ -311,7 +311,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		})
 
 		Describe("GetObject", func() {
-			It("should get object", func(ctx context.Context) {
+			It("returns object", func(ctx context.Context) {
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("hello.txt"),
@@ -331,7 +331,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		var uploadID *string
 
 		Describe("CreateMultipartUpload", func() {
-			It("should create multipart upload", func(ctx context.Context) {
+			It("creates multipart upload", func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 					Bucket: bucketName,
 					Key:    lo.ToPtr("hello.txt"),
@@ -343,7 +343,7 @@ var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
 		})
 
 		Describe("AbortMultipartUpload", func() {
-			It("should abort multipart upload", func(ctx context.Context) {
+			It("aborts multipart upload", func(ctx context.Context) {
 				_, err := s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 					Bucket:   bucketName,
 					Key:      lo.ToPtr("hello.txt"),

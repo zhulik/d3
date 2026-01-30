@@ -29,8 +29,8 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 	})
 
 	Describe("CreateBucket", func() {
-		Context("when bucket already exists", func() {
-			It("should return error", func(ctx context.Context) {
+		When("bucket already exists", func() {
+			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
 					Bucket: bucketName,
 				})
@@ -40,7 +40,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 	})
 
 	Describe("ListBuckets", func() {
-		It("should list buckets", func(ctx context.Context) {
+		It("resturns a list of buckets", func(ctx context.Context) {
 			listBucketsOutput, err := s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -53,7 +53,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 	})
 
 	Describe("DeleteBucket", func() {
-		Context("when bucket is not empty", func() {
+		When("bucket is not empty", func() {
 			BeforeAll(func(ctx context.Context) {
 				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 					Bucket: bucketName,
@@ -63,7 +63,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("should return error", func(ctx context.Context) {
+			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
 					Bucket: bucketName,
 				})
@@ -71,8 +71,8 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 			})
 		})
 
-		Context("when bucket does not exist", func() {
-			It("should return error", func(ctx context.Context) {
+		When("bucket does not exist", func() {
+			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
 					Bucket: lo.ToPtr("does-not-exist"),
 				})
