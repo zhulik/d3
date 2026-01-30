@@ -10,7 +10,11 @@ tasks:
 
   unit:
     desc: Run unit tests
-    cmd: ginkgo run --label-filter=!conformance ./...
+    cmd: ginkgo run --label-filter=!conformance --race --cover ./...
+
+  cover:
+    desc: Run coverage report
+    cmd: go tool cover -html=coverprofile.out
 
   conformance:
     desc: Run conformance tests

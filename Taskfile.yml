@@ -15,7 +15,8 @@ tasks:
     deps:
       - lint
       - test
-      - test:conformance
+    cmds:
+      - task: test:conformance
 
   build:
     desc: Build the application

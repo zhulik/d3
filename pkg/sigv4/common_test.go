@@ -24,6 +24,10 @@ func signRequest(ctx context.Context, req *http.Request) {
 }
 
 func preSignURL(ctx context.Context, req *http.Request) string {
+	qs := req.URL.Query()
+	qs.Set("X-Amz-Expires", "120")
+	req.URL.RawQuery = qs.Encode()
+
 	url, _ := lo.Must2(
 		signer.PresignHTTP(ctx, aws.Credentials{
 			AccessKeyID:     "test",
