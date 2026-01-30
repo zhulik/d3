@@ -10,7 +10,7 @@ tasks:
 
   unit:
     desc: Run unit tests
-    cmd: ginkgo run --label-filter=!conformance
+    cmd: ginkgo run --label-filter=!conformance ./...
 
   conformance:
     desc: Run conformance tests
