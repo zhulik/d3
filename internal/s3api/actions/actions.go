@@ -13,6 +13,7 @@ const (
 	// Object actions
 	PutObject               Action = "s3:PutObject"
 	GetObject               Action = "s3:GetObject"
+	HeadObject              Action = "s3:HeadObject"
 	DeleteObject            Action = "s3:DeleteObject"
 	ListObjectsV2           Action = "s3:ListObjectsV2"
 	DeleteObjects           Action = "s3:DeleteObjects"
@@ -20,4 +21,5 @@ const (
 	UploadPart              Action = "s3:UploadPart"
 	CompleteMultipartUpload Action = "s3:CompleteMultipartUpload"
 	AbortMultipartUpload    Action = "s3:AbortMultipartUpload"
+	GetObjectTagging        Action = "s3:GetObjectTagging"
 )

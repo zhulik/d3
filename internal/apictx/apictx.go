@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/labstack/echo/v5"
+	"github.com/zhulik/d3/internal/s3api/actions"
 )
 
 type ctxKey struct{}
@@ -24,6 +25,8 @@ type APICtx struct {
 	ContentType   string
 	ContentLength int64
 	Headers       http.Header
+
+	Action actions.Action
 }
 
 // Inject adds ApiCtx to the context and returns a new context.
@@ -82,7 +85,7 @@ func getScheme(req *http.Request) string {
 
 // getRequestID extracts request ID from common header names.
 func getRequestID(req *http.Request) string {
-	for _, header := range []string{"X-Request-ID", "X-Request-Id", "Request-ID"} {
+	for _, header := range []string{"Amz-Sdk-Invocation-Id", "X-Request-ID", "X-Request-Id", "Request-ID"} {
 		if id := req.Header.Get(header); id != "" {
 			return id
 		}

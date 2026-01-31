@@ -15,6 +15,8 @@ import (
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
 	ihttp "github.com/zhulik/d3/internal/http"
+	"github.com/zhulik/d3/internal/s3api/actions"
+	"github.com/zhulik/d3/internal/s3api/middlewares"
 )
 
 type APIObjects struct {
@@ -23,36 +25,36 @@ type APIObjects struct {
 }
 
 func (a APIObjects) Init(_ context.Context) error {
-	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2)
-	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2)
+	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, actions.ListObjectsV2)
+	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, actions.ListObjectsV2)
 
 	objects := a.Echo.Group("/:bucket/*")
-	objects.HEAD("", a.HeadObject)
+	objects.HEAD("", a.HeadObject, middlewares.SetAction(actions.HeadObject))
 	objects.PUT("", ihttp.NewQueryParamsRouter().
-		SetFallbackHandler(a.PutObject).
-		AddRoute("uploadId", a.UploadPart).
+		SetFallbackHandler(a.PutObject, actions.PutObject).
+		AddRoute("uploadId", a.UploadPart, actions.UploadPart).
 		Handle)
 
 	objects.POST("", ihttp.NewQueryParamsRouter().
-		AddRoute("uploads", a.CreateMultipartUpload).
-		AddRoute("uploadId", a.CompleteMultipartUpload).
+		AddRoute("uploads", a.CreateMultipartUpload, actions.CreateMultipartUpload).
+		AddRoute("uploadId", a.CompleteMultipartUpload, actions.CompleteMultipartUpload).
 		Handle)
 
 	objects.GET("",
 		ihttp.NewQueryParamsRouter().
-			SetFallbackHandler(a.GetObject).
-			AddRoute("tagging", a.GetObjectTagging).
+			SetFallbackHandler(a.GetObject, actions.GetObject).
+			AddRoute("tagging", a.GetObjectTagging, actions.GetObjectTagging).
 			Handle,
 	)
 
 	objects.DELETE("", ihttp.NewQueryParamsRouter().
-		SetFallbackHandler(a.DeleteObject).
-		AddRoute("uploadId", a.AbortMultipartUpload).
+		SetFallbackHandler(a.DeleteObject, actions.DeleteObject).
+		AddRoute("uploadId", a.AbortMultipartUpload, actions.AbortMultipartUpload).
 		Handle)
 
 	a.Echo.POST("/:bucket",
 		ihttp.NewQueryParamsRouter().
-			AddRoute("delete", a.DeleteObjects).
+			AddRoute("delete", a.DeleteObjects, actions.DeleteObjects).
 			Handle,
 	)
 

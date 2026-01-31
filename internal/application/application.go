@@ -16,6 +16,7 @@ import (
 )
 
 func New(config *core.Config) *pal.Pal {
+	var logger *slog.Logger
 	if config.Environment == "development" ||
 		config.Environment == "test" {
 		opts := &devslog.Options{
@@ -27,12 +28,12 @@ func New(config *core.Config) *pal.Pal {
 			StringerFormatter: true,
 		}
 
-		logger := slog.New(devslog.NewHandler(os.Stdout, opts))
-		slog.SetDefault(logger)
+		logger = slog.New(devslog.NewHandler(os.Stdout, opts))
 	} else {
-		logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-		slog.SetDefault(logger)
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	}
+
+	slog.SetDefault(logger)
 
 	return pal.New(
 		s3api.Provide(),

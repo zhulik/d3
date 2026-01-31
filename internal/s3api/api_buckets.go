@@ -8,6 +8,8 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
 	ihttp "github.com/zhulik/d3/internal/http"
+	"github.com/zhulik/d3/internal/s3api/actions"
+	"github.com/zhulik/d3/internal/s3api/middlewares"
 )
 
 type APIBuckets struct {
@@ -17,14 +19,14 @@ type APIBuckets struct {
 }
 
 func (a APIBuckets) Init(_ context.Context) error {
-	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation)
+	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation, actions.GetBucketLocation)
 
-	a.Echo.GET("/", a.ListBuckets)
+	a.Echo.GET("/", a.ListBuckets, middlewares.SetAction(actions.ListBuckets))
 
 	buckets := a.Echo.Group("/:bucket")
-	buckets.HEAD("", a.HeadBucket)
-	buckets.PUT("", a.CreateBucket)
-	buckets.DELETE("", a.DeleteBucket)
+	buckets.HEAD("", a.HeadBucket, middlewares.SetAction(actions.HeadBucket))
+	buckets.PUT("", a.CreateBucket, middlewares.SetAction(actions.CreateBucket))
+	buckets.DELETE("", a.DeleteBucket, middlewares.SetAction(actions.DeleteBucket))
 
 	return nil
 }

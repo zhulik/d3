@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
+	"github.com/zhulik/d3/internal/s3api/actions"
+	"github.com/zhulik/d3/internal/s3api/middlewares"
 )
 
 type route struct {
@@ -23,16 +25,16 @@ func NewQueryParamsRouter() *QueryParamsRouter {
 	}
 }
 
-func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc) *QueryParamsRouter {
-	r.routes = append(r.routes, route{param: param, handler: handler})
+func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc, action actions.Action) *QueryParamsRouter {
+	r.routes = append(r.routes, route{param: param, handler: applyMiddlewares(handler, middlewares.SetAction(action))})
 	return r
 }
 
-func (r *QueryParamsRouter) SetFallbackHandler(handler echo.HandlerFunc) *QueryParamsRouter {
+func (r *QueryParamsRouter) SetFallbackHandler(handler echo.HandlerFunc, action actions.Action) *QueryParamsRouter {
 	if r.fallbackHandler != nil {
 		panic("fallback handler already set")
 	}
-	r.fallbackHandler = handler
+	r.fallbackHandler = applyMiddlewares(handler, middlewares.SetAction(action))
 	return r
 }
 
@@ -46,4 +48,11 @@ func (r *QueryParamsRouter) Handle(c *echo.Context) error {
 		return r.fallbackHandler(c)
 	}
 	return echo.NewHTTPError(http.StatusNotImplemented, "not implemented")
+}
+
+func applyMiddlewares(h echo.HandlerFunc, middlewares ...echo.MiddlewareFunc) echo.HandlerFunc {
+	for _, middleware := range middlewares {
+		h = middleware(h)
+	}
+	return h
 }
