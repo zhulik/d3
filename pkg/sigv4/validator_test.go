@@ -2,6 +2,7 @@ package sigv4_test
 
 import (
 	"context"
+	"fmt"
 	"net/http/httptest"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,8 +18,9 @@ var _ = Describe("Validate", func() {
 
 			signRequest(ctx, req)
 
-			err := sigv4.Validate(ctx, req, &credentialStore{})
+			accessKey, err := sigv4.Validate(ctx, req, &credentialStore{})
 			Expect(err).NotTo(HaveOccurred())
+			Expect(accessKey).To(Equal("test"))
 		})
 	})
 
@@ -29,8 +31,9 @@ var _ = Describe("Validate", func() {
 
 			req = httptest.NewRequest("GET", url, nil)
 
-			err := sigv4.Validate(ctx, req, &credentialStore{})
+			accessKey, err := sigv4.Validate(ctx, req, &credentialStore{})
 			Expect(err).NotTo(HaveOccurred())
+			fmt.Println(accessKey)
 		})
 
 	})

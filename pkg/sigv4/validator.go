@@ -35,10 +35,10 @@ type CredentialStore interface {
 	Get(ctx context.Context, accessKey string) (string, error)
 }
 
-func Validate(ctx context.Context, r *http.Request, credentialStore CredentialStore) error {
+func Validate(ctx context.Context, r *http.Request, credentialStore CredentialStore) (string, error) {
 	hp, err := extractAuthHeaderParameters(r)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	canURI := buildCanonicalURI(r)
@@ -67,7 +67,7 @@ func Validate(ctx context.Context, r *http.Request, credentialStore CredentialSt
 
 	secretKey, err := credentialStore.Get(ctx, hp.accessKey)
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidAccessKeyID, err)
+		return "", fmt.Errorf("%w: %w", ErrInvalidAccessKeyID, err)
 	}
 
 	kDate := hmacSHA256([]byte("AWS4"+secretKey), hp.scopeDate)
@@ -78,10 +78,10 @@ func Validate(ctx context.Context, r *http.Request, credentialStore CredentialSt
 	calcSig := hex.EncodeToString(sigBytes)
 
 	if !hmac.Equal([]byte(hp.signature), []byte(calcSig)) {
-		return ErrSignatureDoesNotMatch
+		return "", ErrSignatureDoesNotMatch
 	}
 
-	return nil
+	return hp.accessKey, nil
 }
 
 func extractAuthHeaderParameters(r *http.Request) (*AuthHeaderParameters, error) {
