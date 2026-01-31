@@ -10,34 +10,15 @@ import (
 	"github.com/zhulik/d3/pkg/sigv4"
 )
 
-type credentialStore struct {
-	core.UserRepository
-}
-
-func (c credentialStore) Get(ctx context.Context, accessKey string) (string, error) {
-	user, err := c.GetUserByAccessKeyID(ctx, accessKey)
-	if err != nil {
-		return "", err
-	}
-	return user.SecretAccessKey, nil
-}
-
 type Authenticator struct {
 	UserRepository core.UserRepository
 	Logger         *slog.Logger
-
-	credentialStore sigv4.CredentialStore
-}
-
-func (a *Authenticator) Init(_ context.Context) error {
-	a.credentialStore = credentialStore{a.UserRepository}
-	return nil
 }
 
 func (a *Authenticator) Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			accessKey, err := sigv4.Validate(c.Request().Context(), c.Request(), a.credentialStore)
+			accessKey, err := sigv4.Validate(c.Request().Context(), c.Request(), a.getAccessKeySecret)
 			if err != nil {
 				a.Logger.Error("failed to validate credentials", "error", err)
 
@@ -56,4 +37,12 @@ func (a *Authenticator) Middleware() echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+func (a *Authenticator) getAccessKeySecret(ctx context.Context, accessKey string) (string, error) {
+	user, err := a.UserRepository.GetUserByAccessKeyID(ctx, accessKey)
+	if err != nil {
+		return "", err
+	}
+	return user.SecretAccessKey, nil
 }

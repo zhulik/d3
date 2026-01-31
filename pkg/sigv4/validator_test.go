@@ -11,6 +11,8 @@ import (
 )
 
 var _ = Describe("Validate", func() {
+	credentialStore := credentialStore{}
+
 	When("using a signed request", func() {
 		It("validates a valid request", func(ctx context.Context) {
 			req := httptest.NewRequest("GET", "/foo/bar?baz=qux", nil)
@@ -18,7 +20,7 @@ var _ = Describe("Validate", func() {
 
 			signRequest(ctx, req)
 
-			accessKey, err := sigv4.Validate(ctx, req, &credentialStore{})
+			accessKey, err := sigv4.Validate(ctx, req, credentialStore.getAccessKeySecret)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(accessKey).To(Equal("test"))
 		})
@@ -31,7 +33,7 @@ var _ = Describe("Validate", func() {
 
 			req = httptest.NewRequest("GET", url, nil)
 
-			accessKey, err := sigv4.Validate(ctx, req, &credentialStore{})
+			accessKey, err := sigv4.Validate(ctx, req, credentialStore.getAccessKeySecret)
 			Expect(err).NotTo(HaveOccurred())
 			fmt.Println(accessKey)
 		})

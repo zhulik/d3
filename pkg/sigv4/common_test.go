@@ -40,6 +40,6 @@ func preSignURL(ctx context.Context, req *http.Request) string {
 type credentialStore struct {
 }
 
-func (c *credentialStore) Get(_ context.Context, _ string) (string, error) {
+func (c *credentialStore) getAccessKeySecret(_ context.Context, _ string) (string, error) {
 	return "test", nil
 }
