@@ -43,9 +43,13 @@ type CompletePart struct {
 	ETag       string
 }
 
-type Backend interface {
-	AdminCredentials() (string, string)
+type User struct {
+	Name            string
+	AccessKeyID     string
+	SecretAccessKey string
+}
 
+type Backend interface {
 	ListBuckets(ctx context.Context) ([]*types.Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
 	DeleteBucket(ctx context.Context, name string) error
@@ -62,4 +66,13 @@ type Backend interface {
 	UploadPart(ctx context.Context, bucket, key string, uploadID string, partNumber int, body io.Reader) error
 	CompleteMultipartUpload(ctx context.Context, bucket, key string, uploadID string, parts []CompletePart) error
 	AbortMultipartUpload(ctx context.Context, bucket, key string, uploadID string) error
+}
+
+type UserRepository interface {
+	AdminCredentials() (string, string)
+
+	GetUserByName(ctx context.Context, name string) (*User, error)
+	GetUserByAccessKeyID(ctx context.Context, accessKeyID string) (*User, error)
+	CreateUser(ctx context.Context, user User) error
+	DeleteUser(ctx context.Context, name string) error
 }

@@ -66,10 +66,6 @@ func (b *Backend) Init(ctx context.Context) error {
 	return b.prepareFileStructure(ctx)
 }
 
-func (b *Backend) AdminCredentials() (string, string) {
-	return b.configYaml.AdminUser.AccessKeyID, b.configYaml.AdminUser.SecretAccessKey
-}
-
 func (b *Backend) prepareFileStructure(ctx context.Context) error {
 	err := b.prepareConfigYaml(ctx)
 	if err != nil {

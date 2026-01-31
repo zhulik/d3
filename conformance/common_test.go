@@ -57,8 +57,8 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 	app := application.New(appConfig)
 	lo.Must0(app.Init(ctx))
 
-	backend := pal.MustInvoke[core.Backend](ctx, app)
-	adminAccessKeyID, adminSecretAccessKey := backend.AdminCredentials()
+	userRepository := pal.MustInvoke[core.UserRepository](ctx, app)
+	adminAccessKeyID, adminSecretAccessKey := userRepository.AdminCredentials()
 
 	go func() {
 		lo.Must0(app.Run(appCtx))

@@ -10,4 +10,7 @@ var (
 	ErrObjectNotFound         = errors.New("object not found")
 	ErrObjectAlreadyExists    = errors.New("object already exists")
 	ErrObjectChecksumMismatch = errors.New("object checksum mismatch")
+
+	ErrUserNotFound      = errors.New("user not found")
+	ErrUserAlreadyExists = errors.New("user already exists")
 )
