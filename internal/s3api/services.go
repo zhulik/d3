@@ -1,4 +1,4 @@
-package server
+package s3api
 
 import "github.com/zhulik/pal"
 
