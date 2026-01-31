@@ -15,6 +15,8 @@ import (
 type Echo struct {
 	*echo.Echo
 
+	Auth *middlewares.Authenticator
+
 	rootQueryRouter *ihttp.QueryParamsRouter
 }
 
@@ -30,6 +32,7 @@ func (e *Echo) Init(_ context.Context) error {
 		middleware.Recover(),
 		apictx.Middleware(),
 		middlewares.ErrorRenderer(),
+		e.Auth.Middleware(),
 	)
 
 	return nil

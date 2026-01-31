@@ -40,6 +40,10 @@ func (r *UserRepository) GetUserByName(_ context.Context, name string) (*core.Us
 	r.rwLock.RLock()
 	defer r.rwLock.RUnlock()
 
+	if name == r.adminUser.Name {
+		return &r.adminUser, nil
+	}
+
 	user, ok := r.usersByName[name]
 	if !ok {
 		return nil, common.ErrUserNotFound
@@ -50,6 +54,10 @@ func (r *UserRepository) GetUserByName(_ context.Context, name string) (*core.Us
 func (r *UserRepository) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*core.User, error) {
 	r.rwLock.RLock()
 	defer r.rwLock.RUnlock()
+
+	if accessKeyID == r.adminUser.AccessKeyID {
+		return &r.adminUser, nil
+	}
 
 	user, ok := r.usersByAccessKeyID[accessKeyID]
 	if !ok {
@@ -81,7 +89,7 @@ func (r *UserRepository) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil
 		case <-ticker.C:
 			err := r.checkAndReload(ctx)
 

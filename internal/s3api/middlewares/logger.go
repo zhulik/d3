@@ -24,6 +24,10 @@ func Logger() echo.MiddlewareFunc {
 		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
 			logger := c.Logger()
 			apiCtx := apictx.FromContext(c.Request().Context())
+			username := ""
+			if apiCtx.Username != nil {
+				username = *apiCtx.Username
+			}
 			commonAttrs := []slog.Attr{
 				slog.String("method", apiCtx.Method),
 				slog.String("uri", apiCtx.URI),
@@ -36,6 +40,7 @@ func Logger() echo.MiddlewareFunc {
 				slog.String("remote_ip", apiCtx.RemoteAddr),
 				slog.String("request_id", apiCtx.RequestID),
 				slog.String("action", string(apiCtx.Action)),
+				slog.String("user", username),
 			}
 			if v.Error != nil {
 				commonAttrs = append(commonAttrs, slog.String("error", v.Error.Error()))
