@@ -16,11 +16,11 @@ import (
 type BackendBuckets struct {
 	Cfg *core.Config
 
-	config *config
+	config *Config
 }
 
 func (b *BackendBuckets) Init(_ context.Context) error {
-	b.config = &config{b.Cfg}
+	b.config = &Config{b.Cfg}
 	return nil
 }
 

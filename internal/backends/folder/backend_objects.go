@@ -32,11 +32,11 @@ type BackendObjects struct {
 
 	Locker *locker.Locker
 
-	config *config
+	config *Config
 }
 
 func (b *BackendObjects) Init(_ context.Context) error {
-	b.config = &config{b.Cfg}
+	b.config = &Config{b.Cfg}
 	return nil
 }
 

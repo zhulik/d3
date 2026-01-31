@@ -14,14 +14,14 @@ import (
 type Object struct {
 	io.ReadCloser
 
-	config       *config
+	config       *Config
 	bucket       string
 	path         string
 	blobPath     string
 	metadataPath string
 }
 
-func ObjectFromPath(cfg *config, bucket, key string) (*Object, error) {
+func ObjectFromPath(cfg *Config, bucket, key string) (*Object, error) {
 	path := cfg.objectPath(bucket, key)
 	isObject, err := IsObjectPath(path)
 	if err != nil {

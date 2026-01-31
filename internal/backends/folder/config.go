@@ -18,47 +18,51 @@ const (
 	binFolder            = "bin"
 )
 
-type config struct {
+type Config struct {
 	*core.Config
 }
 
-func (c *config) bucketPath(bucket string) string {
+func (c *Config) bucketPath(bucket string) string {
 	return filepath.Join(c.FolderBackendPath, bucketsFolder, bucket)
 }
 
-func (c *config) objectPath(bucket, key string) string {
+func (c *Config) objectPath(bucket, key string) string {
 	return filepath.Join(c.FolderBackendPath, bucketsFolder, bucket, key)
 }
 
-func (c *config) bucketsPath() string {
+func (c *Config) bucketsPath() string {
 	return filepath.Join(c.FolderBackendPath, bucketsFolder)
 }
 
-func (c *config) uploadsPath() string {
+func (c *Config) uploadsPath() string {
 	return filepath.Join(c.FolderBackendPath, tmpFolder, uploadsFolder)
 }
 
-func (c *config) binPath() string {
+func (c *Config) binPath() string {
 	return filepath.Join(c.FolderBackendPath, tmpFolder, binFolder)
 }
 
-func (c *config) newBinPath() string {
+func (c *Config) newBinPath() string {
 	return filepath.Join(c.binPath(), uuid.NewString())
 }
 
-func (c *config) configYamlPath() string {
+func (c *Config) configYamlPath() string {
 	return filepath.Join(c.FolderBackendPath, configYamlFilename)
 }
 
-func (c *config) newUploadPath() string {
+func (c *Config) tmpPath() string {
+	return filepath.Join(c.FolderBackendPath, tmpFolder)
+}
+
+func (c *Config) newUploadPath() string {
 	return filepath.Join(c.uploadsPath(), uuid.NewString())
 }
 
-func (c *config) multipartUploadPath(uploadID string) string {
+func (c *Config) multipartUploadPath(uploadID string) string {
 	return filepath.Join(c.uploadsPath(), fmt.Sprintf("multipart-%s", uploadID))
 }
 
-func (c *config) newMultipartUploadPath() (string, string) {
+func (c *Config) newMultipartUploadPath() (string, string) {
 	id := uuid.NewString()
 	return id, filepath.Join(c.uploadsPath(), fmt.Sprintf("multipart-%s", id))
 }

@@ -26,15 +26,12 @@ type Backend struct {
 	*BackendBuckets
 	*BackendObjects
 
-	Cfg    *core.Config
 	Locker *locker.Locker
 
-	config *config
+	Config *Config
 }
 
 func (b *Backend) Init(ctx context.Context) error {
-	b.config = &config{b.Cfg}
-
 	// Lock the backend to prevent concurrent initialization
 	ctx, cancel, err := b.Locker.Lock(ctx, "folder-backend-init")
 	if err != nil {
@@ -42,10 +39,10 @@ func (b *Backend) Init(ctx context.Context) error {
 	}
 	defer cancel()
 
-	_, err = os.Stat(b.config.FolderBackendPath)
+	_, err = os.Stat(b.Config.FolderBackendPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(b.config.FolderBackendPath, 0755)
+			err = os.MkdirAll(b.Config.FolderBackendPath, 0755)
 			if err != nil {
 				return err
 			}
@@ -63,20 +60,20 @@ func (b *Backend) prepareFileStructure(ctx context.Context) error {
 		return err
 	}
 
-	if err := os.MkdirAll(b.config.bucketsPath(), 0755); err != nil {
+	if err := os.MkdirAll(b.Config.bucketsPath(), 0755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(b.config.uploadsPath(), 0755); err != nil {
+	if err := os.MkdirAll(b.Config.uploadsPath(), 0755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(b.config.binPath(), 0755); err != nil {
+	if err := os.MkdirAll(b.Config.binPath(), 0755); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (b *Backend) prepareConfigYaml(_ context.Context) error {
-	configPath := b.config.configYamlPath()
+	configPath := b.Config.configYamlPath()
 	_, err := os.Stat(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {

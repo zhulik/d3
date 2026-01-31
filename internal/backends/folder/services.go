@@ -10,5 +10,7 @@ func Provide() pal.ServiceDef {
 		pal.Provide[core.Backend](&Backend{}),
 		pal.Provide(&BackendObjects{}),
 		pal.Provide(&BackendBuckets{}),
+		pal.Provide(&AtomicWriter{}),
+		pal.Provide(&Config{}),
 	)
 }
