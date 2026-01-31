@@ -39,6 +39,8 @@ type Backend struct {
 	Locker *locker.Locker
 
 	Config *Config
+
+	configYaml *configYaml
 }
 
 func (b *Backend) Init(ctx context.Context) error {
@@ -62,6 +64,10 @@ func (b *Backend) Init(ctx context.Context) error {
 	}
 
 	return b.prepareFileStructure(ctx)
+}
+
+func (b *Backend) AdminCredentials() (string, string) {
+	return b.configYaml.AdminUser.AccessKeyID, b.configYaml.AdminUser.SecretAccessKey
 }
 
 func (b *Backend) prepareFileStructure(ctx context.Context) error {
@@ -96,7 +102,12 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 					SecretAccessKey: secretAccessKey,
 				},
 			}
-			return yaml.MarshalToFile(cfg, configPath)
+			err := yaml.MarshalToFile(cfg, configPath)
+			if err != nil {
+				return err
+			}
+			b.configYaml = &cfg
+			return nil
 		}
 		return err
 	}
@@ -108,6 +119,8 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	if existingConfig.Version != ConfigVersion {
 		return fmt.Errorf("%w: config version mismatch: expected %d, got %d", ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
 	}
+
+	b.configYaml = &existingConfig
 
 	return nil
 }

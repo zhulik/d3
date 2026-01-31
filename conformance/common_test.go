@@ -14,19 +14,20 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/application"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/pal"
 )
 
 func randomPort() int {
 	return 10000 + rand.Intn(10000)
 }
 
-func prepareS3(ctx context.Context, port int) (*s3.Client, *string) {
+func prepareS3(ctx context.Context, port int, adminAccessKeyID, adminSecretAccessKey string) (*s3.Client, *string) {
 	bucketName := lo.ToPtr(fmt.Sprintf("conformance-bucket-%s", uuid.NewString()))
 
 	cfg := lo.Must(config.LoadDefaultConfig(ctx,
 		config.WithBaseEndpoint(fmt.Sprintf("http://localhost:%d", port)),
 		config.WithRegion("local"),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("test", "test", "test")),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(adminAccessKeyID, adminSecretAccessKey, "test")),
 	))
 
 	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
@@ -41,7 +42,7 @@ func prepareS3(ctx context.Context, port int) (*s3.Client, *string) {
 	return s3Client, bucketName
 }
 
-func runApp(ctx context.Context) (int, context.CancelFunc) {
+func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 	appCtx, cancelApp := context.WithCancel(ctx)
 
 	appConfig := &core.Config{
@@ -54,19 +55,23 @@ func runApp(ctx context.Context) (int, context.CancelFunc) {
 	}
 
 	app := application.New(appConfig)
+	lo.Must0(app.Init(ctx))
+
+	backend := pal.MustInvoke[core.Backend](ctx, app)
+	adminAccessKeyID, adminSecretAccessKey := backend.AdminCredentials()
 
 	go func() {
 		lo.Must0(app.Run(appCtx))
 	}()
 
-	return appConfig.Port, cancelApp
+	return appConfig.Port, cancelApp, adminAccessKeyID, adminSecretAccessKey
 }
 
 func prepareConformanceTests(ctx context.Context) (*s3.Client, *string, context.CancelFunc) {
-	port, cancelApp := runApp(context.Background())
+	port, cancelApp, adminAccessKeyID, adminSecretAccessKey := runApp(context.Background())
 	time.Sleep(100 * time.Millisecond)
 
-	s3Client, bucketName := prepareS3(ctx, port)
+	s3Client, bucketName := prepareS3(ctx, port, adminAccessKeyID, adminSecretAccessKey)
 
 	return s3Client, bucketName, cancelApp
 }

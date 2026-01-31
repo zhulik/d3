@@ -44,6 +44,8 @@ type CompletePart struct {
 }
 
 type Backend interface {
+	AdminCredentials() (string, string)
+
 	ListBuckets(ctx context.Context) ([]*types.Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
 	DeleteBucket(ctx context.Context, name string) error
