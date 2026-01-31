@@ -20,12 +20,10 @@ type UserRepository struct {
 	Config *Config
 	Logger *slog.Logger
 
-	Backend *Backend // to make sure we init the backend first
+	Backend core.Backend // to make sure we init the backend first
 
-	lastUpdated time.Time
-
-	adminUser core.User
-
+	lastUpdated        time.Time
+	adminUser          core.User
 	usersByName        map[string]core.User
 	usersByAccessKeyID map[string]core.User
 
@@ -113,19 +111,20 @@ func (r *UserRepository) checkAndReload(ctx context.Context) error {
 		r.rwLock.RUnlock()
 
 		r.Logger.Info("config file changed, reloading user repository")
-		err := r.reload(ctx)
-		if err != nil {
-			return err
-		}
+		return r.reload(ctx)
 	}
 
 	r.rwLock.RUnlock()
 	return nil
 }
 
-func (r *UserRepository) reload(_ context.Context) error {
+func (r *UserRepository) reload(ctx context.Context) error {
 	r.rwLock.Lock()
 	defer r.rwLock.Unlock()
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 
 	path := r.Config.configYamlPath()
 	info, err := os.Stat(path)
