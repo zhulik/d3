@@ -8,18 +8,28 @@ import (
 
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
+	"github.com/zhulik/d3/pkg/credentials"
 	"github.com/zhulik/d3/pkg/yaml"
 )
 
 var (
-	defaultConfigYaml = configYaml{
-		Version: 1,
-	}
 	ErrConfigVersionMismatch = errors.New("config version mismatch")
 )
 
+const (
+	ConfigVersion = 1
+)
+
+type User struct {
+	Name            string `yaml:"name"`
+	AccessKeyID     string `yaml:"access_key_id"`
+	SecretAccessKey string `yaml:"secret_access_key"`
+}
+
 type configYaml struct {
-	Version int `yaml:"version"`
+	Version   int    `yaml:"version"`
+	AdminUser User   `yaml:"admin_user"`
+	Users     []User `yaml:"users"`
 }
 
 type Backend struct {
@@ -77,7 +87,16 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	_, err := os.Stat(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return yaml.MarshalToFile(defaultConfigYaml, configPath)
+			accessKeyID, secretAccessKey := credentials.GenerateCredentials()
+			cfg := configYaml{
+				Version: ConfigVersion,
+				AdminUser: User{
+					Name:            "admin",
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+				},
+			}
+			return yaml.MarshalToFile(cfg, configPath)
 		}
 		return err
 	}
@@ -86,8 +105,8 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config file %s: %w", configPath, err)
 	}
-	if existingConfig.Version != defaultConfigYaml.Version {
-		return fmt.Errorf("%w: config version mismatch: expected %d, got %d", ErrConfigVersionMismatch, defaultConfigYaml.Version, existingConfig.Version)
+	if existingConfig.Version != ConfigVersion {
+		return fmt.Errorf("%w: config version mismatch: expected %d, got %d", ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
 	}
 
 	return nil

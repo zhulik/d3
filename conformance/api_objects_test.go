@@ -19,7 +19,7 @@ var objectMetadata = map[string]string{
 	"foo": "bar",
 }
 
-var _ = Describe("Core conformance", Label("conformance"), Ordered, func() {
+var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Ordered, func() {
 	var s3Client *s3.Client
 	var bucketName *string
 
