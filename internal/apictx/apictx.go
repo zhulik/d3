@@ -26,7 +26,8 @@ type APICtx struct {
 	ContentLength int64
 	Headers       http.Header
 
-	Action actions.Action
+	Action   actions.Action
+	Username *string
 }
 
 // Inject adds ApiCtx to the context and returns a new context.
