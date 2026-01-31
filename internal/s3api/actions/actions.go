@@ -3,14 +3,12 @@ package actions
 type Action string
 
 const (
-	// Bucket actions
 	CreateBucket      Action = "s3:CreateBucket"
 	HeadBucket        Action = "s3:HeadBucket"
 	ListBuckets       Action = "s3:ListBuckets"
 	DeleteBucket      Action = "s3:DeleteBucket"
 	GetBucketLocation Action = "s3:GetBucketLocation"
 
-	// Object actions
 	PutObject               Action = "s3:PutObject"
 	GetObject               Action = "s3:GetObject"
 	HeadObject              Action = "s3:HeadObject"

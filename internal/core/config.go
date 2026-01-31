@@ -21,11 +21,11 @@ const (
 type Config struct {
 	Environment string `env:"ENVIRONMENT" envDefault:"production"`
 
-	Backend           BackendType `env:"BACKEND" envDefault:"folder"`
+	Backend           BackendType `env:"BACKEND"             envDefault:"folder"`
 	FolderBackendPath string      `env:"FOLDER_BACKEND_PATH" envDefault:"./d3_data"`
-	RedisAddress      string      `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
-	Port              int         `env:"PORT" envDefault:"8080"`
-	HealthCheckPort   int         `env:"HEALTH_CHECK_PORT" envDefault:"8081"`
+	RedisAddress      string      `env:"REDIS_ADDRESS"       envDefault:"localhost:6379"`
+	Port              int         `env:"PORT"                envDefault:"8080"`
+	HealthCheckPort   int         `env:"HEALTH_CHECK_PORT"   envDefault:"8081"`
 }
 
 func (c *Config) Init(_ context.Context) error {

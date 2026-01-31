@@ -84,7 +84,9 @@ func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyR
 
 func extractAuthHeaderParameters(r *http.Request) (*AuthHeaderParameters, error) {
 	var headerParams *AuthHeaderParameters
+
 	qs := r.URL.Query()
+
 	var err error
 
 	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "AWS4-HMAC-SHA256 ") {
@@ -113,25 +115,28 @@ func extractAuthHeadersParamsFromAuthHeader(r *http.Request) (*AuthHeaderParamet
 
 	headerParams := &AuthHeaderParameters{
 		algo:          AlgoHMAC256,
-		hashedPayload: r.Header.Get("x-amz-content-sha256"),
-		requestTime:   r.Header.Get("x-amz-date"),
+		hashedPayload: r.Header.Get("X-Amz-Content-Sha256"),
+		requestTime:   r.Header.Get("X-Amz-Date"),
 	}
 
 	if headerParams.requestTime == "" {
 		return nil, ErrMissingDateHeader
 	}
+
 	if headerParams.hashedPayload == "" {
 		return nil, ErrInvalidDigest
 	}
 
-	parts := strings.Split(auth[len("AWS4-HMAC-SHA256 "):], ",")
-	for _, part := range parts {
+	parts := strings.SplitSeq(auth[len("AWS4-HMAC-SHA256 "):], ",")
+	for part := range parts {
 		kv := strings.SplitN(strings.TrimSpace(part), "=", 2)
 		if len(kv) != 2 {
 			continue
 		}
+
 		key := kv[0]
 		val := strings.Trim(kv[1], " ")
+
 		switch key {
 		case "Credential":
 			credParts := strings.Split(val, "/")
@@ -166,6 +171,7 @@ func extractAuthHeadersParamsFromSignedURL(r *http.Request) (*AuthHeaderParamete
 	}
 
 	cred := qs.Get("X-Amz-Credential")
+
 	credParts := strings.Split(cred, "/")
 	if len(credParts) >= 5 {
 		headerParams.accessKey = credParts[0]
@@ -184,6 +190,7 @@ func extractAuthHeadersParamsFromSignedURL(r *http.Request) (*AuthHeaderParamete
 			return nil, ErrMalformedPresignedDate
 		}
 	}
+
 	return headerParams, nil
 }
 
@@ -192,34 +199,43 @@ func buildCanonicalURI(r *http.Request) string {
 	if canURI == "" {
 		canURI = "/"
 	}
+
 	return canURI
 }
 
 func buildCanonicalQueryString(r *http.Request) string {
 	var canQuery string
+
 	qp := url.Values{}
+
 	for k, vs := range r.URL.Query() {
 		if k == "X-Amz-Signature" {
 			continue
 		}
+
 		for _, v := range vs {
 			qp.Add(k, v)
 		}
 	}
+
 	var keys []string
 	for k := range qp {
 		keys = append(keys, k)
 	}
 
 	sort.Strings(keys)
+
 	var parts []string
+
 	for _, k := range keys {
 		vals := qp[k]
 		sort.Strings(vals)
+
 		for _, v := range vals {
 			parts = append(parts, awsURLEncode(k, true)+"="+awsURLEncode(v, true))
 		}
 	}
+
 	canQuery = strings.Join(parts, "&")
 
 	return canQuery
@@ -228,14 +244,19 @@ func buildCanonicalQueryString(r *http.Request) string {
 func buildCanonicalHeaders(signedHeaders string, r *http.Request) string {
 	sh := strings.Split(signedHeaders, ";")
 	sort.Strings(sh)
+
 	var canonicalHeaders strings.Builder
+
 	for _, h := range sh {
 		name := strings.ToLower(strings.TrimSpace(h))
+
 		val := strings.TrimSpace(r.Header.Get(name))
 		if name == "host" && val == "" {
 			val = r.Host
 		}
+
 		val = collapseSpaces(val)
+
 		canonicalHeaders.WriteString(name)
 		canonicalHeaders.WriteString(":")
 		canonicalHeaders.WriteString(val)
@@ -248,31 +269,40 @@ func buildCanonicalHeaders(signedHeaders string, r *http.Request) string {
 func hmacSHA256(key []byte, data string) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(data))
+
 	return mac.Sum(nil)
 }
 
 func collapseSpaces(s string) string {
 	var b strings.Builder
+
 	lastSpace := false
+
 	for _, r := range s {
 		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
 			if !lastSpace {
 				b.WriteByte(' ')
+
 				lastSpace = true
 			}
 		} else {
 			b.WriteRune(r)
+
 			lastSpace = false
 		}
 	}
+
 	return strings.TrimSpace(b.String())
 }
 
 func awsURLEncode(s string, encodeSlash bool) string {
 	var b strings.Builder
-	for i := 0; i < len(s); i++ {
+
+	for i := range len(s) {
 		c := s[i]
-		isUnreserved := (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~'
+
+		isUnreserved := (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' || c == '~'
 		if isUnreserved || (!encodeSlash && c == '/') {
 			b.WriteByte(c)
 		} else {
@@ -280,16 +310,20 @@ func awsURLEncode(s string, encodeSlash bool) string {
 			b.WriteString(strings.ToUpper(hex.EncodeToString([]byte{c})))
 		}
 	}
+
 	return b.String()
 }
 
 func parseIntDefault(s string, def int) int {
 	var n int
-	for i := 0; i < len(s); i++ {
+
+	for i := range len(s) {
 		if s[i] < '0' || s[i] > '9' {
 			return def
 		}
+
 		n = n*10 + int(s[i]-'0')
 	}
+
 	return n
 }

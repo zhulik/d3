@@ -1,14 +1,24 @@
 version: "2"
 
 linters:
-  enable:
-    - gosec
-    - misspell
-    - revive
-    - unconvert
-    - unparam
-    - whitespace
-    - paralleltest
+  default: all
+  disable:
+    - depguard
+    - exhaustruct
+    - wsl
+    - ireturn
+    - contextcheck
+    - godox
+
+    # TODO:
+    - wrapcheck
+    - cyclop
+    - mnd
+    - noinlineerr
+    - prealloc
+    - tagliatelle
+    - varnamelen
+
   settings:
     gosec:
       excludes:
@@ -32,10 +42,12 @@ linters:
       - third_party$
       - builtin$
       - examples$
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
   fix: false
+
 formatters:
   enable:
     - gofmt

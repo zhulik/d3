@@ -2,7 +2,7 @@ package sigv4_test
 
 import (
 	"context"
-	"fmt"
+	"net/http"
 	"net/http/httptest"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -15,8 +15,8 @@ var _ = Describe("Validate", func() {
 
 	When("using a signed request", func() {
 		It("validates a valid request", func(ctx context.Context) {
-			req := httptest.NewRequest("GET", "/foo/bar?baz=qux", nil)
-			req.Header.Set("x-amz-content-sha256", "UNSIGNED-PAYLOAD")
+			req := httptest.NewRequest(http.MethodGet, "/foo/bar?baz=qux", nil)
+			req.Header.Set("X-Amz-Content-Sha256", "UNSIGNED-PAYLOAD")
 
 			signRequest(ctx, req)
 
@@ -28,14 +28,14 @@ var _ = Describe("Validate", func() {
 
 	When("using a presigned URL", func() {
 		It("validates a valid request", func(ctx context.Context) {
-			req := httptest.NewRequest("GET", "/foo/bar?baz=qux", nil)
+			req := httptest.NewRequest(http.MethodGet, "/foo/bar?baz=qux", nil)
 			url := preSignURL(ctx, req)
 
-			req = httptest.NewRequest("GET", url, nil)
+			req = httptest.NewRequest(http.MethodGet, url, nil)
 
 			accessKey, err := sigv4.Validate(ctx, req, credentialStore.getAccessKeySecret)
 			Expect(err).NotTo(HaveOccurred())
-			fmt.Println(accessKey)
+			Expect(accessKey).To(Equal("test"))
 		})
 
 	})

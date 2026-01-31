@@ -7,7 +7,6 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/zhulik/d3/internal/apictx"
-	ihttp "github.com/zhulik/d3/internal/http"
 	"github.com/zhulik/d3/internal/s3api/actions"
 	"github.com/zhulik/d3/internal/s3api/middlewares"
 )
@@ -17,13 +16,13 @@ type Echo struct {
 
 	Auth *middlewares.Authenticator
 
-	rootQueryRouter *ihttp.QueryParamsRouter
+	rootQueryRouter *QueryParamsRouter
 }
 
 func (e *Echo) Init(_ context.Context) error {
 	e.Echo = echo.New()
 	e.Logger = slog.Default()
-	e.rootQueryRouter = ihttp.NewQueryParamsRouter()
+	e.rootQueryRouter = NewQueryParamsRouter()
 
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(

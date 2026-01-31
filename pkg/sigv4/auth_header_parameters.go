@@ -15,7 +15,8 @@ type AuthHeaderParameters struct {
 }
 
 func (hp *AuthHeaderParameters) Validate() error {
-	if hp.algo != "AWS4-HMAC-SHA256" || hp.accessKey == "" || hp.signedHeaders == "" || hp.signature == "" || hp.requestTime == "" {
+	if hp.algo != "AWS4-HMAC-SHA256" || hp.accessKey == "" || hp.signedHeaders == "" ||
+		hp.signature == "" || hp.requestTime == "" {
 		return ErrSignatureDoesNotMatch
 	}
 
@@ -29,6 +30,7 @@ func (hp *AuthHeaderParameters) Validate() error {
 	if err != nil {
 		return ErrMalformedPresignedDate
 	}
+
 	if d := time.Since(tReq.UTC()); d > 5*time.Minute || d < -5*time.Minute {
 		return ErrRequestNotReadyYet
 	}

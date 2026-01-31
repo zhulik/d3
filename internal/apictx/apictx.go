@@ -60,6 +60,7 @@ func FromContext(ctx context.Context) *APICtx {
 	if !ok {
 		return nil
 	}
+
 	return apiCtx
 }
 
@@ -70,6 +71,7 @@ func MustFromContext(ctx context.Context) *APICtx {
 	if apiCtx == nil {
 		panic("ApiCtx not found in context")
 	}
+
 	return apiCtx
 }
 
@@ -78,9 +80,11 @@ func getScheme(req *http.Request) string {
 	if scheme := req.Header.Get("X-Forwarded-Proto"); scheme != "" {
 		return scheme
 	}
+
 	if req.TLS != nil {
 		return "https"
 	}
+
 	return "http"
 }
 
@@ -91,5 +95,6 @@ func getRequestID(req *http.Request) string {
 			return id
 		}
 	}
+
 	return ""
 }

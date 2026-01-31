@@ -48,6 +48,7 @@ func (r *UserRepository) GetUserByName(_ context.Context, name string) (*core.Us
 	if !ok {
 		return nil, common.ErrUserNotFound
 	}
+
 	return &user, nil
 }
 
@@ -63,6 +64,7 @@ func (r *UserRepository) GetUserByAccessKeyID(_ context.Context, accessKeyID str
 	if !ok {
 		return nil, common.ErrUserNotFound
 	}
+
 	return &user, nil
 }
 
@@ -87,6 +89,7 @@ func (r *UserRepository) Run(ctx context.Context) error {
 	defer ticker.Stop()
 
 	errorsCount := 0
+
 	var allErrors error
 
 	for {
@@ -95,11 +98,11 @@ func (r *UserRepository) Run(ctx context.Context) error {
 			return nil
 		case <-ticker.C:
 			err := r.checkAndReload(ctx)
-
 			if err != nil {
 				allErrors = errors.Join(allErrors, err)
 				r.Logger.Error("failed to check and reload user repository", "error", err)
 			}
+
 			if errorsCount > 3 {
 				return fmt.Errorf("failed to check and reload user repository after 3 attempts: %w", allErrors)
 			}
@@ -109,6 +112,7 @@ func (r *UserRepository) Run(ctx context.Context) error {
 
 func (r *UserRepository) checkAndReload(ctx context.Context) error {
 	path := r.Config.configYamlPath()
+
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
@@ -120,10 +124,12 @@ func (r *UserRepository) checkAndReload(ctx context.Context) error {
 		r.rwLock.RUnlock()
 
 		r.Logger.Info("config file changed, reloading user repository")
+
 		return r.reload(ctx)
 	}
 
 	r.rwLock.RUnlock()
+
 	return nil
 }
 
@@ -136,6 +142,7 @@ func (r *UserRepository) reload(ctx context.Context) error {
 	}
 
 	path := r.Config.configYamlPath()
+
 	info, err := os.Stat(path)
 	if err != nil {
 		return err

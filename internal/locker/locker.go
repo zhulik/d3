@@ -24,6 +24,7 @@ func (l *Locker) Init(_ context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	l.locker = locker
 
 	return nil
@@ -31,6 +32,7 @@ func (l *Locker) Init(_ context.Context) error {
 
 func (l *Locker) Shutdown(_ context.Context) error {
 	l.locker.Close()
+
 	return nil
 }
 

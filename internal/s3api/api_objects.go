@@ -14,7 +14,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
-	ihttp "github.com/zhulik/d3/internal/http"
 	"github.com/zhulik/d3/internal/s3api/actions"
 	"github.com/zhulik/d3/internal/s3api/middlewares"
 )
@@ -30,30 +29,30 @@ func (a APIObjects) Init(_ context.Context) error {
 
 	objects := a.Echo.Group("/:bucket/*")
 	objects.HEAD("", a.HeadObject, middlewares.SetAction(actions.HeadObject))
-	objects.PUT("", ihttp.NewQueryParamsRouter().
+	objects.PUT("", NewQueryParamsRouter().
 		SetFallbackHandler(a.PutObject, actions.PutObject).
 		AddRoute("uploadId", a.UploadPart, actions.UploadPart).
 		Handle)
 
-	objects.POST("", ihttp.NewQueryParamsRouter().
+	objects.POST("", NewQueryParamsRouter().
 		AddRoute("uploads", a.CreateMultipartUpload, actions.CreateMultipartUpload).
 		AddRoute("uploadId", a.CompleteMultipartUpload, actions.CompleteMultipartUpload).
 		Handle)
 
 	objects.GET("",
-		ihttp.NewQueryParamsRouter().
+		NewQueryParamsRouter().
 			SetFallbackHandler(a.GetObject, actions.GetObject).
 			AddRoute("tagging", a.GetObjectTagging, actions.GetObjectTagging).
 			Handle,
 	)
 
-	objects.DELETE("", ihttp.NewQueryParamsRouter().
+	objects.DELETE("", NewQueryParamsRouter().
 		SetFallbackHandler(a.DeleteObject, actions.DeleteObject).
 		AddRoute("uploadId", a.AbortMultipartUpload, actions.AbortMultipartUpload).
 		Handle)
 
 	a.Echo.POST("/:bucket",
-		ihttp.NewQueryParamsRouter().
+		NewQueryParamsRouter().
 			AddRoute("delete", a.DeleteObjects, actions.DeleteObjects).
 			Handle,
 	)
@@ -79,7 +78,7 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	tags, err := parseTags(c.Request().Header.Get("x-amz-tagging"))
+	tags, err := parseTags(c.Request().Header.Get("X-Amz-Tagging"))
 	if err != nil {
 		return err
 	}
@@ -88,7 +87,7 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 		Reader: c.Request().Body,
 		Metadata: core.ObjectMetadata{
 			ContentType: c.Request().Header.Get("Content-Type"),
-			SHA256:      c.Request().Header.Get("x-amz-content-sha256"),
+			SHA256:      c.Request().Header.Get("X-Amz-Content-Sha256"),
 			Size:        c.Request().ContentLength,
 			Tags:        tags,
 			Meta:        parseMeta(c),
@@ -135,7 +134,7 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 		return err
 	}
 
-	defer contents.Reader.Close() //nolint:errcheck
+	defer contents.Reader.Close()
 
 	setObjectHeaders(c, contents.Metadata)
 
@@ -149,6 +148,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	maxKeys := c.QueryParam("max-keys")
 
 	maxKeysInt := common.MaxKeys
+
 	var err error
 
 	if maxKeys != "" {
@@ -258,7 +258,7 @@ func (a APIObjects) CreateMultipartUpload(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	key := c.Param("*")
 
-	tags, err := parseTags(c.Request().Header.Get("x-amz-tagging"))
+	tags, err := parseTags(c.Request().Header.Get("X-Amz-Tagging"))
 	if err != nil {
 		return err
 	}
@@ -297,6 +297,7 @@ func (a APIObjects) UploadPart(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	return c.NoContent(http.StatusOK)
 }
 
@@ -349,7 +350,7 @@ func (a APIObjects) AbortMultipartUpload(c *echo.Context) error {
 
 func parseTags(header string) (map[string]string, error) {
 	if header == "" {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
 	decoded, err := url.QueryUnescape(header)
@@ -363,6 +364,7 @@ func parseTags(header string) (map[string]string, error) {
 	}
 
 	tags := map[string]string{}
+
 	for key, vals := range values {
 		if len(vals) > 0 {
 			tags[key] = vals[0]
@@ -374,12 +376,14 @@ func parseTags(header string) (map[string]string, error) {
 
 func parseMeta(c *echo.Context) map[string]string {
 	meta := map[string]string{}
+
 	for name, vals := range c.Request().Header {
 		ln := strings.ToLower(name)
 		if strings.HasPrefix(ln, "x-amz-meta-") {
 			meta[ln] = strings.Join(vals, ",")
 		}
 	}
+
 	return meta
 }
 
@@ -392,5 +396,11 @@ func setObjectHeaders(c *echo.Context, metadata *core.ObjectMetadata) {
 		"x-amz-checksum-sha256": metadata.SHA256Base64,
 		"x-amz-tagging-count":   strconv.Itoa(len(metadata.Tags)),
 	})
-	ihttp.SetHeaders(c, headers)
+	SetHeaders(c, headers)
+}
+
+func SetHeaders(c *echo.Context, headers map[string]string) {
+	for key, value := range headers {
+		c.Response().Header().Set(key, value)
+	}
 }

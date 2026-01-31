@@ -11,6 +11,7 @@ func SetAction(action actions.Action) echo.MiddlewareFunc {
 		return func(c *echo.Context) error {
 			apicCtx := apictx.FromContext(c.Request().Context())
 			apicCtx.Action = action
+
 			return next(c)
 		}
 	}

@@ -22,12 +22,14 @@ func randomPort() int {
 }
 
 func prepareS3(ctx context.Context, port int, adminAccessKeyID, adminSecretAccessKey string) (*s3.Client, *string) {
-	bucketName := lo.ToPtr(fmt.Sprintf("conformance-bucket-%s", uuid.NewString()))
+	bucketName := lo.ToPtr("conformance-bucket-" + uuid.NewString())
 
 	cfg := lo.Must(config.LoadDefaultConfig(ctx,
 		config.WithBaseEndpoint(fmt.Sprintf("http://localhost:%d", port)),
 		config.WithRegion("local"),
-		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(adminAccessKeyID, adminSecretAccessKey, "test")),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(adminAccessKeyID, adminSecretAccessKey, "test"),
+		),
 	))
 
 	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
@@ -68,7 +70,8 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 }
 
 func prepareConformanceTests(ctx context.Context) (*s3.Client, *string, context.CancelFunc) {
-	port, cancelApp, adminAccessKeyID, adminSecretAccessKey := runApp(context.Background())
+	port, cancelApp, adminAccessKeyID, adminSecretAccessKey := runApp(context.Background()) //nolint:contextcheck
+
 	time.Sleep(100 * time.Millisecond)
 
 	s3Client, bucketName := prepareS3(ctx, port, adminAccessKeyID, adminSecretAccessKey)

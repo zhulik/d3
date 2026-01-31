@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var objectMetadata = map[string]string{
+var objectMetadata = map[string]string{ //nolint:gochecknoglobals
 	"foo": "bar",
 }
 
@@ -37,11 +37,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 	Describe("PutObject", func() {
 		It("creats an object", func(ctx context.Context) {
-			content := "hello world"
 			_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 				Bucket:      bucketName,
 				Key:         lo.ToPtr("hello.txt"),
-				Body:        strings.NewReader(content),
+				Body:        strings.NewReader("hello world"),
 				ContentType: lo.ToPtr("text/plain"),
 				Metadata:    objectMetadata,
 				Tagging:     lo.ToPtr("bar=baz"),
@@ -322,7 +321,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 				bodyBytes, err := io.ReadAll(getObjectOutput.Body)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(bodyBytes)).To(Equal("hello 1\nhello 2\nhello 3\nhello 4\nhello 5\nhello 6\nhello 7\nhello 8\nhello 9\nhello 10\n"))
+				Expect(string(bodyBytes)).To(Equal("hello 1\nhello 2\nhello 3\nhello 4\nhello 5\nhello 6\nhello 7\nhello 8\nhello 9\nhello 10\n")) //nolint:lll
 			})
 		})
 	})

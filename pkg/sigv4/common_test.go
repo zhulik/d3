@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	signer = v4.NewSigner()
+	signer = v4.NewSigner() //nolint:gochecknoglobals
 )
 
 func signRequest(ctx context.Context, req *http.Request) {
@@ -34,6 +34,7 @@ func preSignURL(ctx context.Context, req *http.Request) string {
 			SecretAccessKey: "test",
 		}, req, "UNSIGNED-PAYLOAD", "s3", "local", time.Now()),
 	)
+
 	return url
 }
 

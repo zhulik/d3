@@ -2,12 +2,10 @@ package s3api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
-	ihttp "github.com/zhulik/d3/internal/http"
 	"github.com/zhulik/d3/internal/s3api/actions"
 	"github.com/zhulik/d3/internal/s3api/middlewares"
 )
@@ -54,9 +52,9 @@ func (a APIBuckets) CreateBucket(c *echo.Context) error {
 		return err
 	}
 
-	ihttp.SetHeaders(c, map[string]string{
-		"Location":         fmt.Sprintf("/%s", name),
-		"x-amz-bucket-arn": fmt.Sprintf("arn:aws:s3:::%s", name),
+	SetHeaders(c, map[string]string{
+		"Location":         "/" + name,
+		"x-amz-bucket-arn": "arn:aws:s3:::" + name,
 	})
 
 	return c.NoContent(http.StatusCreated)

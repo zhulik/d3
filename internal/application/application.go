@@ -17,6 +17,7 @@ import (
 
 func New(config *core.Config) *pal.Pal {
 	var logger *slog.Logger
+
 	if config.Environment == "development" ||
 		config.Environment == "test" {
 		opts := &devslog.Options{
@@ -54,6 +55,7 @@ func Run() {
 		slog.Error("failed to initialize config", "error", err)
 		os.Exit(1)
 	}
+
 	p := New(config)
 
 	err := p.Run(context.Background())

@@ -44,5 +44,6 @@ func (a *Authenticator) getAccessKeySecret(ctx context.Context, accessKey string
 	if err != nil {
 		return "", err
 	}
+
 	return user.SecretAccessKey, nil
 }

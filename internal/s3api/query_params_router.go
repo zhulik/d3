@@ -1,4 +1,4 @@
-package http //nolint:revive
+package s3api
 
 import (
 	"net/http"
@@ -27,6 +27,7 @@ func NewQueryParamsRouter() *QueryParamsRouter {
 
 func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc, action actions.Action) *QueryParamsRouter {
 	r.routes = append(r.routes, route{param: param, handler: applyMiddlewares(handler, middlewares.SetAction(action))})
+
 	return r
 }
 
@@ -34,7 +35,9 @@ func (r *QueryParamsRouter) SetFallbackHandler(handler echo.HandlerFunc, action 
 	if r.fallbackHandler != nil {
 		panic("fallback handler already set")
 	}
+
 	r.fallbackHandler = applyMiddlewares(handler, middlewares.SetAction(action))
+
 	return r
 }
 
@@ -44,9 +47,11 @@ func (r *QueryParamsRouter) Handle(c *echo.Context) error {
 			return route.handler(c)
 		}
 	}
+
 	if r.fallbackHandler != nil {
 		return r.fallbackHandler(c)
 	}
+
 	return echo.NewHTTPError(http.StatusNotImplemented, "not implemented")
 }
 
@@ -54,5 +59,6 @@ func applyMiddlewares(h echo.HandlerFunc, middlewares ...echo.MiddlewareFunc) ec
 	for _, middleware := range middlewares {
 		h = middleware(h)
 	}
+
 	return h
 }

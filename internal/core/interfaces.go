@@ -49,7 +49,11 @@ type User struct {
 	SecretAccessKey string
 }
 
-type Backend interface {
+func (u User) ARN() string {
+	return "arn:aws:iam:::user/" + u.Name
+}
+
+type Backend interface { //nolint:interfacebloat
 	ListBuckets(ctx context.Context) ([]*types.Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
 	DeleteBucket(ctx context.Context, name string) error

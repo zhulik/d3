@@ -23,12 +23,14 @@ type Object struct {
 
 func ObjectFromPath(cfg *Config, bucket, key string) (*Object, error) {
 	path := cfg.objectPath(bucket, key)
+
 	isObject, err := IsObjectPath(path)
 	if err != nil {
 		return nil, err
 	}
+
 	if !isObject {
-		return nil, nil
+		return nil, nil //nolint:nilnil
 	}
 
 	return &Object{
@@ -46,8 +48,10 @@ func (o *Object) Read(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+
 		o.ReadCloser = rc
 	}
+
 	return o.ReadCloser.Read(p)
 }
 
@@ -55,6 +59,7 @@ func (o *Object) Close() error {
 	if o.ReadCloser == nil {
 		return nil
 	}
+
 	return o.ReadCloser.Close()
 }
 
@@ -63,6 +68,7 @@ func (o *Object) Metadata() (*core.ObjectMetadata, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &metadata, nil
 }
 
@@ -73,11 +79,12 @@ func (o *Object) Delete() error {
 	}
 
 	parentDir := filepath.Dir(o.path)
+
 	entries, readErr := os.ReadDir(parentDir)
 	if readErr == nil && len(entries) == 0 {
 		// we ignore the on purpose because there might be concurrent uploads to the same directory
 		if parentDir != o.config.bucketPath(o.bucket) {
-			os.Remove(parentDir) //nolint:errcheck
+			os.Remove(parentDir)
 		}
 	}
 
@@ -85,11 +92,12 @@ func (o *Object) Delete() error {
 }
 
 func IsObjectPath(path string) (bool, error) {
-	fi, err := os.Stat(filepath.Join(path))
+	fi, err := os.Stat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, common.ErrObjectNotFound
 		}
+
 		return false, err
 	}
 
@@ -101,6 +109,7 @@ func IsObjectPath(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	if !exists {
 		return false, nil
 	}
@@ -109,9 +118,11 @@ func IsObjectPath(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
 	if !exists {
 		return false, nil
 	}
+
 	return true, nil
 }
 
@@ -121,7 +132,9 @@ func existsAndIsFile(path string) (bool, error) {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		}
+
 		return false, err
 	}
+
 	return !fi.IsDir(), nil
 }

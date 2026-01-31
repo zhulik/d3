@@ -37,6 +37,7 @@ type BackendObjects struct {
 
 func (b *BackendObjects) Init(_ context.Context) error {
 	b.config = &Config{b.Cfg}
+
 	return nil
 }
 
@@ -45,6 +46,7 @@ func (b *BackendObjects) HeadObject(_ context.Context, bucket, key string) (*cor
 	if err != nil {
 		return nil, err
 	}
+
 	return object.Metadata()
 }
 
@@ -63,17 +65,18 @@ func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, inpu
 	}
 
 	uploadPath := b.config.newUploadPath()
+
 	err = os.MkdirAll(uploadPath, 0755)
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(uploadPath) //nolint:errcheck
+	defer os.RemoveAll(uploadPath)
 
 	uploadFile, err := os.Create(filepath.Join(uploadPath, blobFilename))
 	if err != nil {
 		return err
 	}
-	defer uploadFile.Close() //nolint:errcheck
+	defer uploadFile.Close()
 
 	_, sha256sum, err := smartio.Copy(ctx, uploadFile, input.Reader)
 	if err != nil {
@@ -114,10 +117,12 @@ func (b *BackendObjects) GetObjectTagging(_ context.Context, bucket, key string)
 	if err != nil {
 		return nil, err
 	}
+
 	metadata, err := object.Metadata()
 	if err != nil {
 		return nil, err
 	}
+
 	return metadata.Tags, nil
 }
 
@@ -126,6 +131,7 @@ func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (*core
 	if err != nil {
 		return nil, err
 	}
+
 	metadata, err := object.Metadata()
 	if err != nil {
 		return nil, err
@@ -137,7 +143,7 @@ func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (*core
 	}, nil
 }
 
-func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input core.ListObjectsV2Input) ([]*types.Object, error) {
+func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input core.ListObjectsV2Input) ([]*types.Object, error) { //nolint:lll
 	objects := []*types.Object{}
 
 	bucketPath := b.config.bucketPath(bucket)
@@ -156,10 +162,12 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 		if path == bucketPath {
 			return nil
 		}
+
 		key, err := filepath.Rel(bucketPath, path)
 		if err != nil {
 			return err
 		}
+
 		key = filepath.ToSlash(key) // Normalize to forward slashes for S3 keys
 
 		if !strings.HasPrefix(key, input.Prefix) {
@@ -170,9 +178,11 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 		if err != nil {
 			return err
 		}
+
 		if object == nil {
 			return nil
 		}
+
 		metadata, err := object.Metadata()
 		if err != nil {
 			return err
@@ -183,43 +193,49 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 			LastModified: &metadata.LastModified,
 			Size:         &metadata.Size,
 		})
+
 		return nil
 	})
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, common.ErrBucketNotFound
 		}
+
 		return nil, err
 	}
 
 	return objects, nil
 }
 
-func (b *BackendObjects) DeleteObjects(ctx context.Context, bucket string, quiet bool, keys ...string) ([]core.DeleteResult, error) {
+func (b *BackendObjects) DeleteObjects(ctx context.Context, bucket string, quiet bool, keys ...string) ([]core.DeleteResult, error) { //nolint:lll
 	results := []core.DeleteResult{}
+
 	for _, key := range keys {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
+
 		object, err := b.getObject(bucket, key)
 		if err != nil {
 			results = append(results, core.DeleteResult{Key: key, Error: err})
+
 			continue
 		}
+
 		err = object.Delete()
 		if err != nil {
 			results = append(results, core.DeleteResult{Key: key, Error: err})
-		} else {
-			if !quiet {
-				results = append(results, core.DeleteResult{Key: key, Error: nil})
-			}
+		} else if !quiet {
+			results = append(results, core.DeleteResult{Key: key, Error: nil})
 		}
 	}
+
 	return results, nil
 }
 
-func (b *BackendObjects) CreateMultipartUpload(_ context.Context, _, _ string, metadata core.ObjectMetadata) (string, error) {
+func (b *BackendObjects) CreateMultipartUpload(_ context.Context, _, _ string, metadata core.ObjectMetadata) (string, error) { //nolint:lll
 	id, uploadPath := b.config.newMultipartUploadPath()
+
 	err := os.MkdirAll(uploadPath, 0755)
 	if err != nil {
 		return "", err
@@ -233,7 +249,7 @@ func (b *BackendObjects) CreateMultipartUpload(_ context.Context, _, _ string, m
 	return id, nil
 }
 
-func (b *BackendObjects) UploadPart(ctx context.Context, _, _ string, uploadID string, partNumber int, body io.Reader) error {
+func (b *BackendObjects) UploadPart(ctx context.Context, _, _ string, uploadID string, partNumber int, body io.Reader) error { //nolint:lll
 	uploadPath := b.config.multipartUploadPath(uploadID)
 	path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", partNumber))
 
@@ -252,7 +268,7 @@ func (b *BackendObjects) UploadPart(ctx context.Context, _, _ string, uploadID s
 	if err != nil {
 		return err
 	}
-	defer uploadFile.Close() //nolint:errcheck
+	defer uploadFile.Close()
 
 	_, _, err = smartio.Copy(ctx, uploadFile, body)
 	if err != nil {
@@ -262,7 +278,7 @@ func (b *BackendObjects) UploadPart(ctx context.Context, _, _ string, uploadID s
 	return nil
 }
 
-func (b *BackendObjects) CompleteMultipartUpload(ctx context.Context, bucket, key string, uploadID string, parts []core.CompletePart) error {
+func (b *BackendObjects) CompleteMultipartUpload(ctx context.Context, bucket, key string, uploadID string, parts []core.CompletePart) error { //nolint:lll,funlen
 	slices.SortFunc(parts, func(a, b core.CompletePart) int {
 		return a.PartNumber - b.PartNumber
 	})
@@ -270,6 +286,7 @@ func (b *BackendObjects) CompleteMultipartUpload(ctx context.Context, bucket, ke
 	// validate that all parts are present
 	for _, part := range parts {
 		uploadPath := b.config.multipartUploadPath(uploadID)
+
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
 		if _, err := os.Stat(path); err != nil {
 			return err
@@ -282,10 +299,11 @@ func (b *BackendObjects) CompleteMultipartUpload(ctx context.Context, bucket, ke
 	if err != nil {
 		return err
 	}
-	defer blobFile.Close() //nolint:errcheck
+	defer blobFile.Close()
 
 	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
+
 		partFile, err := os.Open(path)
 		if err != nil {
 			return err
@@ -293,16 +311,19 @@ func (b *BackendObjects) CompleteMultipartUpload(ctx context.Context, bucket, ke
 
 		_, _, err = smartio.Copy(ctx, blobFile, partFile)
 		if err != nil {
-			partFile.Close() //nolint:errcheck
+			partFile.Close()
+
 			return err
 		}
-		partFile.Close() //nolint:errcheck
+
+		partFile.Close()
 	}
 
 	files, err := os.ReadDir(uploadPath)
 	if err != nil {
 		return err
 	}
+
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), "part-") {
 			err := os.Remove(filepath.Join(uploadPath, file.Name()))
@@ -321,7 +342,9 @@ func (b *BackendObjects) CompleteMultipartUpload(ctx context.Context, bucket, ke
 	if err != nil {
 		return err
 	}
+
 	metadata.Size = blobFileStat.Size()
+
 	err = yaml.MarshalToFile(metadata, filepath.Join(uploadPath, metadataYamlFilename))
 	if err != nil {
 		return err
@@ -337,6 +360,7 @@ func (b *BackendObjects) CompleteMultipartUpload(ctx context.Context, bucket, ke
 
 func (b *BackendObjects) AbortMultipartUpload(_ context.Context, _, _ string, uploadID string) error {
 	uploadPath := b.config.multipartUploadPath(uploadID)
+
 	return os.RemoveAll(uploadPath)
 }
 
@@ -345,9 +369,11 @@ func (b *BackendObjects) getObject(bucket, key string) (*Object, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if object == nil {
 		return nil, common.ErrObjectNotFound
 	}
+
 	return object, nil
 }
 

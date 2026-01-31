@@ -49,9 +49,9 @@ func (w *AtomicWriter) ReadWrite(ctx context.Context, filename string, contentMa
 	}
 	// For simplicity, we try to remove the temp file anyways. If the rename succeeds,
 	// Remove will return an error, but we ignore it
-	defer os.Remove(tempFile.Name()) //nolint:errcheck
+	defer os.Remove(tempFile.Name())
 
-	defer tempFile.Close() //nolint:errcheck
+	defer tempFile.Close()
 
 	_, err = tempFile.Write(newContent)
 	if err != nil {

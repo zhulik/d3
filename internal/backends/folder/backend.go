@@ -81,17 +81,21 @@ func (b *Backend) prepareFileStructure(ctx context.Context) error {
 	if err := os.MkdirAll(b.Config.bucketsPath(), 0755); err != nil {
 		return err
 	}
+
 	if err := os.MkdirAll(b.Config.uploadsPath(), 0755); err != nil {
 		return err
 	}
+
 	if err := os.MkdirAll(b.Config.binPath(), 0755); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	configPath := b.Config.configYamlPath()
+
 	_, err := os.Stat(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -104,12 +108,15 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 					SecretAccessKey: secretAccessKey,
 				},
 			}
+
 			err := yaml.MarshalToFile(cfg, configPath)
 			if err != nil {
 				return err
 			}
+
 			return nil
 		}
+
 		return err
 	}
 
@@ -117,8 +124,10 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal config file %s: %w", configPath, err)
 	}
+
 	if existingConfig.Version != ConfigVersion {
-		return fmt.Errorf("%w: config version mismatch: expected %d, got %d", ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
+		return fmt.Errorf("%w: config version mismatch: expected %d, got %d",
+			ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
 	}
 
 	return nil

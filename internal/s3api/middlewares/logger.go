@@ -24,10 +24,12 @@ func Logger() echo.MiddlewareFunc {
 		LogValuesFunc: func(c *echo.Context, v middleware.RequestLoggerValues) error {
 			logger := c.Logger()
 			apiCtx := apictx.FromContext(c.Request().Context())
+
 			username := ""
 			if apiCtx.Username != nil {
 				username = *apiCtx.Username
 			}
+
 			commonAttrs := []slog.Attr{
 				slog.String("method", apiCtx.Method),
 				slog.String("uri", apiCtx.URI),
@@ -47,6 +49,7 @@ func Logger() echo.MiddlewareFunc {
 			}
 
 			logger.LogAttrs(c.Request().Context(), slog.LevelInfo, "REQUEST", commonAttrs...)
+
 			return nil
 		},
 	})
