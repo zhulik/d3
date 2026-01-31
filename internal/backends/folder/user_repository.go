@@ -2,6 +2,8 @@ package folder
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -84,6 +86,9 @@ func (r *UserRepository) Run(ctx context.Context) error {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
+	errorsCount := 0
+	var allErrors error
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -92,7 +97,11 @@ func (r *UserRepository) Run(ctx context.Context) error {
 			err := r.checkAndReload(ctx)
 
 			if err != nil {
+				allErrors = errors.Join(allErrors, err)
 				r.Logger.Error("failed to check and reload user repository", "error", err)
+			}
+			if errorsCount > 3 {
+				return fmt.Errorf("failed to check and reload user repository after 3 attempts: %w", allErrors)
 			}
 		}
 	}
@@ -137,26 +146,15 @@ func (r *UserRepository) reload(ctx context.Context) error {
 		return err
 	}
 
-	usersByName := map[string]core.User{}
-	usersByAccessKeyID := map[string]core.User{}
-	for _, user := range configYaml.Users {
-		usersByName[user.Name] = core.User{
-			Name:            user.Name,
-			AccessKeyID:     user.AccessKeyID,
-			SecretAccessKey: user.SecretAccessKey,
-		}
-		usersByAccessKeyID[user.AccessKeyID] = usersByName[user.Name]
-	}
-
-	r.adminUser = core.User{
-		Name:            configYaml.AdminUser.Name,
-		AccessKeyID:     configYaml.AdminUser.AccessKeyID,
-		SecretAccessKey: configYaml.AdminUser.SecretAccessKey,
-	}
-
-	r.usersByName = usersByName
-	r.usersByAccessKeyID = usersByAccessKeyID
-
+	r.usersByName = map[string]core.User{}
+	r.usersByAccessKeyID = map[string]core.User{}
 	r.lastUpdated = info.ModTime()
+	r.adminUser = configYaml.AdminUser.toCoreUser()
+
+	for _, user := range configYaml.Users {
+		r.usersByName[user.Name] = user.toCoreUser()
+		r.usersByAccessKeyID[user.AccessKeyID] = r.usersByName[user.Name]
+	}
+
 	return nil
 }

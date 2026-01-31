@@ -20,16 +20,24 @@ const (
 	ConfigVersion = 1
 )
 
-type User struct {
+type user struct {
 	Name            string `yaml:"name"`
 	AccessKeyID     string `yaml:"access_key_id"`
 	SecretAccessKey string `yaml:"secret_access_key"`
 }
 
+func (u user) toCoreUser() core.User {
+	return core.User{
+		Name:            u.Name,
+		AccessKeyID:     u.AccessKeyID,
+		SecretAccessKey: u.SecretAccessKey,
+	}
+}
+
 type configYaml struct {
 	Version   int    `yaml:"version"`
-	AdminUser User   `yaml:"admin_user"`
-	Users     []User `yaml:"users"`
+	AdminUser user   `yaml:"admin_user"`
+	Users     []user `yaml:"users"`
 }
 
 type Backend struct {
@@ -39,8 +47,6 @@ type Backend struct {
 	Locker *locker.Locker
 
 	Config *Config
-
-	configYaml *configYaml
 }
 
 func (b *Backend) Init(ctx context.Context) error {
@@ -92,7 +98,7 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 			accessKeyID, secretAccessKey := credentials.GenerateCredentials()
 			cfg := configYaml{
 				Version: ConfigVersion,
-				AdminUser: User{
+				AdminUser: user{
 					Name:            "admin",
 					AccessKeyID:     accessKeyID,
 					SecretAccessKey: secretAccessKey,
@@ -102,7 +108,6 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 			if err != nil {
 				return err
 			}
-			b.configYaml = &cfg
 			return nil
 		}
 		return err
@@ -115,8 +120,6 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	if existingConfig.Version != ConfigVersion {
 		return fmt.Errorf("%w: config version mismatch: expected %d, got %d", ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
 	}
-
-	b.configYaml = &existingConfig
 
 	return nil
 }
