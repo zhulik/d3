@@ -321,7 +321,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 				bodyBytes, err := io.ReadAll(getObjectOutput.Body)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(bodyBytes)).To(Equal("hello 1\nhello 2\nhello 3\nhello 4\nhello 5\nhello 6\nhello 7\nhello 8\nhello 9\nhello 10\n")) //nolint:lll
+				Expect(string(bodyBytes)).To(Equal("hello 1\nhello 2\nhello 3\nhello 4\nhello 5\nhello 6\nhello 7\nhello 8\nhello 9\nhello 10\n"))
 			})
 		})
 	})

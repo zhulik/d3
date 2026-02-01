@@ -38,6 +38,10 @@ linters:
           - revive
         text: "dot-imports"
         path: _test\.go
+      - linters:
+          - lll
+          - dupl
+        path: _test\.go
     paths:
       - third_party$
       - builtin$
