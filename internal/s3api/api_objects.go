@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -152,6 +153,11 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 		}
 
 		contents.Metadata.Size = parsedRange.End - parsedRange.Start + 1
+		contents.Metadata.SHA256Base64 = ""
+		SetHeaders(c, map[string]string{
+			"Accept-Ranges": "bytes",
+			"Content-Range": fmt.Sprintf("bytes %d-%d/%d", parsedRange.Start, parsedRange.End, contents.Metadata.Size),
+		})
 	}
 
 	setObjectHeaders(c, contents.Metadata)
