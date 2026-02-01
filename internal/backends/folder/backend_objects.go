@@ -51,6 +51,17 @@ func (b *BackendObjects) HeadObject(_ context.Context, bucket, key string) (*cor
 }
 
 func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error {
+	bucketPath := b.config.bucketPath(bucket)
+
+	_, err := os.Stat(bucketPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return common.ErrBucketNotFound
+		}
+
+		return err
+	}
+
 	path := b.config.objectPath(bucket, key)
 
 	_, cancel, err := b.Locker.Lock(ctx, path)

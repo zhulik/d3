@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	signer = v4.NewSigner() //nolint:gochecknoglobals
+	signer = v4.NewSigner()
 )
 
 func signRequest(ctx context.Context, req *http.Request) {

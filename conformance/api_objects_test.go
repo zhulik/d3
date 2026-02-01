@@ -15,9 +15,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var objectMetadata = map[string]string{ //nolint:gochecknoglobals
-	"foo": "bar",
-}
+var (
+	objectMetadata = map[string]string{
+		"foo": "bar",
+	}
+	objectKey = lo.ToPtr("hello.txt")
+)
 
 var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Ordered, func() {
 	var s3Client *s3.Client
@@ -36,16 +39,39 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 	})
 
 	Describe("PutObject", func() {
-		It("creats an object", func(ctx context.Context) {
-			_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
-				Bucket:      bucketName,
-				Key:         lo.ToPtr("hello.txt"),
-				Body:        strings.NewReader("hello world"),
-				ContentType: lo.ToPtr("text/plain"),
-				Metadata:    objectMetadata,
-				Tagging:     lo.ToPtr("bar=baz"),
+		When("object does not exist", func() {
+			It("creats an object", func(ctx context.Context) {
+				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket:      bucketName,
+					Key:         objectKey,
+					Body:        strings.NewReader("hello world"),
+					ContentType: lo.ToPtr("text/plain"),
+					Metadata:    objectMetadata,
+					Tagging:     lo.ToPtr("bar=baz"),
+				})
+				Expect(err).NotTo(HaveOccurred())
 			})
-			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("object already exists", func() {
+			It("returns an error", func(ctx context.Context) {
+				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket: bucketName,
+					Key:    objectKey,
+					Body:   strings.NewReader("hello world"),
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("bucket does not exist", func() {
+			It("returns an error", func(ctx context.Context) {
+				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket: lo.ToPtr("does-not-exist"),
+					Key:    objectKey,
+				})
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 
@@ -83,7 +109,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			})
 
 			When("listing non-existent bucket", func() {
-				It("returnserror", func(ctx context.Context) {
+				It("returns an error", func(ctx context.Context) {
 					_, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 						Bucket: lo.ToPtr("does-not-exist"),
 					})
@@ -111,7 +137,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				content := "hello world"
 				headObjectOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(headObjectOutput.ContentLength).NotTo(BeNil())
@@ -138,7 +164,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("returns object tagging", func(ctx context.Context) {
 				output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -163,7 +189,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				content := "hello world"
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -182,7 +208,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("returns the range of the object", func(ctx context.Context) {
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 					Range:  lo.ToPtr("bytes=1-5"),
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -211,13 +237,13 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("deletes object", func(ctx context.Context) {
 				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err = s3Client.HeadObject(ctx, &s3.HeadObjectInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -277,7 +303,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("creates multipart upload", func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
@@ -290,7 +316,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				It(fmt.Sprintf("uploads part %d", i), func(ctx context.Context) {
 					_, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
 						Bucket:     bucketName,
-						Key:        lo.ToPtr("hello.txt"),
+						Key:        objectKey,
 						PartNumber: lo.ToPtr(int32(i)),
 						UploadId:   uploadID,
 						Body:       strings.NewReader(fmt.Sprintf("hello %d\n", i)),
@@ -304,7 +330,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("completes multipart upload", func(ctx context.Context) {
 				_, err := s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 					Bucket:   bucketName,
-					Key:      lo.ToPtr("hello.txt"),
+					Key:      objectKey,
 					UploadId: uploadID,
 					MultipartUpload: &types.CompletedMultipartUpload{
 						Parts: []types.CompletedPart{
@@ -330,7 +356,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("returns object", func(ctx context.Context) {
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -350,7 +376,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("creates multipart upload", func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 					Bucket: bucketName,
-					Key:    lo.ToPtr("hello.txt"),
+					Key:    objectKey,
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
@@ -362,7 +388,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("aborts multipart upload", func(ctx context.Context) {
 				_, err := s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 					Bucket:   bucketName,
-					Key:      lo.ToPtr("hello.txt"),
+					Key:      objectKey,
 					UploadId: uploadID,
 				})
 				Expect(err).NotTo(HaveOccurred())
