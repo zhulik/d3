@@ -36,12 +36,17 @@ func NewRangedReader(reader io.ReadSeeker, start int64, end int64) (*RangedReade
 }
 
 func (r *RangedReader) Read(p []byte) (int, error) {
-	if r.current >= r.end {
+	// Empty range (start == end) returns EOF immediately
+	if r.start == r.end && r.current >= r.end {
 		return 0, io.EOF
 	}
 
-	// Limit read size to remaining bytes in range
-	maxRead := r.end - r.current
+	if r.current > r.end {
+		return 0, io.EOF
+	}
+
+	// Limit read size to remaining bytes in range (inclusive of end)
+	maxRead := r.end - r.current + 1
 	if int64(len(p)) > maxRead {
 		p = p[:maxRead]
 	}
@@ -50,7 +55,7 @@ func (r *RangedReader) Read(p []byte) (int, error) {
 	r.current += int64(n)
 
 	// If we've reached the end of the range, return EOF
-	if r.current >= r.end {
+	if r.current > r.end {
 		if err == nil {
 			err = io.EOF
 		}

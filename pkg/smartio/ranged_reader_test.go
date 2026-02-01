@@ -19,11 +19,11 @@ var _ = Describe("RangedReader", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rr).NotTo(BeNil())
 
-			buf := make([]byte, 5)
+			buf := make([]byte, 6)
 			n, err := rr.Read(buf)
 			Expect(err).To(Equal(io.EOF))
-			Expect(n).To(Equal(5))
-			Expect(string(buf)).To(Equal("56789"))
+			Expect(n).To(Equal(6))
+			Expect(string(buf)).To(Equal("56789a"))
 		})
 
 		It("returns error if seek fails", func() {
@@ -70,8 +70,8 @@ var _ = Describe("RangedReader", func() {
 					}
 				},
 				Entry("reads within range", int64(5), int64(10), 3, 3, nil, "567"),
-				Entry("reads exactly to the end", int64(5), int64(10), 5, 5, io.EOF, "56789"),
-				Entry("stops reading at end when buffer is larger", int64(5), int64(10), 10, 5, io.EOF, "56789"),
+				Entry("reads exactly to the end", int64(5), int64(10), 6, 6, io.EOF, "56789a"),
+				Entry("stops reading at end when buffer is larger", int64(5), int64(10), 10, 6, io.EOF, "56789a"),
 			)
 		})
 
@@ -95,8 +95,8 @@ var _ = Describe("RangedReader", func() {
 				buf3 := make([]byte, 2)
 				n3, err3 := rr.Read(buf3)
 				Expect(err3).To(Equal(io.EOF))
-				Expect(n3).To(Equal(1))
-				Expect(string(buf3[:n3])).To(Equal("9"))
+				Expect(n3).To(Equal(2))
+				Expect(string(buf3[:n3])).To(Equal("9a"))
 			})
 
 			It("handles reads that span the boundary", func() {
@@ -114,8 +114,8 @@ var _ = Describe("RangedReader", func() {
 				buf2 := make([]byte, 5)
 				n2, err2 := rr.Read(buf2)
 				Expect(err2).To(Equal(io.EOF))
-				Expect(n2).To(Equal(2))
-				Expect(string(buf2[:n2])).To(Equal("89"))
+				Expect(n2).To(Equal(3))
+				Expect(string(buf2[:n2])).To(Equal("89a"))
 			})
 		})
 
@@ -134,8 +134,8 @@ var _ = Describe("RangedReader", func() {
 					}
 				},
 				Entry("empty range (start == end)", int64(5), int64(5), 0, "", "empty range"),
-				Entry("single byte range", int64(5), int64(6), 1, "5", "single byte"),
-				Entry("reading from start of file", int64(0), int64(5), 5, "01234", "start of file"),
+				Entry("single byte range", int64(5), int64(6), 2, "56", "single byte range"),
+				Entry("reading from start of file", int64(0), int64(5), 6, "012345", "start of file"),
 				Entry("reading to end of file", int64(15), int64(20), 5, "fghij", "end of file"),
 			)
 
@@ -147,7 +147,7 @@ var _ = Describe("RangedReader", func() {
 				buf1 := make([]byte, 10)
 				n1, err1 := rr.Read(buf1)
 				Expect(err1).To(Equal(io.EOF))
-				Expect(n1).To(Equal(5))
+				Expect(n1).To(Equal(6))
 
 				// Try to read again
 				buf2 := make([]byte, 10)
@@ -173,7 +173,7 @@ var _ = Describe("RangedReader", func() {
 					Expect(err).NotTo(HaveOccurred())
 					result = append(result, buf[:n]...)
 				}
-				Expect(string(result)).To(Equal("56789"))
+				Expect(string(result)).To(Equal("56789a"))
 			})
 		})
 
@@ -228,7 +228,7 @@ var _ = Describe("RangedReader", func() {
 					Expect(n).To(Equal(expectedN))
 					Expect(string(buf[:n])).To(Equal(expectedContent))
 				},
-				Entry("range at very start", int64(0), int64(1), 1, "0", "very start"),
+				Entry("range at very start", int64(0), int64(1), 2, "01", "very start"),
 				Entry("range at very end", int64(19), int64(20), 1, "j", "very end"),
 				Entry("full range", int64(0), int64(len(data)), len(data), string(data), "full range"),
 			)
