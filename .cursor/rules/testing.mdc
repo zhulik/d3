@@ -39,6 +39,7 @@ var _ = Describe("FooBar", func() {
 - Never mix `Context` or `When` in a single group with `It`
 - Prefer `When` over `Context`
 - Don't use "should" in `It` descriptions, use a verb instead.
+- Prefer table tests(`DescribeTable`) over multiple `It` nodes where it makes sense.
 
 ```go
 // ✅ Correct

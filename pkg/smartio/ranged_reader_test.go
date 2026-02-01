@@ -35,7 +35,7 @@ var _ = Describe("RangedReader", func() {
 
 		Context("invalid range", func() {
 			DescribeTable("returns ErrInvalidRange",
-				func(start, end int64, description string) {
+				func(start, end int64, _ string) {
 					rr, err := smartio.NewRangedReader(bytes.NewReader(data), start, end)
 					Expect(err).To(HaveOccurred())
 					Expect(errors.Is(err, smartio.ErrInvalidRange)).To(BeTrue())
@@ -60,7 +60,7 @@ var _ = Describe("RangedReader", func() {
 					buf := make([]byte, bufSize)
 					n, err := rr.Read(buf)
 					if expectedErr == nil {
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 					} else {
 						Expect(err).To(Equal(expectedErr))
 					}
@@ -121,7 +121,7 @@ var _ = Describe("RangedReader", func() {
 
 		Context("edge cases", func() {
 			DescribeTable("handles range boundaries",
-				func(start, end int64, expectedN int, expectedContent string, description string) {
+				func(start, end int64, expectedN int, expectedContent string, _ string) {
 					rr, err := smartio.NewRangedReader(bytes.NewReader(data), start, end)
 					Expect(err).NotTo(HaveOccurred())
 
@@ -218,7 +218,7 @@ var _ = Describe("RangedReader", func() {
 
 		Context("boundary conditions", func() {
 			DescribeTable("handles boundary positions",
-				func(start, end int64, expectedN int, expectedContent string, description string) {
+				func(start, end int64, expectedN int, expectedContent string, _ string) {
 					rr, err := smartio.NewRangedReader(bytes.NewReader(data), start, end)
 					Expect(err).NotTo(HaveOccurred())
 
