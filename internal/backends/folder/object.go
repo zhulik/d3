@@ -12,7 +12,7 @@ import (
 )
 
 type Object struct {
-	io.ReadCloser
+	io.ReadSeekCloser
 
 	config       *Config
 	bucket       string
@@ -43,24 +43,37 @@ func ObjectFromPath(cfg *Config, bucket, key string) (*Object, error) {
 }
 
 func (o *Object) Read(p []byte) (int, error) {
-	if o.ReadCloser == nil {
+	if o.ReadSeekCloser == nil {
 		rc, err := os.Open(o.blobPath)
 		if err != nil {
 			return 0, err
 		}
 
-		o.ReadCloser = rc
+		o.ReadSeekCloser = rc
 	}
 
-	return o.ReadCloser.Read(p)
+	return o.ReadSeekCloser.Read(p)
+}
+
+func (o *Object) Seek(offset int64, whence int) (int64, error) {
+	if o.ReadSeekCloser == nil {
+		rc, err := os.Open(o.blobPath)
+		if err != nil {
+			return 0, err
+		}
+
+		o.ReadSeekCloser = rc
+	}
+
+	return o.ReadSeekCloser.Seek(offset, whence)
 }
 
 func (o *Object) Close() error {
-	if o.ReadCloser == nil {
+	if o.ReadSeekCloser == nil {
 		return nil
 	}
 
-	return o.ReadCloser.Close()
+	return o.ReadSeekCloser.Close()
 }
 
 func (o *Object) Metadata() (*core.ObjectMetadata, error) {

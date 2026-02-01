@@ -19,7 +19,7 @@ type ObjectMetadata struct {
 }
 
 type ObjectContent struct {
-	Reader   io.ReadCloser
+	Reader   io.ReadSeekCloser
 	Metadata *ObjectMetadata
 }
 

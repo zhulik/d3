@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/xml"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,6 +17,8 @@ import (
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/s3api/actions"
 	"github.com/zhulik/d3/internal/s3api/middlewares"
+	"github.com/zhulik/d3/pkg/rangeparser"
+	"github.com/zhulik/d3/pkg/smartio"
 )
 
 type APIObjects struct {
@@ -133,12 +136,27 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-
 	defer contents.Reader.Close()
+
+	var reader io.Reader = contents.Reader
+
+	if rangeHeader := c.Request().Header.Get("Range"); rangeHeader != "" {
+		parsedRange, err := rangeparser.Parse(rangeHeader, contents.Metadata.Size)
+		if err != nil {
+			return err
+		}
+
+		reader, err = smartio.NewRangedReader(contents.Reader, parsedRange.Start, parsedRange.End)
+		if err != nil {
+			return err
+		}
+
+		contents.Metadata.Size = parsedRange.End - parsedRange.Start + 1
+	}
 
 	setObjectHeaders(c, contents.Metadata)
 
-	return c.Stream(http.StatusOK, contents.Metadata.ContentType, contents.Reader)
+	return c.Stream(http.StatusOK, contents.Metadata.ContentType, reader)
 }
 
 func (a APIObjects) ListObjectsV2(c *echo.Context) error {

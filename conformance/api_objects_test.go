@@ -178,6 +178,23 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			})
 		})
 
+		When("fetching a range of the object", func() {
+			It("returns the range of the object", func(ctx context.Context) {
+				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+					Bucket: bucketName,
+					Key:    lo.ToPtr("hello.txt"),
+					Range:  lo.ToPtr("bytes=1-5"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				defer getObjectOutput.Body.Close()
+
+				bodyBytes, err := io.ReadAll(getObjectOutput.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(bodyBytes)).To(Equal("ello "))
+			})
+		})
+
 		When("object does not exist", func() {
 			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
