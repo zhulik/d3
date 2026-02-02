@@ -53,11 +53,18 @@ func (u User) ARN() string {
 	return "arn:aws:iam:::user/" + u.Name
 }
 
+type Bucket interface {
+	Name() string
+	ARN() string
+	Region() string
+	CreationDate() time.Time
+}
+
 type Backend interface { //nolint:interfacebloat
-	ListBuckets(ctx context.Context) ([]*types.Bucket, error)
+	ListBuckets(ctx context.Context) ([]Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
 	DeleteBucket(ctx context.Context, name string) error
-	HeadBucket(ctx context.Context, name string) error
+	HeadBucket(ctx context.Context, name string) (Bucket, error)
 
 	HeadObject(ctx context.Context, bucket, key string) (*ObjectMetadata, error)
 	PutObject(ctx context.Context, bucket, key string, input PutObjectInput) error

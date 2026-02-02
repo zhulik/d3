@@ -4,7 +4,10 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/labstack/echo/v5"
+	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/s3api/actions"
 	"github.com/zhulik/d3/internal/s3api/middlewares"
@@ -38,7 +41,14 @@ func (a APIBuckets) ListBuckets(c *echo.Context) error {
 	}
 
 	response := bucketsResult{
-		Buckets: buckets,
+		Buckets: lo.Map(buckets, func(bucket core.Bucket, _ int) *types.Bucket {
+			return &types.Bucket{
+				Name:         aws.String(bucket.Name()),
+				CreationDate: aws.Time(bucket.CreationDate()),
+				BucketRegion: aws.String(bucket.Region()),
+				BucketArn:    aws.String(bucket.ARN()),
+			}
+		}),
 	}
 
 	return c.XML(http.StatusOK, response)
@@ -72,25 +82,30 @@ func (a APIBuckets) DeleteBucket(c *echo.Context) error {
 }
 
 func (a APIBuckets) GetBucketLocation(c *echo.Context) error {
-	bucket := c.Param("bucket")
+	bucketName := c.Param("bucket")
 
-	err := a.Backend.HeadBucket(c.Request().Context(), bucket)
+	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
 	if err != nil {
 		return err
 	}
 
 	response := locationConstraintResponse{
-		Location: "local",
+		Location: bucket.Region(),
 	}
 
 	return c.XML(http.StatusOK, response)
 }
 
 func (a APIBuckets) HeadBucket(c *echo.Context) error {
-	err := a.Backend.HeadBucket(c.Request().Context(), c.Param("bucket"))
+	bucket, err := a.Backend.HeadBucket(c.Request().Context(), c.Param("bucket"))
 	if err != nil {
 		return err
 	}
+
+	SetHeaders(c, map[string]string{
+		"x-amz-bucket-arn":    bucket.ARN(),
+		"x-amz-bucket-region": bucket.Region(),
+	})
 
 	return c.NoContent(http.StatusOK)
 }
