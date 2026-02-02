@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"syscall"
 
+	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/credentials"
+	"github.com/zhulik/d3/pkg/iter"
 	"github.com/zhulik/d3/pkg/yaml"
 )
 
@@ -41,14 +44,16 @@ type configYaml struct {
 }
 
 type Backend struct {
-	*BackendBuckets
+	Cfg *core.Config
 
 	Locker *locker.Locker
 
-	Config *Config
+	config *Config
 }
 
 func (b *Backend) Init(ctx context.Context) error {
+	b.config = &Config{b.Cfg}
+
 	// Lock the backend to prevent concurrent initialization
 	ctx, cancel, err := b.Locker.Lock(ctx, "folder-backend-init")
 	if err != nil {
@@ -56,10 +61,10 @@ func (b *Backend) Init(ctx context.Context) error {
 	}
 	defer cancel()
 
-	_, err = os.Stat(b.Config.FolderBackendPath)
+	_, err = os.Stat(b.Cfg.FolderBackendPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(b.Config.FolderBackendPath, 0755)
+			err = os.MkdirAll(b.Cfg.FolderBackendPath, 0755)
 			if err != nil {
 				return err
 			}
@@ -71,21 +76,101 @@ func (b *Backend) Init(ctx context.Context) error {
 	return b.prepareFileStructure(ctx)
 }
 
+func (b *Backend) ListBuckets(_ context.Context) ([]core.Bucket, error) {
+	entries, err := os.ReadDir(b.config.bucketsPath())
+	if err != nil {
+		return nil, err
+	}
+
+	return iter.ErrMap(entries, b.dirEntryToBucket)
+}
+
+func (b *Backend) CreateBucket(_ context.Context, name string) error {
+	path := b.config.bucketPath(name)
+
+	err := os.Mkdir(path, 0755)
+	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return common.ErrBucketAlreadyExists
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (b *Backend) DeleteBucket(_ context.Context, name string) error {
+	path := b.config.bucketPath(name)
+
+	err := os.Remove(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return common.ErrBucketNotFound
+		}
+
+		var pathError *os.PathError
+		if errors.As(err, &pathError) {
+			if errors.Is(pathError.Err, syscall.ENOTEMPTY) {
+				return common.ErrBucketNotEmpty
+			}
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (b *Backend) HeadBucket(_ context.Context, name string) (core.Bucket, error) {
+	path := b.config.bucketPath(name)
+
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, common.ErrBucketNotFound
+		}
+
+		return nil, err
+	}
+
+	return &Bucket{
+		name:         name,
+		creationDate: info.ModTime(), // TODO: use the actual creation date
+		config:       b.config,
+		Locker:       b.Locker,
+	}, nil
+}
+
+func (b *Backend) dirEntryToBucket(entry os.DirEntry) (core.Bucket, error) {
+	info, err := entry.Info()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Bucket{
+		name:         entry.Name(),
+		creationDate: info.ModTime(), // TODO: use the actual creation date
+		config:       b.config,
+		Locker:       b.Locker,
+	}, nil
+}
+
 func (b *Backend) prepareFileStructure(ctx context.Context) error {
 	err := b.prepareConfigYaml(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(b.Config.bucketsPath(), 0755); err != nil {
+	if err := os.MkdirAll(b.config.bucketsPath(), 0755); err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(b.Config.uploadsPath(), 0755); err != nil {
+	if err := os.MkdirAll(b.config.uploadsPath(), 0755); err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(b.Config.binPath(), 0755); err != nil {
+	if err := os.MkdirAll(b.config.binPath(), 0755); err != nil {
 		return err
 	}
 
@@ -93,7 +178,7 @@ func (b *Backend) prepareFileStructure(ctx context.Context) error {
 }
 
 func (b *Backend) prepareConfigYaml(_ context.Context) error {
-	configPath := b.Config.configYamlPath()
+	configPath := b.config.configYamlPath()
 
 	_, err := os.Stat(configPath)
 	if err != nil {
