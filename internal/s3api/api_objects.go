@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
+	"github.com/zhulik/d3/internal/apictx"
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/s3api/actions"
@@ -24,41 +25,44 @@ import (
 )
 
 type APIObjects struct {
-	Backend core.Backend
-	Echo    *Echo
+	Backend      core.Backend
+	BucketFinder *middlewares.BucketFinder
+	Echo         *Echo
 }
 
 func (a APIObjects) Init(_ context.Context) error {
-	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, actions.ListObjectsV2)
-	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, actions.ListObjectsV2)
+	bucketFinder := a.BucketFinder.Middleware()
+
+	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, actions.ListObjectsV2, bucketFinder)
+	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, actions.ListObjectsV2, bucketFinder)
 
 	objects := a.Echo.Group("/:bucket/*")
-	objects.HEAD("", a.HeadObject, middlewares.SetAction(actions.HeadObject))
+	objects.HEAD("", a.HeadObject, middlewares.SetAction(actions.HeadObject), bucketFinder)
 	objects.PUT("", NewQueryParamsRouter().
-		SetFallbackHandler(a.PutObject, actions.PutObject).
-		AddRoute("uploadId", a.UploadPart, actions.UploadPart).
+		SetFallbackHandler(a.PutObject, actions.PutObject, bucketFinder).
+		AddRoute("uploadId", a.UploadPart, actions.UploadPart, bucketFinder).
 		Handle)
 
 	objects.POST("", NewQueryParamsRouter().
-		AddRoute("uploads", a.CreateMultipartUpload, actions.CreateMultipartUpload).
-		AddRoute("uploadId", a.CompleteMultipartUpload, actions.CompleteMultipartUpload).
+		AddRoute("uploads", a.CreateMultipartUpload, actions.CreateMultipartUpload, bucketFinder).
+		AddRoute("uploadId", a.CompleteMultipartUpload, actions.CompleteMultipartUpload, bucketFinder).
 		Handle)
 
 	objects.GET("",
 		NewQueryParamsRouter().
-			SetFallbackHandler(a.GetObject, actions.GetObject).
-			AddRoute("tagging", a.GetObjectTagging, actions.GetObjectTagging).
+			SetFallbackHandler(a.GetObject, actions.GetObject, bucketFinder).
+			AddRoute("tagging", a.GetObjectTagging, actions.GetObjectTagging, bucketFinder).
 			Handle,
 	)
 
 	objects.DELETE("", NewQueryParamsRouter().
-		SetFallbackHandler(a.DeleteObject, actions.DeleteObject).
-		AddRoute("uploadId", a.AbortMultipartUpload, actions.AbortMultipartUpload).
+		SetFallbackHandler(a.DeleteObject, actions.DeleteObject, bucketFinder).
+		AddRoute("uploadId", a.AbortMultipartUpload, actions.AbortMultipartUpload, bucketFinder).
 		Handle)
 
 	a.Echo.POST("/:bucket",
 		NewQueryParamsRouter().
-			AddRoute("delete", a.DeleteObjects, actions.DeleteObjects).
+			AddRoute("delete", a.DeleteObjects, actions.DeleteObjects, bucketFinder).
 			Handle,
 	)
 
@@ -66,13 +70,8 @@ func (a APIObjects) Init(_ context.Context) error {
 }
 
 func (a APIObjects) HeadObject(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
 
 	result, err := bucket.HeadObject(c.Request().Context(), key)
 	if err != nil {
@@ -85,15 +84,10 @@ func (a APIObjects) HeadObject(c *echo.Context) error {
 }
 
 func (a APIObjects) PutObject(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
 
 	tags, err := parseTags(c.Request().Header.Get("X-Amz-Tagging"))
-	if err != nil {
-		return err
-	}
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
 	if err != nil {
 		return err
 	}
@@ -116,13 +110,8 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 }
 
 func (a APIObjects) GetObjectTagging(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
 
 	tags, err := bucket.GetObjectTagging(c.Request().Context(), key)
 	if err != nil {
@@ -146,13 +135,8 @@ func (a APIObjects) GetObjectTagging(c *echo.Context) error {
 }
 
 func (a APIObjects) GetObject(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
 
 	contents, err := bucket.GetObject(c.Request().Context(), key)
 	if err != nil {
@@ -189,7 +173,7 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 }
 
 func (a APIObjects) ListObjectsV2(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	prefix := c.QueryParam("prefix")
 	listType := c.QueryParam("list-type")
 	maxKeys := c.QueryParam("max-keys")
@@ -209,11 +193,6 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotImplemented, "only ListObjectsV2 is supported")
 	}
 
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
-
 	objects, err := bucket.ListObjectsV2(c.Request().Context(), core.ListObjectsV2Input{
 		MaxKeys: maxKeysInt,
 		Prefix:  prefix,
@@ -231,7 +210,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 				Size:         lo.ToPtr(object.Size()),
 			}
 		}),
-		Name:           bucketName,
+		Name:           bucket.Name(),
 		Prefix:         prefix,
 		Delimiter:      common.Delimiter,
 		MaxKeys:        maxKeysInt,
@@ -242,13 +221,8 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 }
 
 func (a APIObjects) DeleteObject(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
 
 	results, err := bucket.DeleteObjects(c.Request().Context(), false, key)
 	if err != nil {
@@ -263,7 +237,7 @@ func (a APIObjects) DeleteObject(c *echo.Context) error {
 }
 
 func (a APIObjects) DeleteObjects(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 
 	var deleteReq deleteRequestXML
 	if err := xml.NewDecoder(c.Request().Body).Decode(&deleteReq); err != nil {
@@ -282,11 +256,6 @@ func (a APIObjects) DeleteObjects(c *echo.Context) error {
 		return obj.Key
 	})
 	quiet := deleteReq.Quiet != nil && *deleteReq.Quiet
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
 
 	results, err := bucket.DeleteObjects(c.Request().Context(), quiet, keys...)
 	if err != nil {
@@ -323,15 +292,10 @@ func (a APIObjects) DeleteObjects(c *echo.Context) error {
 }
 
 func (a APIObjects) CreateMultipartUpload(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
 
 	tags, err := parseTags(c.Request().Header.Get("X-Amz-Tagging"))
-	if err != nil {
-		return err
-	}
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
 	if err != nil {
 		return err
 	}
@@ -347,7 +311,7 @@ func (a APIObjects) CreateMultipartUpload(c *echo.Context) error {
 	}
 
 	response := initiateMultipartUploadResultXML{
-		Bucket:   bucketName,
+		Bucket:   bucket.Name(),
 		Key:      key,
 		UploadID: uploadID,
 	}
@@ -356,7 +320,7 @@ func (a APIObjects) CreateMultipartUpload(c *echo.Context) error {
 }
 
 func (a APIObjects) UploadPart(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
 	uploadID := c.QueryParam("uploadId")
 	partNumber := c.QueryParam("partNumber")
@@ -364,11 +328,6 @@ func (a APIObjects) UploadPart(c *echo.Context) error {
 	partNumberInt, err := strconv.Atoi(partNumber)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid part number")
-	}
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
 	}
 
 	err = bucket.UploadPart(c.Request().Context(), key, uploadID, partNumberInt, c.Request().Body)
@@ -380,7 +339,7 @@ func (a APIObjects) UploadPart(c *echo.Context) error {
 }
 
 func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
 	uploadID := c.QueryParam("uploadId")
 
@@ -400,18 +359,13 @@ func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
 		}
 	})
 
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
-
-	err = bucket.CompleteMultipartUpload(c.Request().Context(), key, uploadID, parts)
+	err := bucket.CompleteMultipartUpload(c.Request().Context(), key, uploadID, parts)
 	if err != nil {
 		return err
 	}
 
 	response := completeMultipartUploadResultXML{
-		Bucket: bucketName,
+		Bucket: bucket.Name(),
 		Key:    key,
 	}
 
@@ -419,16 +373,11 @@ func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
 }
 
 func (a APIObjects) AbortMultipartUpload(c *echo.Context) error {
-	bucketName := c.Param("bucket")
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	key := c.Param("*")
 	uploadID := c.QueryParam("uploadId")
 
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
-
-	err = bucket.AbortMultipartUpload(c.Request().Context(), key, uploadID)
+	err := bucket.AbortMultipartUpload(c.Request().Context(), key, uploadID)
 	if err != nil {
 		return err
 	}

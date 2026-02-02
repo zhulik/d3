@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
+	"github.com/zhulik/d3/internal/apictx"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/s3api/actions"
 	"github.com/zhulik/d3/internal/s3api/middlewares"
@@ -16,16 +17,19 @@ import (
 type APIBuckets struct {
 	Backend core.Backend
 
-	Echo *Echo
+	BucketFinder *middlewares.BucketFinder
+	Echo         *Echo
 }
 
 func (a APIBuckets) Init(_ context.Context) error {
-	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation, actions.GetBucketLocation)
+	bucketFinder := a.BucketFinder.Middleware()
+
+	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation, actions.GetBucketLocation, bucketFinder)
 
 	a.Echo.GET("/", a.ListBuckets, middlewares.SetAction(actions.ListBuckets))
 
 	buckets := a.Echo.Group("/:bucket")
-	buckets.HEAD("", a.HeadBucket, middlewares.SetAction(actions.HeadBucket))
+	buckets.HEAD("", a.HeadBucket, middlewares.SetAction(actions.HeadBucket), bucketFinder)
 	buckets.PUT("", a.CreateBucket, middlewares.SetAction(actions.CreateBucket))
 	buckets.DELETE("", a.DeleteBucket, middlewares.SetAction(actions.DeleteBucket))
 
@@ -82,12 +86,7 @@ func (a APIBuckets) DeleteBucket(c *echo.Context) error {
 }
 
 func (a APIBuckets) GetBucketLocation(c *echo.Context) error {
-	bucketName := c.Param("bucket")
-
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), bucketName)
-	if err != nil {
-		return err
-	}
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 
 	response := locationConstraintResponse{
 		Location: bucket.Region(),
@@ -97,10 +96,7 @@ func (a APIBuckets) GetBucketLocation(c *echo.Context) error {
 }
 
 func (a APIBuckets) HeadBucket(c *echo.Context) error {
-	bucket, err := a.Backend.HeadBucket(c.Request().Context(), c.Param("bucket"))
-	if err != nil {
-		return err
-	}
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
 
 	SetHeaders(c, map[string]string{
 		"x-amz-bucket-arn":    bucket.ARN(),

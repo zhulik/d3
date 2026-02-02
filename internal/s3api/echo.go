@@ -37,6 +37,6 @@ func (e *Echo) Init(_ context.Context) error {
 	return nil
 }
 
-func (e *Echo) AddQueryParamRoute(path string, handler echo.HandlerFunc, action actions.Action) {
-	e.rootQueryRouter.AddRoute(path, handler, action)
+func (e *Echo) AddQueryParamRoute(path string, handler echo.HandlerFunc, action actions.Action, middlewares ...echo.MiddlewareFunc) { //nolint:lll
+	e.rootQueryRouter.AddRoute(path, applyMiddlewares(handler, middlewares...), action)
 }

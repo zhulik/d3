@@ -5,5 +5,8 @@ import (
 )
 
 func Provide() pal.ServiceDef {
-	return pal.Provide(&Authenticator{})
+	return pal.ProvideList(
+		pal.Provide(&Authenticator{}),
+		pal.Provide(&BucketFinder{}),
+	)
 }

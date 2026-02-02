@@ -6,6 +6,7 @@ import (
 	"net/url"
 
 	"github.com/labstack/echo/v5"
+	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/s3api/actions"
 )
 
@@ -28,6 +29,7 @@ type APICtx struct {
 
 	Action   actions.Action
 	Username *string
+	Bucket   core.Bucket
 }
 
 // Inject adds ApiCtx to the context and returns a new context.

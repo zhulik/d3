@@ -25,18 +25,26 @@ func NewQueryParamsRouter() *QueryParamsRouter {
 	}
 }
 
-func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc, action actions.Action) *QueryParamsRouter {
-	r.routes = append(r.routes, route{param: param, handler: applyMiddlewares(handler, middlewares.SetAction(action))})
+func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc, action actions.Action,
+	moreMiddlewares ...echo.MiddlewareFunc) *QueryParamsRouter {
+	allMiddlewares := []echo.MiddlewareFunc{middlewares.SetAction(action)}
+	allMiddlewares = append(allMiddlewares, moreMiddlewares...)
+
+	r.routes = append(r.routes, route{param: param, handler: applyMiddlewares(handler, allMiddlewares...)})
 
 	return r
 }
 
-func (r *QueryParamsRouter) SetFallbackHandler(handler echo.HandlerFunc, action actions.Action) *QueryParamsRouter {
+func (r *QueryParamsRouter) SetFallbackHandler(handler echo.HandlerFunc, action actions.Action,
+	moreMiddlewares ...echo.MiddlewareFunc) *QueryParamsRouter {
 	if r.fallbackHandler != nil {
 		panic("fallback handler already set")
 	}
 
-	r.fallbackHandler = applyMiddlewares(handler, middlewares.SetAction(action))
+	allMiddlewares := []echo.MiddlewareFunc{middlewares.SetAction(action)}
+	allMiddlewares = append(allMiddlewares, moreMiddlewares...)
+
+	r.fallbackHandler = applyMiddlewares(handler, allMiddlewares...)
 
 	return r
 }
