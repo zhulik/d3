@@ -46,11 +46,23 @@ func (u User) ARN() string {
 	return "arn:aws:iam:::user/" + u.Name
 }
 
-type Bucket interface {
+type Bucket interface { //nolint:interfacebloat
 	Name() string
 	ARN() string
 	Region() string
 	CreationDate() time.Time
+
+	HeadObject(ctx context.Context, key string) (*ObjectMetadata, error)
+	PutObject(ctx context.Context, key string, input PutObjectInput) error
+	GetObjectTagging(ctx context.Context, key string) (map[string]string, error)
+	GetObject(ctx context.Context, key string) (Object, error)
+	ListObjectsV2(ctx context.Context, input ListObjectsV2Input) ([]Object, error)
+	DeleteObjects(ctx context.Context, quiet bool, keys ...string) ([]DeleteResult, error)
+
+	CreateMultipartUpload(ctx context.Context, key string, metadata ObjectMetadata) (string, error)
+	UploadPart(ctx context.Context, key string, uploadID string, partNumber int, body io.Reader) error
+	CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []CompletePart) error
+	AbortMultipartUpload(ctx context.Context, key string, uploadID string) error
 }
 
 type Object interface {
@@ -62,23 +74,11 @@ type Object interface {
 	Metadata() *ObjectMetadata
 }
 
-type Backend interface { //nolint:interfacebloat
+type Backend interface {
 	ListBuckets(ctx context.Context) ([]Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
 	DeleteBucket(ctx context.Context, name string) error
 	HeadBucket(ctx context.Context, name string) (Bucket, error)
-
-	HeadObject(ctx context.Context, bucket, key string) (*ObjectMetadata, error)
-	PutObject(ctx context.Context, bucket, key string, input PutObjectInput) error
-	GetObjectTagging(ctx context.Context, bucket, key string) (map[string]string, error)
-	GetObject(ctx context.Context, bucket, key string) (Object, error)
-	ListObjectsV2(ctx context.Context, bucket string, input ListObjectsV2Input) ([]Object, error)
-	DeleteObjects(ctx context.Context, bucket string, quiet bool, keys ...string) ([]DeleteResult, error)
-
-	CreateMultipartUpload(ctx context.Context, bucket, key string, metadata ObjectMetadata) (string, error)
-	UploadPart(ctx context.Context, bucket, key string, uploadID string, partNumber int, body io.Reader) error
-	CompleteMultipartUpload(ctx context.Context, bucket, key string, uploadID string, parts []CompletePart) error
-	AbortMultipartUpload(ctx context.Context, bucket, key string, uploadID string) error
 }
 
 type UserRepository interface {

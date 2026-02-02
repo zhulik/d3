@@ -9,7 +9,6 @@ func Provide() pal.ServiceDef {
 	return pal.ProvideList(
 		pal.Provide[core.Backend](&Backend{}),
 		pal.Provide[core.UserRepository](&UserRepository{}),
-		pal.Provide(&BackendObjects{}),
 		pal.Provide(&BackendBuckets{}),
 		pal.Provide(&AtomicWriter{}),
 		pal.Provide(&Config{}),

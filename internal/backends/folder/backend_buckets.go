@@ -8,6 +8,7 @@ import (
 
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/iter"
 )
 
@@ -15,6 +16,8 @@ type BackendBuckets struct {
 	Cfg *core.Config
 
 	config *Config
+
+	Locker *locker.Locker
 }
 
 func (b *BackendBuckets) Init(_ context.Context) error {
@@ -29,7 +32,7 @@ func (b *BackendBuckets) ListBuckets(_ context.Context) ([]core.Bucket, error) {
 		return nil, err
 	}
 
-	return iter.ErrMap(entries, dirEntryToBucket)
+	return iter.ErrMap(entries, b.dirEntryToBucket)
 }
 
 func (b *BackendBuckets) CreateBucket(_ context.Context, name string) error {
@@ -84,10 +87,12 @@ func (b *BackendBuckets) HeadBucket(_ context.Context, name string) (core.Bucket
 	return &Bucket{
 		name:         name,
 		creationDate: info.ModTime(), // TODO: use the actual creation date
+		config:       b.config,
+		Locker:       b.Locker,
 	}, nil
 }
 
-func dirEntryToBucket(entry os.DirEntry) (core.Bucket, error) {
+func (b *BackendBuckets) dirEntryToBucket(entry os.DirEntry) (core.Bucket, error) {
 	info, err := entry.Info()
 	if err != nil {
 		return nil, err
@@ -95,6 +100,8 @@ func dirEntryToBucket(entry os.DirEntry) (core.Bucket, error) {
 
 	return &Bucket{
 		name:         entry.Name(),
-		creationDate: info.ModTime(),
+		creationDate: info.ModTime(), // TODO: use the actual creation date
+		config:       b.config,
+		Locker:       b.Locker,
 	}, nil
 }

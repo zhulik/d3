@@ -42,7 +42,6 @@ type configYaml struct {
 
 type Backend struct {
 	*BackendBuckets
-	*BackendObjects
 
 	Locker *locker.Locker
 
