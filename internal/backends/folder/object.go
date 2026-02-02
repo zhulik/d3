@@ -2,23 +2,46 @@ package folder
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/yaml"
 )
 
+var (
+	ErrObjectMetadataNotReadable = errors.New("object metadata not readable")
+)
+
 type Object struct {
 	io.ReadSeekCloser
 
-	config       *Config
-	bucket       string
-	path         string
-	blobPath     string
-	metadataPath string
+	key          string
+	lastModified time.Time
+	size         int64
+
+	config   *Config
+	bucket   string
+	path     string
+	blobPath string
+	metadata *core.ObjectMetadata
+}
+
+func (o *Object) Key() string {
+	return o.key
+}
+
+func (o *Object) LastModified() time.Time {
+	return o.lastModified
+}
+
+func (o *Object) Size() int64 {
+	return o.size
 }
 
 func ObjectFromPath(cfg *Config, bucket, key string) (*Object, error) {
@@ -33,12 +56,22 @@ func ObjectFromPath(cfg *Config, bucket, key string) (*Object, error) {
 		return nil, nil //nolint:nilnil
 	}
 
+	metadataPath := filepath.Join(path, metadataYamlFilename)
+
+	info, err := os.Stat(metadataPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if info.Mode().Perm()&(0400) == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrObjectMetadataNotReadable, metadataPath)
+	}
+
 	return &Object{
-		config:       cfg,
-		path:         path,
-		bucket:       bucket,
-		blobPath:     filepath.Join(path, blobFilename),
-		metadataPath: filepath.Join(path, metadataYamlFilename),
+		config:   cfg,
+		path:     path,
+		bucket:   bucket,
+		blobPath: filepath.Join(path, blobFilename),
 	}, nil
 }
 
@@ -76,13 +109,13 @@ func (o *Object) Close() error {
 	return o.ReadSeekCloser.Close()
 }
 
-func (o *Object) Metadata() (*core.ObjectMetadata, error) {
-	metadata, err := yaml.UnmarshalFromFile[core.ObjectMetadata](o.metadataPath)
-	if err != nil {
-		return nil, err
+func (o *Object) Metadata() *core.ObjectMetadata {
+	if o.metadata == nil {
+		ometadata := lo.Must(yaml.UnmarshalFromFile[core.ObjectMetadata](filepath.Join(o.path, metadataYamlFilename)))
+		o.metadata = &ometadata
 	}
 
-	return &metadata, nil
+	return o.metadata
 }
 
 func (o *Object) Delete() error {

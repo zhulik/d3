@@ -4,8 +4,6 @@ import (
 	"context"
 	"io"
 	"time"
-
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 type ObjectMetadata struct {
@@ -16,11 +14,6 @@ type ObjectMetadata struct {
 	Size         int64             `yaml:"size"`
 	Tags         map[string]string `yaml:"tags"`
 	Meta         map[string]string `yaml:"meta"`
-}
-
-type ObjectContent struct {
-	Reader   io.ReadSeekCloser
-	Metadata *ObjectMetadata
 }
 
 type PutObjectInput struct {
@@ -60,6 +53,15 @@ type Bucket interface {
 	CreationDate() time.Time
 }
 
+type Object interface {
+	io.ReadSeekCloser
+
+	Key() string
+	LastModified() time.Time
+	Size() int64
+	Metadata() *ObjectMetadata
+}
+
 type Backend interface { //nolint:interfacebloat
 	ListBuckets(ctx context.Context) ([]Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
@@ -69,8 +71,8 @@ type Backend interface { //nolint:interfacebloat
 	HeadObject(ctx context.Context, bucket, key string) (*ObjectMetadata, error)
 	PutObject(ctx context.Context, bucket, key string, input PutObjectInput) error
 	GetObjectTagging(ctx context.Context, bucket, key string) (map[string]string, error)
-	GetObject(ctx context.Context, bucket, key string) (*ObjectContent, error)
-	ListObjectsV2(ctx context.Context, bucket string, input ListObjectsV2Input) ([]*types.Object, error)
+	GetObject(ctx context.Context, bucket, key string) (Object, error)
+	ListObjectsV2(ctx context.Context, bucket string, input ListObjectsV2Input) ([]Object, error)
 	DeleteObjects(ctx context.Context, bucket string, quiet bool, keys ...string) ([]DeleteResult, error)
 
 	CreateMultipartUpload(ctx context.Context, bucket, key string, metadata ObjectMetadata) (string, error)

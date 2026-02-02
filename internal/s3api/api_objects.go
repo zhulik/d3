@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/backends/common"
@@ -137,32 +138,34 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 	if err != nil {
 		return err
 	}
-	defer contents.Reader.Close()
+	defer contents.Close()
 
-	var reader io.Reader = contents.Reader
+	var reader io.Reader = contents
+
+	metadata := contents.Metadata()
 
 	if rangeHeader := c.Request().Header.Get("Range"); rangeHeader != "" {
-		parsedRange, err := rangeparser.Parse(rangeHeader, contents.Metadata.Size)
+		parsedRange, err := rangeparser.Parse(rangeHeader, metadata.Size)
 		if err != nil {
 			return err
 		}
 
-		reader, err = smartio.NewRangedReader(contents.Reader, parsedRange.Start, parsedRange.End)
+		reader, err = smartio.NewRangedReader(contents, parsedRange.Start, parsedRange.End)
 		if err != nil {
 			return err
 		}
 
-		contents.Metadata.Size = parsedRange.End - parsedRange.Start + 1
-		contents.Metadata.SHA256Base64 = ""
+		metadata.Size = parsedRange.End - parsedRange.Start + 1
+		metadata.SHA256Base64 = ""
 		SetHeaders(c, map[string]string{
 			"Accept-Ranges": "bytes",
-			"Content-Range": fmt.Sprintf("bytes %d-%d/%d", parsedRange.Start, parsedRange.End, contents.Metadata.Size),
+			"Content-Range": fmt.Sprintf("bytes %d-%d/%d", parsedRange.Start, parsedRange.End, metadata.Size),
 		})
 	}
 
-	setObjectHeaders(c, contents.Metadata)
+	setObjectHeaders(c, metadata)
 
-	return c.Stream(http.StatusOK, contents.Metadata.ContentType, reader)
+	return c.Stream(http.StatusOK, metadata.ContentType, reader)
 }
 
 func (a APIObjects) ListObjectsV2(c *echo.Context) error {
@@ -195,8 +198,14 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	}
 
 	xmlResponse := listObjectsV2Result{
-		IsTruncated:    false,
-		Contents:       objects,
+		IsTruncated: false,
+		Contents: lo.Map(objects, func(object core.Object, _ int) *types.Object {
+			return &types.Object{
+				Key:          lo.ToPtr(object.Key()),
+				LastModified: lo.ToPtr(object.LastModified()),
+				Size:         lo.ToPtr(object.Size()),
+			}
+		}),
 		Name:           bucket,
 		Prefix:         prefix,
 		Delimiter:      common.Delimiter,

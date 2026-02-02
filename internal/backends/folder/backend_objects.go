@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/zhulik/d3/internal/backends/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
@@ -47,10 +45,10 @@ func (b *BackendObjects) HeadObject(_ context.Context, bucket, key string) (*cor
 		return nil, err
 	}
 
-	return object.Metadata()
+	return object.Metadata(), nil
 }
 
-func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error {
+func (b *BackendObjects) PutObject(ctx context.Context, bucket, key string, input core.PutObjectInput) error { //nolint:funlen,lll
 	bucketPath := b.config.bucketPath(bucket)
 
 	_, err := os.Stat(bucketPath)
@@ -129,33 +127,20 @@ func (b *BackendObjects) GetObjectTagging(_ context.Context, bucket, key string)
 		return nil, err
 	}
 
-	metadata, err := object.Metadata()
-	if err != nil {
-		return nil, err
-	}
-
-	return metadata.Tags, nil
+	return object.Metadata().Tags, nil
 }
 
-func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (*core.ObjectContent, error) {
+func (b *BackendObjects) GetObject(_ context.Context, bucket, key string) (core.Object, error) {
 	object, err := b.getObject(bucket, key)
 	if err != nil {
 		return nil, err
 	}
 
-	metadata, err := object.Metadata()
-	if err != nil {
-		return nil, err
-	}
-
-	return &core.ObjectContent{
-		Reader:   object,
-		Metadata: metadata,
-	}, nil
+	return object, nil
 }
 
-func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input core.ListObjectsV2Input) ([]*types.Object, error) { //nolint:lll
-	objects := []*types.Object{}
+func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input core.ListObjectsV2Input) ([]core.Object, error) { //nolint:lll
+	objects := []core.Object{}
 
 	bucketPath := b.config.bucketPath(bucket)
 
@@ -194,15 +179,12 @@ func (b *BackendObjects) ListObjectsV2(_ context.Context, bucket string, input c
 			return nil
 		}
 
-		metadata, err := object.Metadata()
-		if err != nil {
-			return err
-		}
+		metadata := object.Metadata()
 
-		objects = append(objects, &types.Object{
-			Key:          aws.String(key),
-			LastModified: &metadata.LastModified,
-			Size:         &metadata.Size,
+		objects = append(objects, &Object{
+			key:          key,
+			lastModified: metadata.LastModified,
+			size:         metadata.Size,
 		})
 
 		return nil
