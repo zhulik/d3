@@ -52,9 +52,8 @@ type Bucket interface { //nolint:interfacebloat
 	Region() string
 	CreationDate() time.Time
 
-	HeadObject(ctx context.Context, key string) (*ObjectMetadata, error)
+	HeadObject(ctx context.Context, key string) (Object, error)
 	PutObject(ctx context.Context, key string, input PutObjectInput) error
-	GetObjectTagging(ctx context.Context, key string) (map[string]string, error)
 	GetObject(ctx context.Context, key string) (Object, error)
 	ListObjectsV2(ctx context.Context, input ListObjectsV2Input) ([]Object, error)
 	DeleteObjects(ctx context.Context, quiet bool, keys ...string) ([]DeleteResult, error)

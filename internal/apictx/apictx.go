@@ -27,9 +27,13 @@ type APICtx struct {
 	ContentLength int64
 	Headers       http.Header
 
-	Action   actions.Action
 	Username *string
-	Bucket   core.Bucket
+
+	// For AWS S3 API:
+
+	Action actions.Action
+	Bucket core.Bucket
+	Object core.Object
 }
 
 // Inject adds ApiCtx to the context and returns a new context.

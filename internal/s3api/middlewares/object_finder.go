@@ -6,22 +6,23 @@ import (
 	"github.com/zhulik/d3/internal/core"
 )
 
-type BucketFinder struct {
+type ObjectFinder struct {
 	Backend core.Backend
 }
 
-func (b *BucketFinder) Middleware() echo.MiddlewareFunc {
+func (b *ObjectFinder) Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			bucketName := c.Param("bucket")
+			key := c.Param("*")
 
-			bucket, err := b.Backend.HeadBucket(c.Request().Context(), bucketName)
+			apiCtx := apictx.FromContext(c.Request().Context())
+
+			object, err := apiCtx.Bucket.HeadObject(c.Request().Context(), key)
 			if err != nil {
 				return err
 			}
 
-			apiCtx := apictx.FromContext(c.Request().Context())
-			apiCtx.Bucket = bucket
+			apiCtx.Object = object
 
 			return next(c)
 		}

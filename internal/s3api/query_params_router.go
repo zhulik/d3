@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
+	"github.com/samber/lo/mutable"
 	"github.com/zhulik/d3/internal/s3api/actions"
 	"github.com/zhulik/d3/internal/s3api/middlewares"
 )
@@ -64,6 +65,8 @@ func (r *QueryParamsRouter) Handle(c *echo.Context) error {
 }
 
 func applyMiddlewares(h echo.HandlerFunc, middlewares ...echo.MiddlewareFunc) echo.HandlerFunc {
+	mutable.Reverse(middlewares)
+
 	for _, middleware := range middlewares {
 		h = middleware(h)
 	}

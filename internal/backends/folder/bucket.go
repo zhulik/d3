@@ -49,13 +49,13 @@ func (b Bucket) CreationDate() time.Time {
 	return b.creationDate
 }
 
-func (b Bucket) HeadObject(_ context.Context, key string) (*core.ObjectMetadata, error) {
+func (b Bucket) HeadObject(_ context.Context, key string) (core.Object, error) {
 	object, err := b.getObject(key)
 	if err != nil {
 		return nil, err
 	}
 
-	return object.Metadata(), nil
+	return object, nil
 }
 
 func (b Bucket) PutObject(ctx context.Context, key string, input core.PutObjectInput) error { //nolint:funlen
@@ -129,15 +129,6 @@ func (b Bucket) PutObject(ctx context.Context, key string, input core.PutObjectI
 	}
 
 	return nil
-}
-
-func (b Bucket) GetObjectTagging(_ context.Context, key string) (map[string]string, error) {
-	object, err := b.getObject(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return object.Metadata().Tags, nil
 }
 
 func (b Bucket) GetObject(_ context.Context, key string) (core.Object, error) {

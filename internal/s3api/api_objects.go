@@ -27,17 +27,19 @@ import (
 type APIObjects struct {
 	Backend      core.Backend
 	BucketFinder *middlewares.BucketFinder
+	ObjectFinder *middlewares.ObjectFinder
 	Echo         *Echo
 }
 
 func (a APIObjects) Init(_ context.Context) error {
 	bucketFinder := a.BucketFinder.Middleware()
+	objectFinder := a.ObjectFinder.Middleware()
 
 	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, actions.ListObjectsV2, bucketFinder)
 	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, actions.ListObjectsV2, bucketFinder)
 
 	objects := a.Echo.Group("/:bucket/*")
-	objects.HEAD("", a.HeadObject, middlewares.SetAction(actions.HeadObject), bucketFinder)
+	objects.HEAD("", a.HeadObject, middlewares.SetAction(actions.HeadObject), bucketFinder, objectFinder)
 	objects.PUT("", NewQueryParamsRouter().
 		SetFallbackHandler(a.PutObject, actions.PutObject, bucketFinder).
 		AddRoute("uploadId", a.UploadPart, actions.UploadPart, bucketFinder).
@@ -50,8 +52,8 @@ func (a APIObjects) Init(_ context.Context) error {
 
 	objects.GET("",
 		NewQueryParamsRouter().
-			SetFallbackHandler(a.GetObject, actions.GetObject, bucketFinder).
-			AddRoute("tagging", a.GetObjectTagging, actions.GetObjectTagging, bucketFinder).
+			SetFallbackHandler(a.GetObject, actions.GetObject, bucketFinder, objectFinder).
+			AddRoute("tagging", a.GetObjectTagging, actions.GetObjectTagging, bucketFinder, objectFinder).
 			Handle,
 	)
 
@@ -70,15 +72,9 @@ func (a APIObjects) Init(_ context.Context) error {
 }
 
 func (a APIObjects) HeadObject(c *echo.Context) error {
-	bucket := apictx.FromContext(c.Request().Context()).Bucket
-	key := c.Param("*")
+	object := apictx.FromContext(c.Request().Context()).Object
 
-	result, err := bucket.HeadObject(c.Request().Context(), key)
-	if err != nil {
-		return err
-	}
-
-	setObjectHeaders(c, result)
+	setObjectHeaders(c, object.Metadata())
 
 	return c.NoContent(http.StatusOK)
 }
@@ -110,13 +106,8 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 }
 
 func (a APIObjects) GetObjectTagging(c *echo.Context) error {
-	bucket := apictx.FromContext(c.Request().Context()).Bucket
-	key := c.Param("*")
-
-	tags, err := bucket.GetObjectTagging(c.Request().Context(), key)
-	if err != nil {
-		return err
-	}
+	object := apictx.FromContext(c.Request().Context()).Object
+	tags := object.Metadata().Tags
 
 	tagging := taggingXML{
 		TagSet: tagSetXML{
@@ -135,18 +126,11 @@ func (a APIObjects) GetObjectTagging(c *echo.Context) error {
 }
 
 func (a APIObjects) GetObject(c *echo.Context) error {
-	bucket := apictx.FromContext(c.Request().Context()).Bucket
-	key := c.Param("*")
+	object := apictx.FromContext(c.Request().Context()).Object
 
-	contents, err := bucket.GetObject(c.Request().Context(), key)
-	if err != nil {
-		return err
-	}
-	defer contents.Close()
+	var reader io.Reader = object
 
-	var reader io.Reader = contents
-
-	metadata := contents.Metadata()
+	metadata := object.Metadata()
 
 	if rangeHeader := c.Request().Header.Get("Range"); rangeHeader != "" {
 		parsedRange, err := rangeparser.Parse(rangeHeader, metadata.Size)
@@ -154,7 +138,7 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 			return err
 		}
 
-		reader, err = smartio.NewRangedReader(contents, parsedRange.Start, parsedRange.End)
+		reader, err = smartio.NewRangedReader(object, parsedRange.Start, parsedRange.End)
 		if err != nil {
 			return err
 		}
