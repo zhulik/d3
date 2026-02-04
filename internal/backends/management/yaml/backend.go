@@ -10,7 +10,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/backends/storage/common"
+	"github.com/zhulik/d3/internal/backends/storage/folder"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/atomicwriter"
@@ -48,7 +50,8 @@ func (b *Backend) Init(ctx context.Context) error {
 	}
 	defer cancel()
 
-	b.writer = atomicwriter.New(b.Locker, os.TempDir())
+	// TODO: separately configurable tmp path
+	b.writer = atomicwriter.New(b.Locker, filepath.Join(b.Config.FolderStorageBackendPath, folder.TmpFolder))
 
 	managementConfigPath := b.Config.ManagementBackendYAMLPath
 
@@ -93,6 +96,13 @@ func (b *Backend) Init(ctx context.Context) error {
 	return b.reload(ctx)
 }
 
+func (b *Backend) GetUsers(_ context.Context) ([]string, error) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	return append(lo.Keys(b.usersByName), "admin"), nil
+}
+
 func (b *Backend) GetUserByName(_ context.Context, name string) (*core.User, error) {
 	b.rwLock.RLock()
 	defer b.rwLock.RUnlock()
@@ -126,6 +136,7 @@ func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*
 }
 
 func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
+	// TODO: validate user
 	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
 		func(_ context.Context, content []byte) ([]byte, error) {
 			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
@@ -140,6 +151,33 @@ func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
 			managementConfig.Users[newUser.Name] = user{
 				AccessKeyID:     newUser.AccessKeyID,
 				SecretAccessKey: newUser.SecretAccessKey,
+			}
+
+			return yaml.Marshal(managementConfig)
+		})
+	if err != nil {
+		return err
+	}
+
+	return b.reload(ctx)
+}
+
+func (b *Backend) UpdateUser(ctx context.Context, updatedUser core.User) error {
+	// TODO: validate user
+	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
+		func(_ context.Context, content []byte) ([]byte, error) {
+			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
+			if err != nil {
+				return nil, err
+			}
+
+			if _, ok := managementConfig.Users[updatedUser.Name]; !ok {
+				return nil, common.ErrUserNotFound
+			}
+
+			managementConfig.Users[updatedUser.Name] = user{
+				AccessKeyID:     updatedUser.AccessKeyID,
+				SecretAccessKey: updatedUser.SecretAccessKey,
 			}
 
 			return yaml.Marshal(managementConfig)

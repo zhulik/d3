@@ -83,8 +83,10 @@ type StorageBackend interface {
 type ManagementBackend interface {
 	AdminCredentials() (string, string)
 
+	GetUsers(ctx context.Context) ([]string, error)
 	GetUserByName(ctx context.Context, name string) (*User, error)
 	GetUserByAccessKeyID(ctx context.Context, accessKeyID string) (*User, error)
 	CreateUser(ctx context.Context, user User) error
+	UpdateUser(ctx context.Context, user User) error
 	DeleteUser(ctx context.Context, name string) error
 }

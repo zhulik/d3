@@ -6,6 +6,7 @@ import (
 
 func Provide() pal.ServiceDef {
 	return pal.ProvideList(
+		pal.Provide(&APIUsers{}),
 		pal.Provide(&Server{}),
 		pal.Provide(&Echo{}),
 	)

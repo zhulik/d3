@@ -10,7 +10,7 @@ import (
 const (
 	configYamlFilename   = "d3.yaml"
 	bucketsFolder        = "buckets"
-	tmpFolder            = "tmp"
+	TmpFolder            = "tmp"
 	uploadsFolder        = "uploads"
 	metadataYamlFilename = "metadata.yaml"
 	blobFilename         = "blob"
@@ -34,11 +34,11 @@ func (c *Config) bucketsPath() string {
 }
 
 func (c *Config) uploadsPath() string {
-	return filepath.Join(c.FolderStorageBackendPath, tmpFolder, uploadsFolder)
+	return filepath.Join(c.FolderStorageBackendPath, TmpFolder, uploadsFolder)
 }
 
 func (c *Config) binPath() string {
-	return filepath.Join(c.FolderStorageBackendPath, tmpFolder, binFolder)
+	return filepath.Join(c.FolderStorageBackendPath, TmpFolder, binFolder)
 }
 
 func (c *Config) newBinPath() string {
