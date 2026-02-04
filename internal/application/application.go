@@ -11,6 +11,7 @@ import (
 	"github.com/zhulik/d3/internal/backends"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
+	"github.com/zhulik/d3/internal/managementapi"
 	"github.com/zhulik/d3/internal/s3api"
 	"github.com/zhulik/pal"
 )
@@ -38,6 +39,7 @@ func New(config *core.Config) *pal.Pal {
 
 	return pal.New(
 		s3api.Provide(),
+		managementapi.Provide(),
 		backends.Provide(config),
 		pal.Provide(config),
 		locker.Provide(),

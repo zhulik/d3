@@ -26,6 +26,7 @@ type Config struct {
 	RedisAddress      string      `env:"REDIS_ADDRESS"       envDefault:"localhost:6379"`
 	Port              int         `env:"PORT"                envDefault:"8080"`
 	HealthCheckPort   int         `env:"HEALTH_CHECK_PORT"   envDefault:"8081"`
+	ManagementPort    int         `env:"MANAGEMENT_PORT"     envDefault:"8082"`
 }
 
 func (c *Config) Init(_ context.Context) error {
