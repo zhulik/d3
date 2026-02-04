@@ -1,9 +1,9 @@
-package backends
+package storage
 
 import (
 	"fmt"
 
-	"github.com/zhulik/d3/internal/backends/folder"
+	"github.com/zhulik/d3/internal/backends/storage/folder"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/pal"
 )

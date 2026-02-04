@@ -7,7 +7,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/zhulik/d3/internal/backends/common"
+	"github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/credentials"

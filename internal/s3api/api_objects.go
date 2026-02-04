@@ -16,7 +16,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/apictx"
-	"github.com/zhulik/d3/internal/backends/common"
+	common2 "github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/s3api/actions"
 	"github.com/zhulik/d3/internal/s3api/middlewares"
@@ -162,7 +162,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	listType := c.QueryParam("list-type")
 	maxKeys := c.QueryParam("max-keys")
 
-	maxKeysInt := common.MaxKeys
+	maxKeysInt := common2.MaxKeys
 
 	var err error
 
@@ -196,7 +196,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 		}),
 		Name:           bucket.Name(),
 		Prefix:         prefix,
-		Delimiter:      common.Delimiter,
+		Delimiter:      common2.Delimiter,
 		MaxKeys:        maxKeysInt,
 		CommonPrefixes: []prefixEntry{},
 	}
@@ -256,7 +256,7 @@ func (a APIObjects) DeleteObjects(c *echo.Context) error {
 			errorCode := "InternalError"
 			errorMessage := result.Error.Error()
 
-			if errors.Is(result.Error, common.ErrObjectNotFound) {
+			if errors.Is(result.Error, common2.ErrObjectNotFound) {
 				errorCode = "NoSuchKey"
 			}
 

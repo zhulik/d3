@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
-	"github.com/zhulik/d3/internal/backends/common"
+	"github.com/zhulik/d3/internal/backends/storage/common"
 )
 
 func ErrorRenderer() echo.MiddlewareFunc {
