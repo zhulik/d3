@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/golang-cz/devslog"
-	"github.com/zhulik/d3/internal/apis/management"
+	managementapi "github.com/zhulik/d3/internal/apis/management"
 	"github.com/zhulik/d3/internal/apis/s3"
+	managementbackend "github.com/zhulik/d3/internal/backends/management"
 	"github.com/zhulik/d3/internal/backends/storage"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
@@ -39,7 +40,8 @@ func New(config *core.Config) *pal.Pal {
 
 	return pal.New(
 		s3.Provide(),
-		management.Provide(),
+		managementapi.Provide(),
+		managementbackend.Provide(config),
 		storage.Provide(config),
 		pal.Provide(config),
 		locker.Provide(),

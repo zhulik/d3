@@ -18,11 +18,20 @@ const (
 	StorageBackendFolder StorageBackendType = "folder"
 )
 
+type ManagementBackendType string
+
+const (
+	ManagementBackendYAML ManagementBackendType = "YAML"
+)
+
 type Config struct {
 	Environment string `env:"ENVIRONMENT" envDefault:"production"`
 
 	StorageBackend           StorageBackendType `env:"STORAGE_BACKEND"             envDefault:"folder"`
 	FolderStorageBackendPath string             `env:"FOLDER_STORAGE_BACKEND_PATH" envDefault:"./d3_data"`
+
+	ManagementBackend         ManagementBackendType `env:"MANAGEMENT_BACKEND"           envDefault:"YAML"`
+	ManagementBackendYAMLPath string                `env:"MANAGEMENT_BACKEND_YAML_PATH" envDefault:"./d3_data/management.yaml"` //nolint:lll
 
 	RedisAddress string `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
 

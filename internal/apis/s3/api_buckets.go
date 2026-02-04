@@ -15,7 +15,7 @@ import (
 )
 
 type APIBuckets struct {
-	Backend core.Backend
+	Backend core.StorageBackend
 
 	BucketFinder *middlewares2.BucketFinder
 	Echo         *Echo

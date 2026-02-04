@@ -73,14 +73,14 @@ type Object interface {
 	Metadata() *ObjectMetadata
 }
 
-type Backend interface {
+type StorageBackend interface {
 	ListBuckets(ctx context.Context) ([]Bucket, error)
 	CreateBucket(ctx context.Context, name string) error
 	DeleteBucket(ctx context.Context, name string) error
 	HeadBucket(ctx context.Context, name string) (Bucket, error)
 }
 
-type UserRepository interface {
+type ManagementBackend interface {
 	AdminCredentials() (string, string)
 
 	GetUserByName(ctx context.Context, name string) (*User, error)

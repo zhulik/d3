@@ -11,7 +11,7 @@ import (
 )
 
 type Authenticator struct {
-	UserRepository core.UserRepository
+	UserRepository core.ManagementBackend
 	Logger         *slog.Logger
 }
 

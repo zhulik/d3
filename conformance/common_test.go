@@ -48,18 +48,20 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 	appCtx, cancelApp := context.WithCancel(ctx)
 
 	appConfig := &core.Config{
-		Environment:              "test",
-		StorageBackend:           core.StorageBackendFolder,
-		FolderStorageBackendPath: "./d3_data",
-		RedisAddress:             "localhost:6379",
-		Port:                     randomPort(),
-		HealthCheckPort:          randomPort(),
+		Environment:               "test",
+		StorageBackend:            core.StorageBackendFolder,
+		FolderStorageBackendPath:  "./d3_data",
+		ManagementBackend:         core.ManagementBackendYAML,
+		ManagementBackendYAMLPath: "./d3_data/management.yaml",
+		RedisAddress:              "localhost:6379",
+		Port:                      randomPort(),
+		HealthCheckPort:           randomPort(),
 	}
 
 	app := application.New(appConfig)
 	lo.Must0(app.Init(ctx))
 
-	userRepository := pal.MustInvoke[core.UserRepository](ctx, app)
+	userRepository := pal.MustInvoke[core.ManagementBackend](ctx, app)
 	adminAccessKeyID, adminSecretAccessKey := userRepository.AdminCredentials()
 
 	go func() {

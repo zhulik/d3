@@ -7,7 +7,7 @@ import (
 )
 
 type BucketFinder struct {
-	Backend core.Backend
+	Backend core.StorageBackend
 }
 
 func (b *BucketFinder) Middleware() echo.MiddlewareFunc {

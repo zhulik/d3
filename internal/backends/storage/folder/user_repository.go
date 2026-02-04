@@ -22,7 +22,7 @@ type UserRepository struct {
 	Config *Config
 	Logger *slog.Logger
 
-	Backend core.Backend // to make sure we init the backend first
+	Backend core.StorageBackend // to make sure we init the backend first
 
 	lastUpdated        time.Time
 	adminUser          core.User

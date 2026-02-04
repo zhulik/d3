@@ -25,7 +25,7 @@ import (
 )
 
 type APIObjects struct {
-	Backend      core.Backend
+	Backend      core.StorageBackend
 	BucketFinder *middlewares2.BucketFinder
 	ObjectFinder *middlewares2.ObjectFinder
 	Echo         *Echo
