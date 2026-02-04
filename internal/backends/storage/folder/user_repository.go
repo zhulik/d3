@@ -99,6 +99,7 @@ func (r *UserRepository) Run(ctx context.Context) error {
 		case <-ticker.C:
 			err := r.checkAndReload(ctx)
 			if err != nil {
+				errorsCount += 1
 				allErrors = errors.Join(allErrors, err)
 				r.Logger.Error("failed to check and reload user repository", "error", err)
 			}
@@ -106,6 +107,7 @@ func (r *UserRepository) Run(ctx context.Context) error {
 			if errorsCount > 3 {
 				return fmt.Errorf("failed to check and reload user repository after 3 attempts: %w", allErrors)
 			}
+
 		}
 	}
 }
