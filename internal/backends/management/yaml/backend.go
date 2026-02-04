@@ -13,6 +13,7 @@ import (
 	"github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
+	"github.com/zhulik/d3/pkg/atomicwriter"
 	"github.com/zhulik/d3/pkg/credentials"
 	"github.com/zhulik/d3/pkg/yaml"
 )
@@ -36,6 +37,7 @@ type Backend struct {
 	usersByAccessKeyID map[string]core.User
 
 	rwLock sync.RWMutex
+	writer *atomicwriter.AtomicWriter
 }
 
 func (b *Backend) Init(ctx context.Context) error {
@@ -45,6 +47,8 @@ func (b *Backend) Init(ctx context.Context) error {
 		return err
 	}
 	defer cancel()
+
+	b.writer = atomicwriter.New(b.Locker, os.TempDir())
 
 	managementConfigPath := b.Config.ManagementBackendYAMLPath
 
@@ -60,7 +64,6 @@ func (b *Backend) Init(ctx context.Context) error {
 			cfg := ManagementConfig{
 				Version: ConfigVersion,
 				AdminUser: user{
-					Name:            "admin",
 					AccessKeyID:     accessKeyID,
 					SecretAccessKey: secretAccessKey,
 				},
@@ -122,12 +125,53 @@ func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*
 	return &user, nil
 }
 
-func (b *Backend) CreateUser(_ context.Context, _ core.User) error {
-	panic("not implemented")
+func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
+	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
+		func(_ context.Context, content []byte) ([]byte, error) {
+			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
+			if err != nil {
+				return nil, err
+			}
+
+			if _, ok := managementConfig.Users[newUser.Name]; ok {
+				return nil, common.ErrUserAlreadyExists
+			}
+
+			managementConfig.Users[newUser.Name] = user{
+				AccessKeyID:     newUser.AccessKeyID,
+				SecretAccessKey: newUser.SecretAccessKey,
+			}
+
+			return yaml.Marshal(managementConfig)
+		})
+	if err != nil {
+		return err
+	}
+
+	return b.reload(ctx)
 }
 
-func (b *Backend) DeleteUser(_ context.Context, _ string) error {
-	panic("not implemented")
+func (b *Backend) DeleteUser(ctx context.Context, userName string) error {
+	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
+		func(_ context.Context, content []byte) ([]byte, error) {
+			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
+			if err != nil {
+				return nil, err
+			}
+
+			if _, ok := managementConfig.Users[userName]; !ok {
+				return nil, common.ErrUserNotFound
+			}
+
+			delete(managementConfig.Users, userName)
+
+			return yaml.Marshal(managementConfig)
+		})
+	if err != nil {
+		return err
+	}
+
+	return b.reload(ctx)
 }
 
 func (b *Backend) AdminCredentials() (string, string) {
@@ -211,11 +255,11 @@ func (b *Backend) reload(ctx context.Context) error {
 	b.usersByName = map[string]core.User{}
 	b.usersByAccessKeyID = map[string]core.User{}
 	b.lastUpdated = info.ModTime()
-	b.adminUser = managementConfig.AdminUser.toCoreUser()
+	b.adminUser = managementConfig.AdminUser.toCoreUser("admin")
 
-	for _, user := range managementConfig.Users {
-		b.usersByName[user.Name] = user.toCoreUser()
-		b.usersByAccessKeyID[user.AccessKeyID] = b.usersByName[user.Name]
+	for userName, user := range managementConfig.Users {
+		b.usersByName[userName] = user.toCoreUser(userName)
+		b.usersByAccessKeyID[user.AccessKeyID] = b.usersByName[userName]
 	}
 
 	return nil

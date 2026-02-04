@@ -49,10 +49,6 @@ func (c *Config) configYamlPath() string {
 	return filepath.Join(c.FolderStorageBackendPath, configYamlFilename)
 }
 
-func (c *Config) tmpPath() string {
-	return filepath.Join(c.FolderStorageBackendPath, tmpFolder)
-}
-
 func (c *Config) newUploadPath() string {
 	return filepath.Join(c.uploadsPath(), uuid.NewString())
 }

@@ -2,6 +2,7 @@ package common //nolint:revive
 
 import "errors"
 
+// TODO: move to core.
 var (
 	ErrBucketAlreadyExists = errors.New("bucket already exists")
 	ErrBucketNotFound      = errors.New("bucket not found")

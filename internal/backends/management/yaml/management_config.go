@@ -7,21 +7,20 @@ const (
 )
 
 type user struct {
-	Name            string `yaml:"name"`
 	AccessKeyID     string `yaml:"access_key_id"`
 	SecretAccessKey string `yaml:"secret_access_key"`
 }
 
-func (u user) toCoreUser() core.User {
+func (u user) toCoreUser(userName string) core.User {
 	return core.User{
-		Name:            u.Name,
+		Name:            userName,
 		AccessKeyID:     u.AccessKeyID,
 		SecretAccessKey: u.SecretAccessKey,
 	}
 }
 
 type ManagementConfig struct {
-	Version   int    `yaml:"version"`
-	AdminUser user   `yaml:"admin_user"`
-	Users     []user `yaml:"users"`
+	Version   int             `yaml:"version"`
+	AdminUser user            `yaml:"admin_user"`
+	Users     map[string]user `yaml:"users"`
 }

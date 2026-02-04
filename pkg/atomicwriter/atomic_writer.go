@@ -1,18 +1,27 @@
-package folder
+package atomicwriter
 
 import (
 	"context"
 	"os"
 	"path/filepath"
-
-	"github.com/zhulik/d3/internal/locker"
 )
 
 type ContentMapFunc func(ctx context.Context, content []byte) ([]byte, error)
 
+type Locker interface {
+	Lock(ctx context.Context, key string) (context.Context, context.CancelFunc, error)
+}
+
 type AtomicWriter struct {
-	Locker *locker.Locker
-	Config *Config
+	Locker  Locker
+	tmpPath string
+}
+
+func New(locker Locker, tmpPath string) *AtomicWriter {
+	return &AtomicWriter{
+		Locker:  locker,
+		tmpPath: tmpPath,
+	}
 }
 
 func (w *AtomicWriter) ReadWrite(ctx context.Context, filename string, contentMap ContentMapFunc) error {
@@ -43,7 +52,7 @@ func (w *AtomicWriter) ReadWrite(ctx context.Context, filename string, contentMa
 		return err
 	}
 
-	tempFile, err := os.CreateTemp(w.Config.tmpPath(), "d3-*.tmp")
+	tempFile, err := os.CreateTemp(w.tmpPath, "atomic-writer-*.tmp")
 	if err != nil {
 		return err
 	}
