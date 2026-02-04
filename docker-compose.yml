@@ -13,8 +13,8 @@ services:
     ports:
       - "9090:8080"
     environment:
-      - BACKEND=folder
-      - FOLDER_BACKEND_PATH=/data
+      - STORAGE_BACKEND=folder
+      - FOLDER_STORAGE_BACKEND_PATH=/data
       - REDIS_ADDRESS=valkey:6379
     volumes:
       - d3_data:/data

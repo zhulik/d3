@@ -22,23 +22,23 @@ type Config struct {
 }
 
 func (c *Config) bucketPath(bucket string) string {
-	return filepath.Join(c.FolderBackendPath, bucketsFolder, bucket)
+	return filepath.Join(c.FolderStorageBackendPath, bucketsFolder, bucket)
 }
 
 func (c *Config) objectPath(bucket, key string) string {
-	return filepath.Join(c.FolderBackendPath, bucketsFolder, bucket, key)
+	return filepath.Join(c.FolderStorageBackendPath, bucketsFolder, bucket, key)
 }
 
 func (c *Config) bucketsPath() string {
-	return filepath.Join(c.FolderBackendPath, bucketsFolder)
+	return filepath.Join(c.FolderStorageBackendPath, bucketsFolder)
 }
 
 func (c *Config) uploadsPath() string {
-	return filepath.Join(c.FolderBackendPath, tmpFolder, uploadsFolder)
+	return filepath.Join(c.FolderStorageBackendPath, tmpFolder, uploadsFolder)
 }
 
 func (c *Config) binPath() string {
-	return filepath.Join(c.FolderBackendPath, tmpFolder, binFolder)
+	return filepath.Join(c.FolderStorageBackendPath, tmpFolder, binFolder)
 }
 
 func (c *Config) newBinPath() string {
@@ -46,11 +46,11 @@ func (c *Config) newBinPath() string {
 }
 
 func (c *Config) configYamlPath() string {
-	return filepath.Join(c.FolderBackendPath, configYamlFilename)
+	return filepath.Join(c.FolderStorageBackendPath, configYamlFilename)
 }
 
 func (c *Config) tmpPath() string {
-	return filepath.Join(c.FolderBackendPath, tmpFolder)
+	return filepath.Join(c.FolderStorageBackendPath, tmpFolder)
 }
 
 func (c *Config) newUploadPath() string {

@@ -61,15 +61,15 @@ func (b *Backend) Init(ctx context.Context) error {
 	}
 	defer cancel()
 
-	_, err = os.Stat(b.Cfg.FolderBackendPath)
+	_, err = os.Stat(b.Cfg.FolderStorageBackendPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = os.MkdirAll(b.Cfg.FolderBackendPath, 0755)
+			err = os.MkdirAll(b.Cfg.FolderStorageBackendPath, 0755)
 			if err != nil {
 				return err
 			}
 		} else {
-			return fmt.Errorf("%w: unable to access FolderBackendPath: %w", core.ErrInvalidConfig, err)
+			return fmt.Errorf("%w: unable to access FolderStorageBackendPath: %w", core.ErrInvalidConfig, err)
 		}
 	}
 

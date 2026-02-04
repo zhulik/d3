@@ -48,12 +48,12 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 	appCtx, cancelApp := context.WithCancel(ctx)
 
 	appConfig := &core.Config{
-		Environment:       "test",
-		Backend:           core.BackendFolder,
-		FolderBackendPath: "./d3_data",
-		RedisAddress:      "localhost:6379",
-		Port:              randomPort(),
-		HealthCheckPort:   randomPort(),
+		Environment:              "test",
+		StorageBackend:           core.StorageBackendFolder,
+		FolderStorageBackendPath: "./d3_data",
+		RedisAddress:             "localhost:6379",
+		Port:                     randomPort(),
+		HealthCheckPort:          randomPort(),
 	}
 
 	app := application.New(appConfig)

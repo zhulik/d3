@@ -13,6 +13,6 @@ func Provide(config *core.Config) pal.ServiceDef {
 	case core.StorageBackendFolder:
 		return folder.Provide()
 	default:
-		panic(fmt.Sprintf("unknown storage backend: %s", config.StorageBackend))
+		panic(fmt.Sprintf("unknown backend: %s", config.StorageBackend))
 	}
 }
