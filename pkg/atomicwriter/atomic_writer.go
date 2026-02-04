@@ -24,7 +24,11 @@ func New(locker Locker, tmpPath string) *AtomicWriter {
 	}
 }
 
-func (w *AtomicWriter) ReadWrite(ctx context.Context, filename string, contentMap ContentMapFunc) error {
+// ReadWrite locks the file with the given filename, reads its content, applies the contentMap function to get
+// the new content, and writes the new content back to the file atomically. The lock is released after the operation
+// is complete. If the file does not exist, it will be treated as an empty file.
+// The caller is responsible for ensuring that the directory of the file exists.
+func (w *AtomicWriter) ReadWrite(ctx context.Context, filename string, contentMap ContentMapFunc) error { //nolint:funlen,lll
 	ctx, cancel, err := w.Locker.Lock(ctx, filename)
 	if err != nil {
 		return err
@@ -35,6 +39,21 @@ func (w *AtomicWriter) ReadWrite(ctx context.Context, filename string, contentMa
 	_, err = os.Stat(filepath.Dir(filename))
 	if err != nil {
 		return err
+	}
+
+	// Capture original file permissions
+	var originalPerm os.FileMode
+
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		// if the file does not exist, we use default permission
+		if os.IsNotExist(err) {
+			originalPerm = 0644
+		} else {
+			return err
+		}
+	} else {
+		originalPerm = fileInfo.Mode()
 	}
 
 	content, err := os.ReadFile(filename)
@@ -67,13 +86,19 @@ func (w *AtomicWriter) ReadWrite(ctx context.Context, filename string, contentMa
 		return err
 	}
 
+	// Only perform rename if we still have the lock and the context is not cancelled
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	err = tempFile.Sync()
 	if err != nil {
 		return err
 	}
 
-	// Only perform rename if we still have the lock and the context is not cancelled
-	if err := ctx.Err(); err != nil {
+	// Set the temp file permissions to match the original file
+	err = tempFile.Chmod(originalPerm)
+	if err != nil {
 		return err
 	}
 
