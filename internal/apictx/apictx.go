@@ -6,8 +6,8 @@ import (
 	"net/url"
 
 	"github.com/labstack/echo/v5"
+	"github.com/zhulik/d3/internal/apis/s3/actions"
 	"github.com/zhulik/d3/internal/core"
-	"github.com/zhulik/d3/internal/s3api/actions"
 )
 
 type ctxKey struct{}

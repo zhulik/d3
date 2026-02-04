@@ -1,4 +1,4 @@
-package managementapi
+package management
 
 import (
 	"context"

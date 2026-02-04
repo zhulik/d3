@@ -1,4 +1,4 @@
-package s3api
+package s3
 
 import (
 	"encoding/xml"

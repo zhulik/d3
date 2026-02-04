@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/golang-cz/devslog"
+	"github.com/zhulik/d3/internal/apis/management"
+	"github.com/zhulik/d3/internal/apis/s3"
 	"github.com/zhulik/d3/internal/backends/storage"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
-	"github.com/zhulik/d3/internal/managementapi"
-	"github.com/zhulik/d3/internal/s3api"
 	"github.com/zhulik/pal"
 )
 
@@ -38,8 +38,8 @@ func New(config *core.Config) *pal.Pal {
 	slog.SetDefault(logger)
 
 	return pal.New(
-		s3api.Provide(),
-		managementapi.Provide(),
+		s3.Provide(),
+		management.Provide(),
 		storage.Provide(config),
 		pal.Provide(config),
 		locker.Provide(),

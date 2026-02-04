@@ -1,4 +1,4 @@
-package s3api
+package s3
 
 import (
 	"context"
@@ -16,18 +16,18 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/apictx"
+	"github.com/zhulik/d3/internal/apis/s3/actions"
+	middlewares2 "github.com/zhulik/d3/internal/apis/s3/middlewares"
 	common2 "github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
-	"github.com/zhulik/d3/internal/s3api/actions"
-	"github.com/zhulik/d3/internal/s3api/middlewares"
 	"github.com/zhulik/d3/pkg/rangeparser"
 	"github.com/zhulik/d3/pkg/smartio"
 )
 
 type APIObjects struct {
 	Backend      core.Backend
-	BucketFinder *middlewares.BucketFinder
-	ObjectFinder *middlewares.ObjectFinder
+	BucketFinder *middlewares2.BucketFinder
+	ObjectFinder *middlewares2.ObjectFinder
 	Echo         *Echo
 }
 
@@ -39,7 +39,7 @@ func (a APIObjects) Init(_ context.Context) error {
 	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, actions.ListObjectsV2, bucketFinder)
 
 	objects := a.Echo.Group("/:bucket/*")
-	objects.HEAD("", a.HeadObject, middlewares.SetAction(actions.HeadObject), bucketFinder, objectFinder)
+	objects.HEAD("", a.HeadObject, middlewares2.SetAction(actions.HeadObject), bucketFinder, objectFinder)
 	objects.PUT("", NewQueryParamsRouter().
 		SetFallbackHandler(a.PutObject, actions.PutObject, bucketFinder).
 		AddRoute("uploadId", a.UploadPart, actions.UploadPart, bucketFinder).

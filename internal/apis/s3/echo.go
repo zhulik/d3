@@ -1,4 +1,4 @@
-package s3api
+package s3
 
 import (
 	"context"
@@ -7,14 +7,14 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/zhulik/d3/internal/apictx"
-	"github.com/zhulik/d3/internal/s3api/actions"
-	"github.com/zhulik/d3/internal/s3api/middlewares"
+	"github.com/zhulik/d3/internal/apis/s3/actions"
+	middlewares2 "github.com/zhulik/d3/internal/apis/s3/middlewares"
 )
 
 type Echo struct {
 	*echo.Echo
 
-	Auth *middlewares.Authenticator
+	Auth *middlewares2.Authenticator
 
 	rootQueryRouter *QueryParamsRouter
 }
@@ -27,10 +27,10 @@ func (e *Echo) Init(_ context.Context) error {
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(
 		apictx.Middleware(),
-		middlewares.Logger(),
+		middlewares2.Logger(),
 		middleware.Recover(),
 		apictx.Middleware(),
-		middlewares.ErrorRenderer(),
+		middlewares2.ErrorRenderer(),
 		e.Auth.Middleware(),
 	)
 

@@ -1,7 +1,7 @@
-package s3api
+package s3
 
 import (
-	"github.com/zhulik/d3/internal/s3api/middlewares"
+	"github.com/zhulik/d3/internal/apis/s3/middlewares"
 	"github.com/zhulik/pal"
 )
 

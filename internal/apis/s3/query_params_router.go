@@ -1,12 +1,12 @@
-package s3api
+package s3
 
 import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo/mutable"
-	"github.com/zhulik/d3/internal/s3api/actions"
-	"github.com/zhulik/d3/internal/s3api/middlewares"
+	"github.com/zhulik/d3/internal/apis/s3/actions"
+	"github.com/zhulik/d3/internal/apis/s3/middlewares"
 )
 
 type route struct {
