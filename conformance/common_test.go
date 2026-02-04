@@ -61,6 +61,8 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 	app := application.New(appConfig)
 	lo.Must0(app.Init(ctx))
 
+	time.Sleep(100 * time.Millisecond)
+
 	userRepository := pal.MustInvoke[core.ManagementBackend](ctx, app)
 	adminAccessKeyID, adminSecretAccessKey := userRepository.AdminCredentials()
 
@@ -73,8 +75,6 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 
 func prepareConformanceTests(ctx context.Context) (*s3.Client, *string, context.CancelFunc) {
 	port, cancelApp, adminAccessKeyID, adminSecretAccessKey := runApp(context.Background()) //nolint:contextcheck
-
-	time.Sleep(100 * time.Millisecond)
 
 	s3Client, bucketName := prepareS3(ctx, port, adminAccessKeyID, adminSecretAccessKey)
 

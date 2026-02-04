@@ -10,37 +10,20 @@ import (
 	"github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
-	"github.com/zhulik/d3/pkg/credentials"
 	"github.com/zhulik/d3/pkg/iter"
 	"github.com/zhulik/d3/pkg/yaml"
 )
 
 var (
-	ErrConfigVersionMismatch = errors.New("config version mismatch")
+	ErrConfigVersionMismatch = errors.New("storage config version mismatch")
 )
 
 const (
 	ConfigVersion = 1
 )
 
-type user struct {
-	Name            string `yaml:"name"`
-	AccessKeyID     string `yaml:"access_key_id"`
-	SecretAccessKey string `yaml:"secret_access_key"`
-}
-
-func (u user) toCoreUser() core.User {
-	return core.User{
-		Name:            u.Name,
-		AccessKeyID:     u.AccessKeyID,
-		SecretAccessKey: u.SecretAccessKey,
-	}
-}
-
 type configYaml struct {
-	Version   int    `yaml:"version"`
-	AdminUser user   `yaml:"admin_user"`
-	Users     []user `yaml:"users"`
+	Version int `yaml:"version"`
 }
 
 type Backend struct {
@@ -55,7 +38,7 @@ func (b *Backend) Init(ctx context.Context) error {
 	b.config = &Config{b.Cfg}
 
 	// Lock the backend to prevent concurrent initialization
-	ctx, cancel, err := b.Locker.Lock(ctx, "folder-backend-init")
+	ctx, cancel, err := b.Locker.Lock(ctx, "folder-storage-backend-init")
 	if err != nil {
 		return err
 	}
@@ -183,14 +166,8 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	_, err := os.Stat(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			accessKeyID, secretAccessKey := credentials.GenerateCredentials()
 			cfg := configYaml{
 				Version: ConfigVersion,
-				AdminUser: user{
-					Name:            "admin",
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-				},
 			}
 
 			err := yaml.MarshalToFile(cfg, configPath)

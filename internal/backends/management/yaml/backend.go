@@ -1,3 +1,222 @@
 package yaml
 
-type Backend struct{}
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
+	"github.com/zhulik/d3/internal/backends/storage/common"
+	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/internal/locker"
+	"github.com/zhulik/d3/pkg/credentials"
+	"github.com/zhulik/d3/pkg/yaml"
+)
+
+var (
+	ErrConfigVersionMismatch = errors.New("management config version mismatch")
+)
+
+const (
+	pollInterval = 5 * time.Second
+)
+
+type Backend struct {
+	Config *core.Config
+	Locker *locker.Locker
+	Logger *slog.Logger
+
+	lastUpdated        time.Time
+	adminUser          core.User
+	usersByName        map[string]core.User
+	usersByAccessKeyID map[string]core.User
+
+	rwLock sync.RWMutex
+}
+
+func (b *Backend) Init(ctx context.Context) error {
+	// Lock the backend to prevent concurrent initialization
+	ctx, cancel, err := b.Locker.Lock(ctx, "yaml-management-backend-init")
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	managementConfigPath := b.Config.ManagementBackendYAMLPath
+
+	err = os.MkdirAll(filepath.Dir(managementConfigPath), 0755)
+	if err != nil {
+		return err
+	}
+
+	_, err = os.Stat(managementConfigPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			accessKeyID, secretAccessKey := credentials.GenerateCredentials()
+			cfg := ManagementConfig{
+				Version: ConfigVersion,
+				AdminUser: user{
+					Name:            "admin",
+					AccessKeyID:     accessKeyID,
+					SecretAccessKey: secretAccessKey,
+				},
+			}
+
+			err := yaml.MarshalToFile(cfg, managementConfigPath)
+			if err != nil {
+				return err
+			}
+
+			return b.reload(ctx)
+		}
+
+		return err
+	}
+
+	existingConfig, err := yaml.UnmarshalFromFile[ManagementConfig](managementConfigPath)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal management backend config file %s: %w", managementConfigPath, err)
+	}
+
+	if existingConfig.Version != ConfigVersion {
+		return fmt.Errorf("%w: config version mismatch: expected %d, got %d",
+			ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
+	}
+
+	return b.reload(ctx)
+}
+
+func (b *Backend) GetUserByName(_ context.Context, name string) (*core.User, error) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	if name == b.adminUser.Name {
+		return &b.adminUser, nil
+	}
+
+	user, ok := b.usersByName[name]
+	if !ok {
+		return nil, common.ErrUserNotFound
+	}
+
+	return &user, nil
+}
+
+func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*core.User, error) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	if accessKeyID == b.adminUser.AccessKeyID {
+		return &b.adminUser, nil
+	}
+
+	user, ok := b.usersByAccessKeyID[accessKeyID]
+	if !ok {
+		return nil, common.ErrUserNotFound
+	}
+
+	return &user, nil
+}
+
+func (b *Backend) CreateUser(_ context.Context, _ core.User) error {
+	panic("not implemented")
+}
+
+func (b *Backend) DeleteUser(_ context.Context, _ string) error {
+	panic("not implemented")
+}
+
+func (b *Backend) AdminCredentials() (string, string) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	return b.adminUser.AccessKeyID, b.adminUser.SecretAccessKey
+}
+
+// Run watches the main config file and reloads the user repository when it changes.
+func (b *Backend) Run(ctx context.Context) error {
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	errorsCount := 0
+
+	var allErrors error
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			err := b.checkAndReload(ctx)
+			if err != nil {
+				errorsCount++
+				allErrors = errors.Join(allErrors, err)
+				b.Logger.Error("failed to check and reload user repository", "error", err)
+			}
+
+			if errorsCount > 3 {
+				return fmt.Errorf("failed to check and reload user repository after 3 attempts: %w", allErrors)
+			}
+		}
+	}
+}
+
+func (b *Backend) checkAndReload(ctx context.Context) error {
+	path := b.Config.ManagementBackendYAMLPath
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	b.rwLock.RLock()
+
+	if b.lastUpdated.IsZero() || info.ModTime() != b.lastUpdated {
+		b.rwLock.RUnlock()
+
+		b.Logger.Info("config file changed, reloading user repository")
+
+		return b.reload(ctx)
+	}
+
+	b.rwLock.RUnlock()
+
+	return nil
+}
+
+func (b *Backend) reload(ctx context.Context) error {
+	b.rwLock.Lock()
+	defer b.rwLock.Unlock()
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	path := b.Config.ManagementBackendYAMLPath
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	managementConfig, err := yaml.UnmarshalFromFile[ManagementConfig](path)
+	if err != nil {
+		return err
+	}
+
+	b.usersByName = map[string]core.User{}
+	b.usersByAccessKeyID = map[string]core.User{}
+	b.lastUpdated = info.ModTime()
+	b.adminUser = managementConfig.AdminUser.toCoreUser()
+
+	for _, user := range managementConfig.Users {
+		b.usersByName[user.Name] = user.toCoreUser()
+		b.usersByAccessKeyID[user.AccessKeyID] = b.usersByName[user.Name]
+	}
+
+	return nil
+}
