@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/smartio"
@@ -64,7 +63,7 @@ func (b Bucket) PutObject(ctx context.Context, key string, input core.PutObjectI
 	_, err := os.Stat(bucketPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return common.ErrBucketNotFound
+			return core.ErrBucketNotFound
 		}
 
 		return err
@@ -80,7 +79,7 @@ func (b Bucket) PutObject(ctx context.Context, key string, input core.PutObjectI
 
 	// TODO: this behavior should depend on the passed details
 	if _, err := os.Stat(path); err == nil {
-		return common.ErrObjectAlreadyExists
+		return core.ErrObjectAlreadyExists
 	}
 
 	uploadPath := b.config.newUploadPath()
@@ -105,7 +104,7 @@ func (b Bucket) PutObject(ctx context.Context, key string, input core.PutObjectI
 	// TODO: figure out what to do with streaming uploads
 	if input.Metadata.SHA256 != StreamingHMACSHA256 {
 		if input.Metadata.SHA256 != sha256sum {
-			return fmt.Errorf("%w: %s != %s", common.ErrObjectChecksumMismatch, input.Metadata.SHA256, sha256sum)
+			return fmt.Errorf("%w: %s != %s", core.ErrObjectChecksumMismatch, input.Metadata.SHA256, sha256sum)
 		}
 	}
 
@@ -192,7 +191,7 @@ func (b Bucket) ListObjectsV2(_ context.Context, input core.ListObjectsV2Input) 
 	})
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, common.ErrBucketNotFound
+			return nil, core.ErrBucketNotFound
 		}
 
 		return nil, err
@@ -255,7 +254,7 @@ func (b Bucket) UploadPart(ctx context.Context, _ string, uploadID string, partN
 
 	// TODO: this behavior should depend on the passed details
 	if _, err := os.Stat(path); err == nil {
-		return common.ErrObjectAlreadyExists
+		return core.ErrObjectAlreadyExists
 	}
 
 	uploadFile, err := os.Create(path)
@@ -365,7 +364,7 @@ func (b Bucket) getObject(key string) (*Object, error) {
 	}
 
 	if object == nil {
-		return nil, common.ErrObjectNotFound
+		return nil, core.ErrObjectNotFound
 	}
 
 	return object, nil

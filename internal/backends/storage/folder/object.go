@@ -9,13 +9,8 @@ import (
 	"time"
 
 	"github.com/samber/lo"
-	"github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/yaml"
-)
-
-var (
-	ErrObjectMetadataNotReadable = errors.New("object metadata not readable")
 )
 
 type Object struct {
@@ -64,7 +59,7 @@ func ObjectFromPath(cfg *Config, bucket, key string) (*Object, error) {
 	}
 
 	if info.Mode().Perm()&(0400) == 0 {
-		return nil, fmt.Errorf("%w: %s", ErrObjectMetadataNotReadable, metadataPath)
+		return nil, fmt.Errorf("%w: %s", core.ErrObjectMetadataNotReadable, metadataPath)
 	}
 
 	return &Object{
@@ -141,7 +136,7 @@ func IsObjectPath(path string) (bool, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return false, common.ErrObjectNotFound
+			return false, core.ErrObjectNotFound
 		}
 
 		return false, err

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v5"
-	"github.com/zhulik/d3/internal/backends/storage/common"
+	"github.com/zhulik/d3/internal/core"
 )
 
 func ErrorRenderer() echo.MiddlewareFunc {
@@ -13,13 +13,13 @@ func ErrorRenderer() echo.MiddlewareFunc {
 		return func(c *echo.Context) error {
 			err := next(c)
 			switch {
-			case errors.Is(err, common.ErrBucketNotFound):
+			case errors.Is(err, core.ErrBucketNotFound):
 				return echo.NewHTTPError(http.StatusNotFound, err.Error())
-			case errors.Is(err, common.ErrObjectNotFound):
+			case errors.Is(err, core.ErrObjectNotFound):
 				return echo.NewHTTPError(http.StatusNotFound, err.Error())
-			case errors.Is(err, common.ErrBucketAlreadyExists) || errors.Is(err, common.ErrObjectAlreadyExists):
+			case errors.Is(err, core.ErrBucketAlreadyExists) || errors.Is(err, core.ErrObjectAlreadyExists):
 				return echo.NewHTTPError(http.StatusConflict, err.Error())
-			case errors.Is(err, common.ErrBucketNotEmpty):
+			case errors.Is(err, core.ErrBucketNotEmpty):
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			case err == nil:
 				return nil

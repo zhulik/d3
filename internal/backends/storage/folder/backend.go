@@ -7,15 +7,10 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/iter"
 	"github.com/zhulik/d3/pkg/yaml"
-)
-
-var (
-	ErrConfigVersionMismatch = errors.New("storage config version mismatch")
 )
 
 const (
@@ -74,7 +69,7 @@ func (b *Backend) CreateBucket(_ context.Context, name string) error {
 	err := os.Mkdir(path, 0755)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
-			return common.ErrBucketAlreadyExists
+			return core.ErrBucketAlreadyExists
 		}
 
 		return err
@@ -89,13 +84,13 @@ func (b *Backend) DeleteBucket(_ context.Context, name string) error {
 	err := os.Remove(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return common.ErrBucketNotFound
+			return core.ErrBucketNotFound
 		}
 
 		var pathError *os.PathError
 		if errors.As(err, &pathError) {
 			if errors.Is(pathError.Err, syscall.ENOTEMPTY) {
-				return common.ErrBucketNotEmpty
+				return core.ErrBucketNotEmpty
 			}
 		}
 
@@ -111,7 +106,7 @@ func (b *Backend) HeadBucket(_ context.Context, name string) (core.Bucket, error
 	info, err := os.Stat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, common.ErrBucketNotFound
+			return nil, core.ErrBucketNotFound
 		}
 
 		return nil, err
@@ -187,8 +182,8 @@ func (b *Backend) prepareConfigYaml(_ context.Context) error {
 	}
 
 	if existingConfig.Version != ConfigVersion {
-		return fmt.Errorf("%w: config version mismatch: expected %d, got %d",
-			ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
+		return fmt.Errorf("%w: backend config version mismatch: expected %d, got %d",
+			core.ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
 	}
 
 	return nil

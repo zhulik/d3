@@ -2,14 +2,9 @@ package core
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/caarlos0/env/v11"
-)
-
-var (
-	ErrInvalidConfig = errors.New("invalid config")
 )
 
 type StorageBackendType string

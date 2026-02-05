@@ -18,7 +18,6 @@ import (
 	"github.com/zhulik/d3/internal/apictx"
 	"github.com/zhulik/d3/internal/apis/s3/actions"
 	middlewares2 "github.com/zhulik/d3/internal/apis/s3/middlewares"
-	common2 "github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/rangeparser"
 	"github.com/zhulik/d3/pkg/smartio"
@@ -162,7 +161,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	listType := c.QueryParam("list-type")
 	maxKeys := c.QueryParam("max-keys")
 
-	maxKeysInt := common2.MaxKeys
+	maxKeysInt := core.MaxKeys
 
 	var err error
 
@@ -196,7 +195,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 		}),
 		Name:           bucket.Name(),
 		Prefix:         prefix,
-		Delimiter:      common2.Delimiter,
+		Delimiter:      core.Delimiter,
 		MaxKeys:        maxKeysInt,
 		CommonPrefixes: []prefixEntry{},
 	}
@@ -256,7 +255,7 @@ func (a APIObjects) DeleteObjects(c *echo.Context) error {
 			errorCode := "InternalError"
 			errorMessage := result.Error.Error()
 
-			if errors.Is(result.Error, common2.ErrObjectNotFound) {
+			if errors.Is(result.Error, core.ErrObjectNotFound) {
 				errorCode = "NoSuchKey"
 			}
 

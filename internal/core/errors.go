@@ -1,4 +1,4 @@
-package common //nolint:revive
+package core
 
 import "errors"
 
@@ -14,4 +14,10 @@ var (
 
 	ErrUserNotFound      = errors.New("user not found")
 	ErrUserAlreadyExists = errors.New("user already exists")
+
+	ErrInvalidConfig = errors.New("invalid config")
+
+	ErrConfigVersionMismatch = errors.New("config version mismatch")
+
+	ErrObjectMetadataNotReadable = errors.New("object metadata not readable")
 )

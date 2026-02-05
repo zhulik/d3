@@ -11,17 +11,12 @@ import (
 	"time"
 
 	"github.com/samber/lo"
-	"github.com/zhulik/d3/internal/backends/storage/common"
 	"github.com/zhulik/d3/internal/backends/storage/folder"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/atomicwriter"
 	"github.com/zhulik/d3/pkg/credentials"
 	"github.com/zhulik/d3/pkg/yaml"
-)
-
-var (
-	ErrConfigVersionMismatch = errors.New("management config version mismatch")
 )
 
 const (
@@ -89,8 +84,8 @@ func (b *Backend) Init(ctx context.Context) error {
 	}
 
 	if existingConfig.Version != ConfigVersion {
-		return fmt.Errorf("%w: config version mismatch: expected %d, got %d",
-			ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
+		return fmt.Errorf("%w: management config version mismatch: expected %d, got %d",
+			core.ErrConfigVersionMismatch, ConfigVersion, existingConfig.Version)
 	}
 
 	return b.reload(ctx)
@@ -113,7 +108,7 @@ func (b *Backend) GetUserByName(_ context.Context, name string) (*core.User, err
 
 	user, ok := b.usersByName[name]
 	if !ok {
-		return nil, common.ErrUserNotFound
+		return nil, core.ErrUserNotFound
 	}
 
 	return &user, nil
@@ -129,7 +124,7 @@ func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*
 
 	user, ok := b.usersByAccessKeyID[accessKeyID]
 	if !ok {
-		return nil, common.ErrUserNotFound
+		return nil, core.ErrUserNotFound
 	}
 
 	return &user, nil
@@ -145,7 +140,7 @@ func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
 			}
 
 			if _, ok := managementConfig.Users[newUser.Name]; ok {
-				return nil, common.ErrUserAlreadyExists
+				return nil, core.ErrUserAlreadyExists
 			}
 
 			managementConfig.Users[newUser.Name] = user{
@@ -172,7 +167,7 @@ func (b *Backend) UpdateUser(ctx context.Context, updatedUser core.User) error {
 			}
 
 			if _, ok := managementConfig.Users[updatedUser.Name]; !ok {
-				return nil, common.ErrUserNotFound
+				return nil, core.ErrUserNotFound
 			}
 
 			managementConfig.Users[updatedUser.Name] = user{
@@ -198,7 +193,7 @@ func (b *Backend) DeleteUser(ctx context.Context, userName string) error {
 			}
 
 			if _, ok := managementConfig.Users[userName]; !ok {
-				return nil, common.ErrUserNotFound
+				return nil, core.ErrUserNotFound
 			}
 
 			delete(managementConfig.Users, userName)
