@@ -1,4 +1,4 @@
-package actions
+package s3actions
 
 type Action string
 
