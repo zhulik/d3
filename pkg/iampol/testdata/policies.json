@@ -1,0 +1,100 @@
+[
+  {
+    "policy": {
+      "Id": "valid-policy",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["s3:GetObject"],
+          "Resource": ["arn:aws:s3:::my-bucket/*"]
+        }
+      ]
+    },
+    "error": null
+  },
+  {
+    "policy": {
+      "Id": "",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["s3:GetObject"],
+          "Resource": ["arn:aws:s3:::my-bucket/*"]
+        }
+      ]
+    },
+    "error": "invalid policy: missing Id"
+  },
+  {
+    "policy": {
+      "Id": "no-statement",
+      "Statement": []
+    },
+    "error": "invalid policy: missing Statement"
+  },
+  {
+    "policy": {
+      "Id": "bad-effect",
+      "Statement": [
+        {
+          "Effect": "allow",
+          "Action": ["s3:GetObject"],
+          "Resource": ["arn:aws:s3:::my-bucket/*"]
+        }
+      ]
+    },
+    "error": "invalid policy: invalid Effect in Statement 0"
+  },
+  {
+    "policy": {
+      "Id": "missing-action",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [],
+          "Resource": ["arn:aws:s3:::my-bucket/*"]
+        }
+      ]
+    },
+    "error": "invalid policy: missing Action in Statement 0"
+  },
+  {
+    "policy": {
+      "Id": "invalid-action",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["NotAnAction"],
+          "Resource": ["arn:aws:s3:::my-bucket/*"]
+        }
+      ]
+    },
+    "error": "invalid policy: invalid Action in Statement 0, Action NotAnAction"
+  },
+  {
+    "policy": {
+      "Id": "missing-resource",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["s3:GetObject"],
+          "Resource": []
+        }
+      ]
+    },
+    "error": "invalid policy: missing Resource in Statement 0"
+  },
+  {
+    "policy": {
+      "Id": "invalid-resource",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["s3:GetObject"],
+          "Resource": ["arn:aws:sqs:::queue"]
+        }
+      ]
+    },
+    "error": "invalid policy: invalid Resource in Statement 0, Resource arn:aws:sqs:::queue"
+  }
+]

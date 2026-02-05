@@ -6,6 +6,8 @@ import (
 	libjson "encoding/json"
 )
 
+type RawMessage = libjson.RawMessage
+
 func Marshal[T any](v T) ([]byte, error) {
 	return libjson.Marshal(v)
 }
