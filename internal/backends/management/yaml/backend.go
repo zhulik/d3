@@ -45,8 +45,12 @@ func (b *Backend) Init(ctx context.Context) error {
 	}
 	defer cancel()
 
-	// TODO: separately configurable tmp path
-	b.writer = atomicwriter.New(b.Locker, filepath.Join(b.Config.FolderStorageBackendPath, folder.TmpFolder))
+	err = os.MkdirAll(filepath.Dir(b.Config.ManagementBackendTmpPath), 0755)
+	if err != nil {
+		return err
+	}
+
+	b.writer = atomicwriter.New(b.Locker, filepath.Join(b.Config.ManagementBackendTmpPath, folder.TmpFolder))
 
 	managementConfigPath := b.Config.ManagementBackendYAMLPath
 
@@ -131,7 +135,10 @@ func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*
 }
 
 func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
-	// TODO: validate user
+	if newUser.Name == "" || newUser.AccessKeyID == "" || newUser.SecretAccessKey == "" {
+		return core.ErrUserInvalid
+	}
+
 	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
 		func(_ context.Context, content []byte) ([]byte, error) {
 			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
@@ -158,7 +165,10 @@ func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
 }
 
 func (b *Backend) UpdateUser(ctx context.Context, updatedUser core.User) error {
-	// TODO: validate user
+	if updatedUser.Name == "" || updatedUser.AccessKeyID == "" || updatedUser.SecretAccessKey == "" {
+		return core.ErrUserInvalid
+	}
+
 	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
 		func(_ context.Context, content []byte) ([]byte, error) {
 			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)

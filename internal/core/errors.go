@@ -14,6 +14,7 @@ var (
 
 	ErrUserNotFound      = errors.New("user not found")
 	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrUserInvalid       = errors.New("invalid user")
 
 	ErrInvalidConfig = errors.New("invalid config")
 

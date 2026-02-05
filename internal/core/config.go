@@ -27,6 +27,9 @@ type Config struct {
 
 	ManagementBackend         ManagementBackendType `env:"MANAGEMENT_BACKEND"           envDefault:"YAML"`
 	ManagementBackendYAMLPath string                `env:"MANAGEMENT_BACKEND_YAML_PATH" envDefault:"./d3_data/management.yaml"` //nolint:lll
+	// ManagementBackendTmpPath specifies where to store temporary files for management backend operations.
+	// It should be on the same disk as the main storage to ensure atomicity. Only relevand for the YAML backend.
+	ManagementBackendTmpPath string `env:"MANAGEMENT_BACKEND_TMP_PATH" envDefault:"./d3_data/tmp"`
 
 	RedisAddress string `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
 
