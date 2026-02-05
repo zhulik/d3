@@ -6,8 +6,8 @@ import (
 	"net/url"
 
 	"github.com/labstack/echo/v5"
-	"github.com/zhulik/d3/internal/apis/s3/actions"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/pkg/s3actions"
 )
 
 type ctxKey struct{}
@@ -31,7 +31,7 @@ type APICtx struct {
 
 	// For AWS S3 API:
 
-	Action actions.Action
+	Action s3actions.Action
 	Bucket core.Bucket
 	Object core.Object
 }

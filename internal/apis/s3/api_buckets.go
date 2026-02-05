@@ -9,9 +9,9 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/apictx"
-	"github.com/zhulik/d3/internal/apis/s3/actions"
 	middlewares2 "github.com/zhulik/d3/internal/apis/s3/middlewares"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/pkg/s3actions"
 )
 
 type APIBuckets struct {
@@ -24,14 +24,14 @@ type APIBuckets struct {
 func (a APIBuckets) Init(_ context.Context) error {
 	bucketFinder := a.BucketFinder.Middleware()
 
-	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation, actions.GetBucketLocation, bucketFinder)
+	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation, s3actions.GetBucketLocation, bucketFinder)
 
-	a.Echo.GET("/", a.ListBuckets, middlewares2.SetAction(actions.ListBuckets))
+	a.Echo.GET("/", a.ListBuckets, middlewares2.SetAction(s3actions.ListBuckets))
 
 	buckets := a.Echo.Group("/:bucket")
-	buckets.HEAD("", a.HeadBucket, middlewares2.SetAction(actions.HeadBucket), bucketFinder)
-	buckets.PUT("", a.CreateBucket, middlewares2.SetAction(actions.CreateBucket))
-	buckets.DELETE("", a.DeleteBucket, middlewares2.SetAction(actions.DeleteBucket))
+	buckets.HEAD("", a.HeadBucket, middlewares2.SetAction(s3actions.HeadBucket), bucketFinder)
+	buckets.PUT("", a.CreateBucket, middlewares2.SetAction(s3actions.CreateBucket))
+	buckets.DELETE("", a.DeleteBucket, middlewares2.SetAction(s3actions.DeleteBucket))
 
 	return nil
 }

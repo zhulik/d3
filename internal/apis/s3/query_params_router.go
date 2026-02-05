@@ -5,8 +5,8 @@ import (
 
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo/mutable"
-	"github.com/zhulik/d3/internal/apis/s3/actions"
 	"github.com/zhulik/d3/internal/apis/s3/middlewares"
+	"github.com/zhulik/d3/pkg/s3actions"
 )
 
 type route struct {
@@ -26,7 +26,7 @@ func NewQueryParamsRouter() *QueryParamsRouter {
 	}
 }
 
-func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc, action actions.Action,
+func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc, action s3actions.Action,
 	moreMiddlewares ...echo.MiddlewareFunc) *QueryParamsRouter {
 	allMiddlewares := []echo.MiddlewareFunc{middlewares.SetAction(action)}
 	allMiddlewares = append(allMiddlewares, moreMiddlewares...)
@@ -36,7 +36,7 @@ func (r *QueryParamsRouter) AddRoute(param string, handler echo.HandlerFunc, act
 	return r
 }
 
-func (r *QueryParamsRouter) SetFallbackHandler(handler echo.HandlerFunc, action actions.Action,
+func (r *QueryParamsRouter) SetFallbackHandler(handler echo.HandlerFunc, action s3actions.Action,
 	moreMiddlewares ...echo.MiddlewareFunc) *QueryParamsRouter {
 	if r.fallbackHandler != nil {
 		panic("fallback handler already set")

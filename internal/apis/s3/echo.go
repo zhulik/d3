@@ -7,8 +7,8 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/zhulik/d3/internal/apictx"
-	"github.com/zhulik/d3/internal/apis/s3/actions"
 	middlewares2 "github.com/zhulik/d3/internal/apis/s3/middlewares"
+	"github.com/zhulik/d3/pkg/s3actions"
 )
 
 type Echo struct {
@@ -37,6 +37,6 @@ func (e *Echo) Init(_ context.Context) error {
 	return nil
 }
 
-func (e *Echo) AddQueryParamRoute(path string, handler echo.HandlerFunc, action actions.Action, middlewares ...echo.MiddlewareFunc) { //nolint:lll
+func (e *Echo) AddQueryParamRoute(path string, handler echo.HandlerFunc, action s3actions.Action, middlewares ...echo.MiddlewareFunc) { //nolint:lll
 	e.rootQueryRouter.AddRoute(path, applyMiddlewares(handler, middlewares...), action)
 }

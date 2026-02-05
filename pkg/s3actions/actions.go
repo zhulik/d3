@@ -3,6 +3,8 @@ package s3actions
 type Action string
 
 const (
+	All Action = "s3:*"
+
 	CreateBucket      Action = "s3:CreateBucket"
 	HeadBucket        Action = "s3:HeadBucket"
 	ListBuckets       Action = "s3:ListBuckets"
@@ -20,4 +22,26 @@ const (
 	CompleteMultipartUpload Action = "s3:CompleteMultipartUpload"
 	AbortMultipartUpload    Action = "s3:AbortMultipartUpload"
 	GetObjectTagging        Action = "s3:GetObjectTagging"
+)
+
+var (
+	Actions = []Action{ //nolint:gochecknoglobals
+		All,
+		ListBuckets,
+		HeadBucket,
+		DeleteBucket,
+		CreateBucket,
+		GetBucketLocation,
+		PutObject,
+		GetObject,
+		HeadObject,
+		DeleteObject,
+		ListObjectsV2,
+		DeleteObjects,
+		CreateMultipartUpload,
+		UploadPart,
+		CompleteMultipartUpload,
+		AbortMultipartUpload,
+		GetObjectTagging,
+	}
 )

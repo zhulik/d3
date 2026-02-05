@@ -16,10 +16,10 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/apictx"
-	"github.com/zhulik/d3/internal/apis/s3/actions"
 	middlewares2 "github.com/zhulik/d3/internal/apis/s3/middlewares"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/rangeparser"
+	"github.com/zhulik/d3/pkg/s3actions"
 	"github.com/zhulik/d3/pkg/smartio"
 )
 
@@ -34,36 +34,36 @@ func (a APIObjects) Init(_ context.Context) error {
 	bucketFinder := a.BucketFinder.Middleware()
 	objectFinder := a.ObjectFinder.Middleware()
 
-	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, actions.ListObjectsV2, bucketFinder)
-	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, actions.ListObjectsV2, bucketFinder)
+	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder)
+	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder)
 
 	objects := a.Echo.Group("/:bucket/*")
-	objects.HEAD("", a.HeadObject, middlewares2.SetAction(actions.HeadObject), bucketFinder, objectFinder)
+	objects.HEAD("", a.HeadObject, middlewares2.SetAction(s3actions.HeadObject), bucketFinder, objectFinder)
 	objects.PUT("", NewQueryParamsRouter().
-		SetFallbackHandler(a.PutObject, actions.PutObject, bucketFinder).
-		AddRoute("uploadId", a.UploadPart, actions.UploadPart, bucketFinder).
+		SetFallbackHandler(a.PutObject, s3actions.PutObject, bucketFinder).
+		AddRoute("uploadId", a.UploadPart, s3actions.UploadPart, bucketFinder).
 		Handle)
 
 	objects.POST("", NewQueryParamsRouter().
-		AddRoute("uploads", a.CreateMultipartUpload, actions.CreateMultipartUpload, bucketFinder).
-		AddRoute("uploadId", a.CompleteMultipartUpload, actions.CompleteMultipartUpload, bucketFinder).
+		AddRoute("uploads", a.CreateMultipartUpload, s3actions.CreateMultipartUpload, bucketFinder).
+		AddRoute("uploadId", a.CompleteMultipartUpload, s3actions.CompleteMultipartUpload, bucketFinder).
 		Handle)
 
 	objects.GET("",
 		NewQueryParamsRouter().
-			SetFallbackHandler(a.GetObject, actions.GetObject, bucketFinder, objectFinder).
-			AddRoute("tagging", a.GetObjectTagging, actions.GetObjectTagging, bucketFinder, objectFinder).
+			SetFallbackHandler(a.GetObject, s3actions.GetObject, bucketFinder, objectFinder).
+			AddRoute("tagging", a.GetObjectTagging, s3actions.GetObjectTagging, bucketFinder, objectFinder).
 			Handle,
 	)
 
 	objects.DELETE("", NewQueryParamsRouter().
-		SetFallbackHandler(a.DeleteObject, actions.DeleteObject, bucketFinder).
-		AddRoute("uploadId", a.AbortMultipartUpload, actions.AbortMultipartUpload, bucketFinder).
+		SetFallbackHandler(a.DeleteObject, s3actions.DeleteObject, bucketFinder).
+		AddRoute("uploadId", a.AbortMultipartUpload, s3actions.AbortMultipartUpload, bucketFinder).
 		Handle)
 
 	a.Echo.POST("/:bucket",
 		NewQueryParamsRouter().
-			AddRoute("delete", a.DeleteObjects, actions.DeleteObjects, bucketFinder).
+			AddRoute("delete", a.DeleteObjects, s3actions.DeleteObjects, bucketFinder).
 			Handle,
 	)
 
