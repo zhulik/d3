@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/zhulik/d3/internal/core"
-	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/iter"
 	"github.com/zhulik/d3/pkg/yaml"
 )
@@ -24,7 +23,7 @@ type configYaml struct {
 type Backend struct {
 	Cfg *core.Config
 
-	Locker *locker.Locker
+	Locker core.Locker
 
 	config *Config
 }

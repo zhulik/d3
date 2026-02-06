@@ -98,3 +98,7 @@ type ManagementBackend interface { //nolint:interfacebloat
 	UpdatePolicy(ctx context.Context, policy iampol.IAMPolicy) error
 	DeletePolicy(ctx context.Context, id string) error
 }
+
+type Locker interface {
+	Lock(ctx context.Context, key string) (context.Context, context.CancelFunc, error)
+}

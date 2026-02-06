@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/zhulik/d3/internal/core"
-	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/smartio"
 	"github.com/zhulik/d3/pkg/yaml"
 )
@@ -29,7 +28,7 @@ type Bucket struct {
 	creationDate time.Time
 	config       *Config
 
-	Locker *locker.Locker
+	Locker core.Locker
 }
 
 func (b Bucket) Name() string {

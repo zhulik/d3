@@ -14,7 +14,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/backends/storage/folder"
 	"github.com/zhulik/d3/internal/core"
-	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/atomicwriter"
 	"github.com/zhulik/d3/pkg/credentials"
 	"github.com/zhulik/d3/pkg/iampol"
@@ -27,7 +26,7 @@ const (
 
 type Backend struct {
 	Config *core.Config
-	Locker *locker.Locker
+	Locker core.Locker
 	Logger *slog.Logger
 
 	lastUpdated        time.Time
