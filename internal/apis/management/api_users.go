@@ -107,7 +107,7 @@ func (a APIUsers) UpdateUser(c *echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
-// DeleteUser updates the user.
+// DeleteUser deletes the user.
 func (a APIUsers) DeleteUser(c *echo.Context) error {
 	userName := c.Param("userName")
 
