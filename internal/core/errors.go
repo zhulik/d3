@@ -21,4 +21,8 @@ var (
 	ErrConfigVersionMismatch = errors.New("config version mismatch")
 
 	ErrObjectMetadataNotReadable = errors.New("object metadata not readable")
+
+	ErrPolicyNotFound      = errors.New("policy not found")
+	ErrPolicyAlreadyExists = errors.New("policy already exists")
+	ErrPolicyInvalid       = errors.New("invalid policy")
 )

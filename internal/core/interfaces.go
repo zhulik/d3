@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"time"
+
+	"github.com/zhulik/d3/pkg/iampol"
 )
 
 type ObjectMetadata struct {
@@ -80,7 +82,7 @@ type StorageBackend interface {
 	HeadBucket(ctx context.Context, name string) (Bucket, error)
 }
 
-type ManagementBackend interface {
+type ManagementBackend interface { //nolint:interfacebloat
 	AdminCredentials() (string, string)
 
 	GetUsers(ctx context.Context) ([]string, error)
@@ -89,4 +91,10 @@ type ManagementBackend interface {
 	CreateUser(ctx context.Context, user User) error
 	UpdateUser(ctx context.Context, user User) error
 	DeleteUser(ctx context.Context, name string) error
+
+	GetPolicies(ctx context.Context) ([]string, error)
+	GetPolicyByID(ctx context.Context, id string) (iampol.IAMPolicy, error)
+	CreatePolicy(ctx context.Context, policy iampol.IAMPolicy) error
+	UpdatePolicy(ctx context.Context, policy iampol.IAMPolicy) error
+	DeletePolicy(ctx context.Context, id string) error
 }

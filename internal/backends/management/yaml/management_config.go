@@ -1,6 +1,9 @@
 package yaml
 
-import "github.com/zhulik/d3/internal/core"
+import (
+	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/pkg/iampol"
+)
 
 const (
 	ConfigVersion = 1
@@ -20,7 +23,8 @@ func (u user) toCoreUser(userName string) core.User {
 }
 
 type ManagementConfig struct {
-	Version   int             `yaml:"version"`
-	AdminUser user            `yaml:"admin_user"`
-	Users     map[string]user `yaml:"users"`
+	Version   int                         `yaml:"version"`
+	AdminUser user                        `yaml:"admin_user"`
+	Users     map[string]user             `yaml:"users"`
+	Policies  map[string]iampol.IAMPolicy `yaml:"policies"`
 }

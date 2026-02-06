@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/zhulik/d3/internal/locker"
 	"github.com/zhulik/d3/pkg/atomicwriter"
 	"github.com/zhulik/d3/pkg/credentials"
+	"github.com/zhulik/d3/pkg/iampol"
 	"github.com/zhulik/d3/pkg/yaml"
 )
 
@@ -32,6 +34,7 @@ type Backend struct {
 	adminUser          core.User
 	usersByName        map[string]core.User
 	usersByAccessKeyID map[string]core.User
+	policiesByID       map[string]iampol.IAMPolicy
 
 	rwLock sync.RWMutex
 	writer *atomicwriter.AtomicWriter
@@ -69,6 +72,7 @@ func (b *Backend) Init(ctx context.Context) error {
 					AccessKeyID:     accessKeyID,
 					SecretAccessKey: secretAccessKey,
 				},
+				Policies: map[string]iampol.IAMPolicy{},
 			}
 
 			err := yaml.MarshalToFile(cfg, managementConfigPath)
@@ -224,6 +228,94 @@ func (b *Backend) AdminCredentials() (string, string) {
 	return b.adminUser.AccessKeyID, b.adminUser.SecretAccessKey
 }
 
+func (b *Backend) GetPolicies(_ context.Context) ([]string, error) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	return lo.Keys(b.policiesByID), nil
+}
+
+func (b *Backend) GetPolicyByID(_ context.Context, id string) (iampol.IAMPolicy, error) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	policy, ok := b.policiesByID[id]
+	if !ok {
+		return iampol.IAMPolicy{}, core.ErrPolicyNotFound
+	}
+
+	return policy, nil
+}
+
+func (b *Backend) CreatePolicy(ctx context.Context, newPolicy iampol.IAMPolicy) error {
+	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
+		func(_ context.Context, content []byte) ([]byte, error) {
+			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
+			if err != nil {
+				return nil, err
+			}
+
+			if _, ok := managementConfig.Policies[newPolicy.ID]; ok {
+				return nil, core.ErrPolicyAlreadyExists
+			}
+
+			managementConfig.Policies[newPolicy.ID] = newPolicy
+
+			return yaml.Marshal(managementConfig)
+		})
+	if err != nil {
+		return err
+	}
+
+	return b.reload(ctx)
+}
+
+func (b *Backend) UpdatePolicy(ctx context.Context, updatedPolicy iampol.IAMPolicy) error {
+	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
+		func(_ context.Context, content []byte) ([]byte, error) {
+			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
+			if err != nil {
+				return nil, err
+			}
+
+			if _, ok := managementConfig.Policies[updatedPolicy.ID]; !ok {
+				return nil, core.ErrPolicyNotFound
+			}
+
+			managementConfig.Policies[updatedPolicy.ID] = updatedPolicy
+
+			return yaml.Marshal(managementConfig)
+		})
+	if err != nil {
+		return err
+	}
+
+	return b.reload(ctx)
+}
+
+func (b *Backend) DeletePolicy(ctx context.Context, policyID string) error {
+	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
+		func(_ context.Context, content []byte) ([]byte, error) {
+			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
+			if err != nil {
+				return nil, err
+			}
+
+			if _, ok := managementConfig.Policies[policyID]; !ok {
+				return nil, core.ErrPolicyNotFound
+			}
+
+			delete(managementConfig.Policies, policyID)
+
+			return yaml.Marshal(managementConfig)
+		})
+	if err != nil {
+		return err
+	}
+
+	return b.reload(ctx)
+}
+
 // Run watches the main config file and reloads the user repository when it changes.
 func (b *Backend) Run(ctx context.Context) error {
 	ticker := time.NewTicker(pollInterval)
@@ -297,6 +389,7 @@ func (b *Backend) reload(ctx context.Context) error {
 
 	b.usersByName = map[string]core.User{}
 	b.usersByAccessKeyID = map[string]core.User{}
+	b.policiesByID = map[string]iampol.IAMPolicy{}
 	b.lastUpdated = info.ModTime()
 	b.adminUser = managementConfig.AdminUser.toCoreUser("admin")
 
@@ -304,6 +397,8 @@ func (b *Backend) reload(ctx context.Context) error {
 		b.usersByName[userName] = user.toCoreUser(userName)
 		b.usersByAccessKeyID[user.AccessKeyID] = b.usersByName[userName]
 	}
+
+	maps.Copy(b.policiesByID, managementConfig.Policies)
 
 	return nil
 }
