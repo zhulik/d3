@@ -143,29 +143,18 @@ func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
 		return core.ErrUserInvalid
 	}
 
-	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
-		func(_ context.Context, content []byte) ([]byte, error) {
-			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
-			if err != nil {
-				return nil, err
-			}
+	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		if _, ok := cfg.Users[newUser.Name]; ok {
+			return cfg, core.ErrUserAlreadyExists
+		}
 
-			if _, ok := managementConfig.Users[newUser.Name]; ok {
-				return nil, core.ErrUserAlreadyExists
-			}
+		cfg.Users[newUser.Name] = user{
+			AccessKeyID:     newUser.AccessKeyID,
+			SecretAccessKey: newUser.SecretAccessKey,
+		}
 
-			managementConfig.Users[newUser.Name] = user{
-				AccessKeyID:     newUser.AccessKeyID,
-				SecretAccessKey: newUser.SecretAccessKey,
-			}
-
-			return yaml.Marshal(managementConfig)
-		})
-	if err != nil {
-		return err
-	}
-
-	return b.reload(ctx)
+		return cfg, nil
+	})
 }
 
 func (b *Backend) UpdateUser(ctx context.Context, updatedUser core.User) error {
@@ -173,52 +162,30 @@ func (b *Backend) UpdateUser(ctx context.Context, updatedUser core.User) error {
 		return core.ErrUserInvalid
 	}
 
-	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
-		func(_ context.Context, content []byte) ([]byte, error) {
-			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
-			if err != nil {
-				return nil, err
-			}
+	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		if _, ok := cfg.Users[updatedUser.Name]; !ok {
+			return cfg, core.ErrUserNotFound
+		}
 
-			if _, ok := managementConfig.Users[updatedUser.Name]; !ok {
-				return nil, core.ErrUserNotFound
-			}
+		cfg.Users[updatedUser.Name] = user{
+			AccessKeyID:     updatedUser.AccessKeyID,
+			SecretAccessKey: updatedUser.SecretAccessKey,
+		}
 
-			managementConfig.Users[updatedUser.Name] = user{
-				AccessKeyID:     updatedUser.AccessKeyID,
-				SecretAccessKey: updatedUser.SecretAccessKey,
-			}
-
-			return yaml.Marshal(managementConfig)
-		})
-	if err != nil {
-		return err
-	}
-
-	return b.reload(ctx)
+		return cfg, nil
+	})
 }
 
 func (b *Backend) DeleteUser(ctx context.Context, userName string) error {
-	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
-		func(_ context.Context, content []byte) ([]byte, error) {
-			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
-			if err != nil {
-				return nil, err
-			}
+	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		if _, ok := cfg.Users[userName]; !ok {
+			return cfg, core.ErrUserNotFound
+		}
 
-			if _, ok := managementConfig.Users[userName]; !ok {
-				return nil, core.ErrUserNotFound
-			}
+		delete(cfg.Users, userName)
 
-			delete(managementConfig.Users, userName)
-
-			return yaml.Marshal(managementConfig)
-		})
-	if err != nil {
-		return err
-	}
-
-	return b.reload(ctx)
+		return cfg, nil
+	})
 }
 
 func (b *Backend) AdminCredentials() (string, string) {
@@ -248,72 +215,39 @@ func (b *Backend) GetPolicyByID(_ context.Context, id string) (iampol.IAMPolicy,
 }
 
 func (b *Backend) CreatePolicy(ctx context.Context, newPolicy iampol.IAMPolicy) error {
-	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
-		func(_ context.Context, content []byte) ([]byte, error) {
-			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
-			if err != nil {
-				return nil, err
-			}
+	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		if _, ok := cfg.Policies[newPolicy.ID]; ok {
+			return cfg, core.ErrPolicyAlreadyExists
+		}
 
-			if _, ok := managementConfig.Policies[newPolicy.ID]; ok {
-				return nil, core.ErrPolicyAlreadyExists
-			}
+		cfg.Policies[newPolicy.ID] = newPolicy
 
-			managementConfig.Policies[newPolicy.ID] = newPolicy
-
-			return yaml.Marshal(managementConfig)
-		})
-	if err != nil {
-		return err
-	}
-
-	return b.reload(ctx)
+		return cfg, nil
+	})
 }
 
 func (b *Backend) UpdatePolicy(ctx context.Context, updatedPolicy iampol.IAMPolicy) error {
-	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
-		func(_ context.Context, content []byte) ([]byte, error) {
-			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
-			if err != nil {
-				return nil, err
-			}
+	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		if _, ok := cfg.Policies[updatedPolicy.ID]; !ok {
+			return cfg, core.ErrPolicyNotFound
+		}
 
-			if _, ok := managementConfig.Policies[updatedPolicy.ID]; !ok {
-				return nil, core.ErrPolicyNotFound
-			}
+		cfg.Policies[updatedPolicy.ID] = updatedPolicy
 
-			managementConfig.Policies[updatedPolicy.ID] = updatedPolicy
-
-			return yaml.Marshal(managementConfig)
-		})
-	if err != nil {
-		return err
-	}
-
-	return b.reload(ctx)
+		return cfg, nil
+	})
 }
 
 func (b *Backend) DeletePolicy(ctx context.Context, policyID string) error {
-	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
-		func(_ context.Context, content []byte) ([]byte, error) {
-			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
-			if err != nil {
-				return nil, err
-			}
+	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		if _, ok := cfg.Policies[policyID]; !ok {
+			return cfg, core.ErrPolicyNotFound
+		}
 
-			if _, ok := managementConfig.Policies[policyID]; !ok {
-				return nil, core.ErrPolicyNotFound
-			}
+		delete(cfg.Policies, policyID)
 
-			delete(managementConfig.Policies, policyID)
-
-			return yaml.Marshal(managementConfig)
-		})
-	if err != nil {
-		return err
-	}
-
-	return b.reload(ctx)
+		return cfg, nil
+	})
 }
 
 // Run watches the main config file and reloads the user repository when it changes.
@@ -342,6 +276,28 @@ func (b *Backend) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func (b *Backend) readWriteConfig(ctx context.Context, op func(ManagementConfig) (ManagementConfig, error)) error {
+	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
+		func(_ context.Context, content []byte) ([]byte, error) {
+			managementConfig, err := yaml.Unmarshal[ManagementConfig](content)
+			if err != nil {
+				return nil, err
+			}
+
+			modifiedConfig, err := op(managementConfig)
+			if err != nil {
+				return nil, err
+			}
+
+			return yaml.Marshal(modifiedConfig)
+		})
+	if err != nil {
+		return err
+	}
+
+	return b.reload(ctx)
 }
 
 func (b *Backend) checkAndReload(ctx context.Context) error {
