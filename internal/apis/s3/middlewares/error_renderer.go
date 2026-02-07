@@ -21,6 +21,8 @@ func ErrorRenderer() echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusConflict, err.Error())
 			case errors.Is(err, core.ErrBucketNotEmpty):
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			case errors.Is(err, core.ErrUnauthorized):
+				return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 			case err == nil:
 				return nil
 			default:

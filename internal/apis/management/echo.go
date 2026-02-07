@@ -7,13 +7,15 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/zhulik/d3/internal/apictx"
-	middlewares2 "github.com/zhulik/d3/internal/apis/s3/middlewares"
+	managementMiddleares "github.com/zhulik/d3/internal/apis/management/middlewares"
+	"github.com/zhulik/d3/internal/apis/s3/middlewares"
 )
 
 type Echo struct {
 	*echo.Echo
 
-	Auth *middlewares2.Authenticator
+	Authenticator *middlewares.Authenticator
+	Authorizer    *managementMiddleares.Authorizer
 }
 
 func (e *Echo) Init(_ context.Context) error {
@@ -23,10 +25,12 @@ func (e *Echo) Init(_ context.Context) error {
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(
 		apictx.Middleware(),
-		middlewares2.Logger(),
+		middlewares.Logger(),
 		middleware.Recover(),
+		middlewares.ErrorRenderer(),
 		apictx.Middleware(),
-		e.Auth.Middleware(),
+		e.Authenticator.Middleware(),
+		e.Authorizer.Middleware(),
 	)
 
 	return nil

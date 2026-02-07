@@ -24,5 +24,6 @@ var (
 
 	ErrPolicyNotFound      = errors.New("policy not found")
 	ErrPolicyAlreadyExists = errors.New("policy already exists")
-	ErrPolicyInvalid       = errors.New("invalid policy")
+
+	ErrUnauthorized = errors.New("unauthorized")
 )

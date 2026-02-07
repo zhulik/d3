@@ -27,15 +27,6 @@ type APIUsers struct {
 func (a APIUsers) Init(_ context.Context) error {
 	users := a.Echo.Group("/users")
 
-	users.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c *echo.Context) error {
-			// TODO: implement proper authorization checks
-			// apiCtx := apictx.FromContext(c.Request().Context())
-			// fmt.Println("APIUsers middleware, user:", apiCtx.Username)
-			return next(c)
-		}
-	})
-
 	users.GET("", a.ListUsers)
 	users.POST("", a.CreateUser)
 	users.PUT("/:userName", a.UpdateUser)

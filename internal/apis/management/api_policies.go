@@ -17,15 +17,6 @@ type APIPolicies struct {
 func (a APIPolicies) Init(_ context.Context) error {
 	policies := a.Echo.Group("/policies")
 
-	policies.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c *echo.Context) error {
-			// TODO: implement proper authorization checks
-			// apiCtx := apictx.FromContext(c.Request().Context())
-			// fmt.Println("APIPolicies middleware, user:", apiCtx.Username)
-			return next(c)
-		}
-	})
-
 	policies.GET("", a.ListPolicies)
 	policies.GET("/:policyID", a.GetPolicy)
 	policies.POST("", a.CreatePolicy)
