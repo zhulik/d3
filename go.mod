@@ -14,8 +14,8 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.38.3
 	github.com/redis/rueidis v1.0.70
-	github.com/redis/rueidis/om v1.0.70
 	github.com/samber/lo v1.52.0
+	github.com/urfave/cli/v3 v3.6.2
 	github.com/zhulik/pal v0.10.1
 	go.yaml.in/yaml/v3 v3.0.4
 )
@@ -58,7 +58,6 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/oklog/ulid/v2 v2.1.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/samber/go-type-to-string v1.8.0 // indirect
