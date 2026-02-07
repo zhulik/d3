@@ -58,7 +58,7 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 		HealthCheckPort:           randomPort(),
 	}
 
-	app := application.New(appConfig)
+	app := application.NewServer(appConfig)
 	lo.Must0(app.Init(ctx))
 
 	time.Sleep(100 * time.Millisecond)

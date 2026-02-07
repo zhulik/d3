@@ -17,7 +17,7 @@ import (
 	"github.com/zhulik/pal"
 )
 
-func New(config *core.Config) *pal.Pal {
+func NewServer(config *core.Config) *pal.Pal {
 	var logger *slog.Logger
 
 	if config.Environment == "development" ||
@@ -53,14 +53,14 @@ func New(config *core.Config) *pal.Pal {
 		RunHealthCheckServer(fmt.Sprintf("0.0.0.0:%d", config.HealthCheckPort), "/healthz")
 }
 
-func Run() {
+func RunServer() {
 	config := &core.Config{}
 	if err := config.Init(context.Background()); err != nil {
 		slog.Error("failed to initialize config", "error", err)
 		os.Exit(1)
 	}
 
-	p := New(config)
+	p := NewServer(config)
 
 	err := p.Run(context.Background())
 	if err != nil {
