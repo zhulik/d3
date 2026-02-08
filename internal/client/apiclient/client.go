@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/pkg/iampol"
 )
 
 var ErrUnexpectedStatus = errors.New("unexpected status")
@@ -130,6 +131,131 @@ func (c *Client) UpdateUser(ctx context.Context, name string) (core.User, error)
 
 func (c *Client) DeleteUser(ctx context.Context, name string) error {
 	url := c.Config.ServerURL + "/users/" + name
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusNoContent)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func (c *Client) ListPolicies(ctx context.Context) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Config.ServerURL+"/policies", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var policies []string
+
+	err = json.NewDecoder(resp.Body).Decode(&policies)
+
+	return policies, err
+}
+
+func (c *Client) GetPolicy(ctx context.Context, policyID string) (*iampol.IAMPolicy, error) {
+	url := c.Config.ServerURL + "/policies/" + policyID
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var policy iampol.IAMPolicy
+
+	err = json.NewDecoder(resp.Body).Decode(&policy)
+	if err != nil {
+		return nil, err
+	}
+
+	return &policy, nil
+}
+
+func (c *Client) CreatePolicy(ctx context.Context, policy *iampol.IAMPolicy) (*iampol.IAMPolicy, error) {
+	jsonBody, err := json.Marshal(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Config.ServerURL+"/policies", bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var response iampol.IAMPolicy
+
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+func (c *Client) UpdatePolicy(ctx context.Context, policyID string, policy *iampol.IAMPolicy) (*iampol.IAMPolicy, error) { //nolint:lll
+	jsonBody, err := json.Marshal(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	url := c.Config.ServerURL + "/policies/" + policyID
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var response iampol.IAMPolicy
+
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
+
+func (c *Client) DeletePolicy(ctx context.Context, policyID string) error {
+	url := c.Config.ServerURL + "/policies/" + policyID
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 	if err != nil {
