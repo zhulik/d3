@@ -88,14 +88,14 @@ type ManagementBackend interface { //nolint:interfacebloat
 	GetUsers(ctx context.Context) ([]string, error)
 	GetUserByName(ctx context.Context, name string) (*User, error)
 	GetUserByAccessKeyID(ctx context.Context, accessKeyID string) (*User, error)
-	CreateUser(ctx context.Context, user User) error
-	UpdateUser(ctx context.Context, user User) error
+	CreateUser(ctx context.Context, user *User) error
+	UpdateUser(ctx context.Context, user *User) error
 	DeleteUser(ctx context.Context, name string) error
 
 	GetPolicies(ctx context.Context) ([]string, error)
-	GetPolicyByID(ctx context.Context, id string) (iampol.IAMPolicy, error)
-	CreatePolicy(ctx context.Context, policy iampol.IAMPolicy) error
-	UpdatePolicy(ctx context.Context, policy iampol.IAMPolicy) error
+	GetPolicyByID(ctx context.Context, id string) (*iampol.IAMPolicy, error)
+	CreatePolicy(ctx context.Context, policy *iampol.IAMPolicy) error
+	UpdatePolicy(ctx context.Context, policy *iampol.IAMPolicy) error
 	DeletePolicy(ctx context.Context, id string) error
 }
 

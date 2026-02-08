@@ -53,7 +53,7 @@ func (a APIUsers) CreateUser(c *echo.Context) error {
 	}
 
 	accessKeyID, secretAccessKey := credentials.GenerateCredentials()
-	user := core.User{
+	user := &core.User{
 		Name:            r.Name,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
@@ -78,7 +78,7 @@ func (a APIUsers) UpdateUser(c *echo.Context) error {
 	userName := c.Param("userName")
 
 	accessKeyID, secretAccessKey := credentials.GenerateCredentials()
-	user := core.User{
+	user := &core.User{
 		Name:            userName,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,

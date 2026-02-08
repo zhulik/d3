@@ -36,10 +36,11 @@ func (c *Client) Init(_ context.Context) error {
 		AccessKeyID:     c.Config.AccessKeyID,
 		SecretAccessKey: c.Config.AccessKeySecret,
 	}
+
 	return nil
 }
 
-func (c *Client) ListUsers(ctx context.Context) ([]core.User, error) {
+func (c *Client) ListUsers(ctx context.Context) ([]*core.User, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Config.ServerURL+"/users", nil)
 	if err != nil {
 		return nil, err
@@ -60,7 +61,7 @@ func (c *Client) ListUsers(ctx context.Context) ([]core.User, error) {
 		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnexpectedStatus, resp.StatusCode)
 	}
 
-	var users []core.User
+	var users []*core.User
 
 	err = json.NewDecoder(resp.Body).Decode(&users)
 

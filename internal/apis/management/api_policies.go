@@ -38,8 +38,8 @@ func (a APIPolicies) ListPolicies(c *echo.Context) error {
 
 // CreatePolicy creates a policy.
 func (a APIPolicies) CreatePolicy(c *echo.Context) error {
-	r := iampol.IAMPolicy{}
-	if err := c.Bind(&r); err != nil {
+	r := &iampol.IAMPolicy{}
+	if err := c.Bind(r); err != nil {
 		return err
 	}
 
@@ -55,8 +55,8 @@ func (a APIPolicies) CreatePolicy(c *echo.Context) error {
 func (a APIPolicies) UpdatePolicy(c *echo.Context) error {
 	policyID := c.Param("policyID")
 
-	r := iampol.IAMPolicy{}
-	if err := c.Bind(&r); err != nil {
+	r := &iampol.IAMPolicy{}
+	if err := c.Bind(r); err != nil {
 		return err
 	}
 

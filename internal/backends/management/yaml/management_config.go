@@ -14,8 +14,8 @@ type user struct {
 	SecretAccessKey string `yaml:"secret_access_key"`
 }
 
-func (u user) toCoreUser(userName string) core.User {
-	return core.User{
+func (u user) toCoreUser(userName string) *core.User {
+	return &core.User{
 		Name:            userName,
 		AccessKeyID:     u.AccessKeyID,
 		SecretAccessKey: u.SecretAccessKey,
@@ -23,8 +23,8 @@ func (u user) toCoreUser(userName string) core.User {
 }
 
 type ManagementConfig struct {
-	Version   int                         `yaml:"version"`
-	AdminUser user                        `yaml:"admin_user"`
-	Users     map[string]user             `yaml:"users"`
-	Policies  map[string]iampol.IAMPolicy `yaml:"policies"`
+	Version   int                          `yaml:"version"`
+	AdminUser user                         `yaml:"admin_user"`
+	Users     map[string]*user             `yaml:"users"`
+	Policies  map[string]*iampol.IAMPolicy `yaml:"policies"`
 }

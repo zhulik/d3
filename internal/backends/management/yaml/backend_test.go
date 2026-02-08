@@ -152,7 +152,7 @@ policies:
 		Describe("GetUserByName", func() {
 			Context("when user exists", func() {
 				BeforeEach(func(ctx context.Context) {
-					user := core.User{
+					user := &core.User{
 						Name:            "testuser",
 						AccessKeyID:     "test-key",
 						SecretAccessKey: "test-secret",
@@ -189,7 +189,7 @@ policies:
 				var testKey string
 				BeforeEach(func(ctx context.Context) {
 					testKey = "test-key-123"
-					user := core.User{
+					user := &core.User{
 						Name:            "testuser",
 						AccessKeyID:     testKey,
 						SecretAccessKey: "test-secret",
@@ -215,7 +215,7 @@ policies:
 		Describe("CreateUser", func() {
 			Context("with valid user", func() {
 				It("should create the user", func(ctx context.Context) {
-					user := core.User{
+					user := &core.User{
 						Name:            "newuser",
 						AccessKeyID:     "new-key",
 						SecretAccessKey: "new-secret",
@@ -231,7 +231,7 @@ policies:
 
 			Context("with empty name", func() {
 				It("should return invalid user error", func(ctx context.Context) {
-					user := core.User{
+					user := &core.User{
 						AccessKeyID:     "key",
 						SecretAccessKey: "secret",
 					}
@@ -242,7 +242,7 @@ policies:
 
 			Context("with empty access key", func() {
 				It("should return invalid user error", func(ctx context.Context) {
-					user := core.User{
+					user := &core.User{
 						Name:            "user",
 						SecretAccessKey: "secret",
 					}
@@ -253,7 +253,7 @@ policies:
 
 			Context("with empty secret", func() {
 				It("should return invalid user error", func(ctx context.Context) {
-					user := core.User{
+					user := &core.User{
 						Name:        "user",
 						AccessKeyID: "key",
 					}
@@ -264,7 +264,7 @@ policies:
 
 			Context("when user already exists", func() {
 				BeforeEach(func(ctx context.Context) {
-					user := core.User{
+					user := &core.User{
 						Name:            "existing",
 						AccessKeyID:     "key",
 						SecretAccessKey: "secret",
@@ -273,7 +273,7 @@ policies:
 				})
 
 				It("should return user already exists error", func(ctx context.Context) {
-					user := core.User{
+					user := &core.User{
 						Name:            "existing",
 						AccessKeyID:     "key2",
 						SecretAccessKey: "secret2",
@@ -286,7 +286,7 @@ policies:
 
 		Describe("UpdateUser", func() {
 			BeforeEach(func(ctx context.Context) {
-				user := core.User{
+				user := &core.User{
 					Name:            "updateuser",
 					AccessKeyID:     "old-key",
 					SecretAccessKey: "old-secret",
@@ -296,7 +296,7 @@ policies:
 
 			Context("with valid update", func() {
 				It("should update the user", func(ctx context.Context) {
-					updated := core.User{
+					updated := &core.User{
 						Name:            "updateuser",
 						AccessKeyID:     "new-key",
 						SecretAccessKey: "new-secret",
@@ -312,7 +312,7 @@ policies:
 
 			Context("when user does not exist", func() {
 				It("should return user not found error", func(ctx context.Context) {
-					updated := core.User{
+					updated := &core.User{
 						Name:            "nonexistent",
 						AccessKeyID:     "key",
 						SecretAccessKey: "secret",
@@ -324,7 +324,7 @@ policies:
 
 			Context("with invalid user", func() {
 				It("should return invalid user error", func(ctx context.Context) {
-					updated := core.User{
+					updated := &core.User{
 						Name: "",
 					}
 					err := backend.UpdateUser(ctx, updated)
@@ -335,7 +335,7 @@ policies:
 
 		Describe("DeleteUser", func() {
 			BeforeEach(func(ctx context.Context) {
-				user := core.User{
+				user := &core.User{
 					Name:            "deleteuser",
 					AccessKeyID:     "key",
 					SecretAccessKey: "secret",
@@ -386,7 +386,7 @@ policies:
 		Describe("GetPolicyByID", func() {
 			Context("when policy exists", func() {
 				BeforeEach(func(ctx context.Context) {
-					policy := iampol.IAMPolicy{
+					policy := &iampol.IAMPolicy{
 						ID: "testpolicy",
 					}
 					lo.Must0(backend.CreatePolicy(ctx, policy))
@@ -410,7 +410,7 @@ policies:
 		Describe("CreatePolicy", func() {
 			Context("with valid policy", func() {
 				It("should create the policy", func(ctx context.Context) {
-					policy := iampol.IAMPolicy{
+					policy := &iampol.IAMPolicy{
 						ID: "newpolicy",
 					}
 					err := backend.CreatePolicy(ctx, policy)
@@ -424,14 +424,14 @@ policies:
 
 			Context("when policy already exists", func() {
 				BeforeEach(func(ctx context.Context) {
-					policy := iampol.IAMPolicy{
+					policy := &iampol.IAMPolicy{
 						ID: "existing",
 					}
 					lo.Must0(backend.CreatePolicy(ctx, policy))
 				})
 
 				It("should return policy already exists error", func(ctx context.Context) {
-					policy := iampol.IAMPolicy{
+					policy := &iampol.IAMPolicy{
 						ID: "existing",
 					}
 					err := backend.CreatePolicy(ctx, policy)
@@ -442,7 +442,7 @@ policies:
 
 		Describe("UpdatePolicy", func() {
 			BeforeEach(func(ctx context.Context) {
-				policy := iampol.IAMPolicy{
+				policy := &iampol.IAMPolicy{
 					ID: "updatepolicy",
 				}
 				lo.Must0(backend.CreatePolicy(ctx, policy))
@@ -450,7 +450,7 @@ policies:
 
 			Context("with valid update", func() {
 				It("should update the policy", func(ctx context.Context) {
-					updated := iampol.IAMPolicy{
+					updated := &iampol.IAMPolicy{
 						ID: "updatepolicy",
 					}
 					err := backend.UpdatePolicy(ctx, updated)
@@ -464,7 +464,7 @@ policies:
 
 			Context("when policy does not exist", func() {
 				It("should return policy not found error", func(ctx context.Context) {
-					updated := iampol.IAMPolicy{
+					updated := &iampol.IAMPolicy{
 						ID: "nonexistent",
 					}
 					err := backend.UpdatePolicy(ctx, updated)
@@ -475,7 +475,7 @@ policies:
 
 		Describe("DeletePolicy", func() {
 			BeforeEach(func(ctx context.Context) {
-				policy := iampol.IAMPolicy{
+				policy := &iampol.IAMPolicy{
 					ID: "deletepolicy",
 				}
 				lo.Must0(backend.CreatePolicy(ctx, policy))

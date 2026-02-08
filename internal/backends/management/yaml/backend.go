@@ -30,10 +30,10 @@ type Backend struct {
 	Logger *slog.Logger
 
 	lastUpdated        time.Time
-	adminUser          core.User
-	usersByName        map[string]core.User
-	usersByAccessKeyID map[string]core.User
-	policiesByID       map[string]iampol.IAMPolicy
+	adminUser          *core.User
+	usersByName        map[string]*core.User
+	usersByAccessKeyID map[string]*core.User
+	policiesByID       map[string]*iampol.IAMPolicy
 
 	rwLock sync.RWMutex
 	writer *atomicwriter.AtomicWriter
@@ -71,7 +71,7 @@ func (b *Backend) Init(ctx context.Context) error {
 					AccessKeyID:     accessKeyID,
 					SecretAccessKey: secretAccessKey,
 				},
-				Policies: map[string]iampol.IAMPolicy{},
+				Policies: map[string]*iampol.IAMPolicy{},
 			}
 
 			err := yaml.MarshalToFile(cfg, managementConfigPath)
@@ -110,7 +110,7 @@ func (b *Backend) GetUserByName(_ context.Context, name string) (*core.User, err
 	defer b.rwLock.RUnlock()
 
 	if name == b.adminUser.Name {
-		return &b.adminUser, nil
+		return b.adminUser, nil
 	}
 
 	user, ok := b.usersByName[name]
@@ -118,7 +118,7 @@ func (b *Backend) GetUserByName(_ context.Context, name string) (*core.User, err
 		return nil, core.ErrUserNotFound
 	}
 
-	return &user, nil
+	return user, nil
 }
 
 func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*core.User, error) {
@@ -126,7 +126,7 @@ func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*
 	defer b.rwLock.RUnlock()
 
 	if accessKeyID == b.adminUser.AccessKeyID {
-		return &b.adminUser, nil
+		return b.adminUser, nil
 	}
 
 	user, ok := b.usersByAccessKeyID[accessKeyID]
@@ -134,10 +134,10 @@ func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*
 		return nil, core.ErrUserNotFound
 	}
 
-	return &user, nil
+	return user, nil
 }
 
-func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
+func (b *Backend) CreateUser(ctx context.Context, newUser *core.User) error {
 	if newUser.Name == "" || newUser.AccessKeyID == "" || newUser.SecretAccessKey == "" {
 		return core.ErrUserInvalid
 	}
@@ -147,7 +147,7 @@ func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
 			return cfg, core.ErrUserAlreadyExists
 		}
 
-		cfg.Users[newUser.Name] = user{
+		cfg.Users[newUser.Name] = &user{
 			AccessKeyID:     newUser.AccessKeyID,
 			SecretAccessKey: newUser.SecretAccessKey,
 		}
@@ -156,7 +156,7 @@ func (b *Backend) CreateUser(ctx context.Context, newUser core.User) error {
 	})
 }
 
-func (b *Backend) UpdateUser(ctx context.Context, updatedUser core.User) error {
+func (b *Backend) UpdateUser(ctx context.Context, updatedUser *core.User) error {
 	if updatedUser.Name == "" || updatedUser.AccessKeyID == "" || updatedUser.SecretAccessKey == "" {
 		return core.ErrUserInvalid
 	}
@@ -166,7 +166,7 @@ func (b *Backend) UpdateUser(ctx context.Context, updatedUser core.User) error {
 			return cfg, core.ErrUserNotFound
 		}
 
-		cfg.Users[updatedUser.Name] = user{
+		cfg.Users[updatedUser.Name] = &user{
 			AccessKeyID:     updatedUser.AccessKeyID,
 			SecretAccessKey: updatedUser.SecretAccessKey,
 		}
@@ -201,19 +201,19 @@ func (b *Backend) GetPolicies(_ context.Context) ([]string, error) {
 	return lo.Keys(b.policiesByID), nil
 }
 
-func (b *Backend) GetPolicyByID(_ context.Context, id string) (iampol.IAMPolicy, error) {
+func (b *Backend) GetPolicyByID(_ context.Context, id string) (*iampol.IAMPolicy, error) {
 	b.rwLock.RLock()
 	defer b.rwLock.RUnlock()
 
 	policy, ok := b.policiesByID[id]
 	if !ok {
-		return iampol.IAMPolicy{}, core.ErrPolicyNotFound
+		return nil, core.ErrPolicyNotFound
 	}
 
 	return policy, nil
 }
 
-func (b *Backend) CreatePolicy(ctx context.Context, newPolicy iampol.IAMPolicy) error {
+func (b *Backend) CreatePolicy(ctx context.Context, newPolicy *iampol.IAMPolicy) error {
 	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
 		if _, ok := cfg.Policies[newPolicy.ID]; ok {
 			return cfg, core.ErrPolicyAlreadyExists
@@ -225,7 +225,7 @@ func (b *Backend) CreatePolicy(ctx context.Context, newPolicy iampol.IAMPolicy) 
 	})
 }
 
-func (b *Backend) UpdatePolicy(ctx context.Context, updatedPolicy iampol.IAMPolicy) error {
+func (b *Backend) UpdatePolicy(ctx context.Context, updatedPolicy *iampol.IAMPolicy) error {
 	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
 		if _, ok := cfg.Policies[updatedPolicy.ID]; !ok {
 			return cfg, core.ErrPolicyNotFound
@@ -342,9 +342,9 @@ func (b *Backend) reload(ctx context.Context) error {
 		return err
 	}
 
-	b.usersByName = map[string]core.User{}
-	b.usersByAccessKeyID = map[string]core.User{}
-	b.policiesByID = map[string]iampol.IAMPolicy{}
+	b.usersByName = map[string]*core.User{}
+	b.usersByAccessKeyID = map[string]*core.User{}
+	b.policiesByID = map[string]*iampol.IAMPolicy{}
 	b.lastUpdated = info.ModTime()
 	b.adminUser = managementConfig.AdminUser.toCoreUser("admin")
 
