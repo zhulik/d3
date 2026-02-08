@@ -17,13 +17,14 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 	var bucketName *string
 
 	var cancelApp context.CancelFunc
+	var tempDir string
 
 	BeforeAll(func(ctx context.Context) {
-		s3Client, bucketName, cancelApp = prepareConformanceTests(ctx)
+		s3Client, bucketName, cancelApp, tempDir = prepareConformanceTests(ctx)
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupS3(ctx, s3Client, bucketName)
+		cleanupS3(ctx, s3Client, bucketName, tempDir)
 
 		cancelApp()
 	})

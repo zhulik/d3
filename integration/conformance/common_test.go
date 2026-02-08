@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -44,15 +46,17 @@ func prepareS3(ctx context.Context, port int, adminAccessKeyID, adminSecretAcces
 	return s3Client, bucketName
 }
 
-func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
+func runApp(ctx context.Context) (int, context.CancelFunc, string, string, string) {
 	appCtx, cancelApp := context.WithCancel(ctx)
+
+	tempDir := lo.Must(os.MkdirTemp("/tmp", "d3-conformance-"))
 
 	appConfig := &core.Config{
 		Environment:               "test",
 		StorageBackend:            core.StorageBackendFolder,
-		FolderStorageBackendPath:  "./d3_data",
+		FolderStorageBackendPath:  tempDir,
 		ManagementBackend:         core.ManagementBackendYAML,
-		ManagementBackendYAMLPath: "./d3_data/management.yaml",
+		ManagementBackendYAMLPath: filepath.Join(tempDir, "management.yaml"),
 		RedisAddress:              "localhost:6379",
 		Port:                      randomPort(),
 		HealthCheckPort:           randomPort(),
@@ -70,18 +74,18 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string) {
 		lo.Must0(app.Run(appCtx))
 	}()
 
-	return appConfig.Port, cancelApp, adminAccessKeyID, adminSecretAccessKey
+	return appConfig.Port, cancelApp, adminAccessKeyID, adminSecretAccessKey, tempDir
 }
 
-func prepareConformanceTests(ctx context.Context) (*s3.Client, *string, context.CancelFunc) {
-	port, cancelApp, adminAccessKeyID, adminSecretAccessKey := runApp(context.Background()) //nolint:contextcheck
+func prepareConformanceTests(ctx context.Context) (*s3.Client, *string, context.CancelFunc, string) {
+	port, cancelApp, adminAccessKeyID, adminSecretAccessKey, tempDir := runApp(context.Background()) //nolint:contextcheck
 
 	s3Client, bucketName := prepareS3(ctx, port, adminAccessKeyID, adminSecretAccessKey)
 
-	return s3Client, bucketName, cancelApp
+	return s3Client, bucketName, cancelApp, tempDir
 }
 
-func cleanupS3(ctx context.Context, s3Client *s3.Client, bucketName *string) {
+func cleanupS3(ctx context.Context, s3Client *s3.Client, bucketName *string, tempDir string) {
 	objects := lo.Must(s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: bucketName,
 	}))
@@ -99,4 +103,6 @@ func cleanupS3(ctx context.Context, s3Client *s3.Client, bucketName *string) {
 	lo.Must(s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
 		Bucket: bucketName,
 	}))
+
+	lo.Must0(os.RemoveAll(tempDir))
 }
