@@ -39,9 +39,9 @@ type CompletePart struct {
 }
 
 type User struct {
-	Name            string
-	AccessKeyID     string
-	SecretAccessKey string
+	Name            string `json:"name"              yaml:"name"`
+	AccessKeyID     string `json:"access_key_id"     yaml:"access_key_id"`
+	SecretAccessKey string `json:"secret_access_key" yaml:"secret_access_key"`
 }
 
 func (u User) ARN() string {

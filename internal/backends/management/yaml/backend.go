@@ -67,7 +67,7 @@ func (b *Backend) Init(ctx context.Context) error {
 			accessKeyID, secretAccessKey := credentials.GenerateCredentials()
 			cfg := ManagementConfig{
 				Version: ConfigVersion,
-				AdminUser: user{
+				AdminUser: core.User{
 					AccessKeyID:     accessKeyID,
 					SecretAccessKey: secretAccessKey,
 				},
@@ -147,7 +147,8 @@ func (b *Backend) CreateUser(ctx context.Context, newUser *core.User) error {
 			return cfg, core.ErrUserAlreadyExists
 		}
 
-		cfg.Users[newUser.Name] = &user{
+		cfg.Users[newUser.Name] = &core.User{
+			Name:            newUser.Name,
 			AccessKeyID:     newUser.AccessKeyID,
 			SecretAccessKey: newUser.SecretAccessKey,
 		}
@@ -166,7 +167,8 @@ func (b *Backend) UpdateUser(ctx context.Context, updatedUser *core.User) error 
 			return cfg, core.ErrUserNotFound
 		}
 
-		cfg.Users[updatedUser.Name] = &user{
+		cfg.Users[updatedUser.Name] = &core.User{
+			Name:            updatedUser.Name,
 			AccessKeyID:     updatedUser.AccessKeyID,
 			SecretAccessKey: updatedUser.SecretAccessKey,
 		}
@@ -346,10 +348,16 @@ func (b *Backend) reload(ctx context.Context) error {
 	b.usersByAccessKeyID = map[string]*core.User{}
 	b.policiesByID = map[string]*iampol.IAMPolicy{}
 	b.lastUpdated = info.ModTime()
-	b.adminUser = managementConfig.AdminUser.toCoreUser("admin")
+	b.adminUser = &managementConfig.AdminUser
+	b.adminUser.Name = "admin"
 
 	for userName, user := range managementConfig.Users {
-		b.usersByName[userName] = user.toCoreUser(userName)
+		// Ensure stored user has Name set
+		if user.Name == "" {
+			user.Name = userName
+		}
+
+		b.usersByName[userName] = user
 		b.usersByAccessKeyID[user.AccessKeyID] = b.usersByName[userName]
 	}
 
