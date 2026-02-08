@@ -47,8 +47,8 @@ func (a APIUsers) ListUsers(c *echo.Context) error {
 
 // CreateUser creates a user.
 func (a APIUsers) CreateUser(c *echo.Context) error {
-	r := createUserRequestBody{}
-	if err := c.Bind(&r); err != nil {
+	r := &createUserRequestBody{}
+	if err := c.Bind(r); err != nil {
 		return err
 	}
 
