@@ -40,7 +40,7 @@ func (c *Client) Init(_ context.Context) error {
 	return nil
 }
 
-func (c *Client) ListUsers(ctx context.Context) ([]*core.User, error) {
+func (c *Client) ListUsers(ctx context.Context) ([]string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Config.ServerURL+"/users", nil)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (c *Client) ListUsers(ctx context.Context) ([]*core.User, error) {
 
 	defer resp.Body.Close()
 
-	var users []*core.User
+	var users []string
 
 	err = json.NewDecoder(resp.Body).Decode(&users)
 
