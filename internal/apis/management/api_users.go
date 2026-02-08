@@ -2,11 +2,14 @@ package management
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/credentials"
+	"github.com/zhulik/d3/pkg/json"
+	"github.com/zhulik/d3/pkg/smartio"
 )
 
 type createUserRequestBody struct {
@@ -47,8 +50,8 @@ func (a APIUsers) ListUsers(c *echo.Context) error {
 
 // CreateUser creates a user.
 func (a APIUsers) CreateUser(c *echo.Context) error {
-	r := &createUserRequestBody{}
-	if err := c.Bind(r); err != nil {
+	r, err := validateBodyChecksumAndParseJSON[createUserRequestBody](c)
+	if err != nil {
 		return err
 	}
 
@@ -59,7 +62,7 @@ func (a APIUsers) CreateUser(c *echo.Context) error {
 		SecretAccessKey: secretAccessKey,
 	}
 
-	err := a.Backend.CreateUser(c.Request().Context(), user)
+	err = a.Backend.CreateUser(c.Request().Context(), user)
 	if err != nil {
 		return err
 	}
@@ -108,4 +111,22 @@ func (a APIUsers) DeleteUser(c *echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func validateBodyChecksumAndParseJSON[T any](c *echo.Context) (*T, error) {
+	bodyBytes, calculatedHash, err := smartio.ReadAllAndHash(c.Request().Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if calculatedHash != c.Request().Header.Get("X-Amz-Content-Sha256") {
+		return nil, fmt.Errorf("%w: body checksum mismatch", core.ErrUnauthorized)
+	}
+
+	body, err := json.Unmarshal[T](bodyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &body, nil
 }
