@@ -74,6 +74,8 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string, strin
 		lo.Must0(app.Run(appCtx))
 	}()
 
+	time.Sleep(100 * time.Millisecond)
+
 	return appConfig.Port, cancelApp, adminAccessKeyID, adminSecretAccessKey, tempDir
 }
 

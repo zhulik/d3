@@ -17,6 +17,7 @@ tasks:
       - test
     cmds:
       - task: test:conformance
+      - task: test:management
 
   build:
     desc: Build the application

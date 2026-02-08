@@ -19,3 +19,7 @@ tasks:
   conformance:
     desc: Run conformance tests
     cmd: ginkgo run --label-filter=conformance ./...
+
+  management:
+    desc: Run manage API tests
+    cmd: ginkgo run --label-filter=management ./...

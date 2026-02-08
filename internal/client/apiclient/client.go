@@ -3,9 +3,12 @@ package apiclient
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -148,7 +151,22 @@ func (c *Client) DeleteUser(ctx context.Context, name string) error {
 // matches expectedStatus. On success, it returns the *http.Response (caller must close body).
 // On unexpected status it reads up to 1KB of the body, closes it to avoid leaks, and returns an error.
 func (c *Client) doSignedRequest(ctx context.Context, req *http.Request, expectedStatus int) (*http.Response, error) {
-	if err := c.signer.SignHTTP(ctx, c.creds, req, "", "s3", "local", time.Now()); err != nil {
+	checkSum := "UNSIGNED-PAYLOAD"
+
+	if req.Body != nil {
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read request body for checksum: %w", err)
+		}
+
+		sum := sha256.Sum256(bodyBytes)
+		checkSum = hex.EncodeToString(sum[:])
+		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	}
+
+	req.Header.Set("X-Amz-Content-Sha256", checkSum)
+
+	if err := c.signer.SignHTTP(ctx, c.creds, req, checkSum, "s3", "local", time.Now()); err != nil {
 		return nil, err
 	}
 
