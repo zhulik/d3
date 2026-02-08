@@ -46,20 +46,12 @@ func (c *Client) ListUsers(ctx context.Context) ([]*core.User, error) {
 		return nil, err
 	}
 
-	err = c.signer.SignHTTP(ctx, c.creds, req, "", "d3", "us-east-1", time.Now())
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnexpectedStatus, resp.StatusCode)
-	}
 
 	var users []*core.User
 
@@ -83,20 +75,12 @@ func (c *Client) CreateUser(ctx context.Context, name string) (core.User, error)
 
 	req.Header.Set("Content-Type", "application/json")
 
-	err = c.signer.SignHTTP(ctx, c.creds, req, "", "d3", "us-east-1", time.Now())
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
 	if err != nil {
 		return core.User{}, err
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return core.User{}, err
-	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return core.User{}, fmt.Errorf("%w: unexpected status %d", ErrUnexpectedStatus, resp.StatusCode)
-	}
 
 	var response createUserResponseBody
 
@@ -120,20 +104,12 @@ func (c *Client) UpdateUser(ctx context.Context, name string) (core.User, error)
 		return core.User{}, err
 	}
 
-	err = c.signer.SignHTTP(ctx, c.creds, req, "", "d3", "us-east-1", time.Now())
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
 	if err != nil {
 		return core.User{}, err
 	}
 
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return core.User{}, err
-	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return core.User{}, fmt.Errorf("%w: unexpected status %d", ErrUnexpectedStatus, resp.StatusCode)
-	}
 
 	var response createUserResponseBody
 
@@ -157,20 +133,33 @@ func (c *Client) DeleteUser(ctx context.Context, name string) error {
 		return err
 	}
 
-	err = c.signer.SignHTTP(ctx, c.creds, req, "", "d3", "us-east-1", time.Now())
+	resp, err := c.doSignedRequest(ctx, req, http.StatusNoContent)
 	if err != nil {
 		return err
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
+// doSignedRequest signs the provided HTTP request using the client's signer and credentials,
+// performs the request using the client's httpClient and verifies the response status code
+// matches expectedStatus. On success, it returns the *http.Response (caller must close body).
+// On unexpected status it reads up to 1KB of the body, closes it to avoid leaks, and returns an error.
+func (c *Client) doSignedRequest(ctx context.Context, req *http.Request, expectedStatus int) (*http.Response, error) {
+	if err := c.signer.SignHTTP(ctx, c.creds, req, "", "s3", "local", time.Now()); err != nil {
+		return nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("%w: unexpected status %d", ErrUnexpectedStatus, resp.StatusCode)
+		return nil, err
 	}
 
-	return nil
+	if resp.StatusCode != expectedStatus {
+		return nil, fmt.Errorf("%w: unexpected status %d", ErrUnexpectedStatus, resp.StatusCode)
+	}
+
+	return resp, nil
 }
