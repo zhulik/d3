@@ -192,66 +192,52 @@ func (c *Client) GetPolicy(ctx context.Context, policyID string) (*iampol.IAMPol
 	return &policy, nil
 }
 
-func (c *Client) CreatePolicy(ctx context.Context, policy *iampol.IAMPolicy) (*iampol.IAMPolicy, error) {
+func (c *Client) CreatePolicy(ctx context.Context, policy *iampol.IAMPolicy) error {
 	jsonBody, err := json.Marshal(policy)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Config.ServerURL+"/policies", bytes.NewReader(jsonBody))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
+	resp, err := c.doSignedRequest(ctx, req, http.StatusCreated)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer resp.Body.Close()
 
-	var response iampol.IAMPolicy
-
-	err = json.NewDecoder(resp.Body).Decode(&response)
-	if err != nil {
-		return nil, err
-	}
-
-	return &response, nil
+	return nil
 }
 
-func (c *Client) UpdatePolicy(ctx context.Context, policyID string, policy *iampol.IAMPolicy) (*iampol.IAMPolicy, error) { //nolint:lll
+func (c *Client) UpdatePolicy(ctx context.Context, policyID string, policy *iampol.IAMPolicy) error {
 	jsonBody, err := json.Marshal(policy)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	url := c.Config.ServerURL + "/policies/" + policyID
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(jsonBody))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	defer resp.Body.Close()
 
-	var response iampol.IAMPolicy
-
-	err = json.NewDecoder(resp.Body).Decode(&response)
-	if err != nil {
-		return nil, err
-	}
-
-	return &response, nil
+	return nil
 }
 
 func (c *Client) DeletePolicy(ctx context.Context, policyID string) error {

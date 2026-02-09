@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/iampol"
+	"github.com/zhulik/d3/pkg/smartio"
 )
 
 type APIPolicies struct {
@@ -38,36 +39,46 @@ func (a APIPolicies) ListPolicies(c *echo.Context) error {
 
 // CreatePolicy creates a policy.
 func (a APIPolicies) CreatePolicy(c *echo.Context) error {
-	r := &iampol.IAMPolicy{}
-	if err := c.Bind(r); err != nil {
-		return err
-	}
-
-	err := a.Backend.CreatePolicy(c.Request().Context(), r)
+	raw, _, err := smartio.ReadAllAndHash(c.Request().Body)
 	if err != nil {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, r)
+	policy, err := iampol.Parse(raw)
+	if err != nil {
+		return err
+	}
+
+	err = a.Backend.CreatePolicy(c.Request().Context(), policy)
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusCreated)
 }
 
 // UpdatePolicy updates the policy.
 func (a APIPolicies) UpdatePolicy(c *echo.Context) error {
 	policyID := c.Param("policyID")
 
-	r := &iampol.IAMPolicy{}
-	if err := c.Bind(r); err != nil {
-		return err
-	}
-
-	r.ID = policyID
-
-	err := a.Backend.UpdatePolicy(c.Request().Context(), r)
+	raw, _, err := smartio.ReadAllAndHash(c.Request().Body)
 	if err != nil {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, r)
+	policy, err := iampol.Parse(raw)
+	if err != nil {
+		return err
+	}
+
+	policy.ID = policyID
+
+	err = a.Backend.UpdatePolicy(c.Request().Context(), policy)
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
 }
 
 // DeletePolicy deletes the policy.

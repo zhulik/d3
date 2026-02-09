@@ -15,9 +15,7 @@ tasks:
     deps:
       - lint
       - test
-    cmds:
-      - task: test:conformance
-      - task: test:management
+      - test:integration
 
   build:
     desc: Build the application

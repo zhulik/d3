@@ -10,16 +10,22 @@ tasks:
 
   unit:
     desc: Run unit tests
-    cmd: ginkgo run --label-filter=!conformance --race --cover ./...
+    cmd: ginkgo run --label-filter=!conformance --race --cover ./{internal,pkg,cmd}/...
 
   cover:
     desc: Run coverage report
     cmd: go tool cover -html=coverprofile.out
 
+  integration:
+    desc: Run integration tests
+    deps:
+      - conformance
+      - management
+
   conformance:
     desc: Run conformance tests
-    cmd: ginkgo run --label-filter=conformance ./...
+    cmd: ginkgo run --label-filter=conformance ./integration/conformance
 
   management:
     desc: Run manage API tests
-    cmd: ginkgo run --label-filter=management ./...
+    cmd: ginkgo run --label-filter=management ./integration/management
