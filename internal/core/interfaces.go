@@ -9,6 +9,8 @@ import (
 	"github.com/zhulik/d3/pkg/s3actions"
 )
 
+//go:generate go tool mockery
+
 type ObjectMetadata struct {
 	ContentType  string            `yaml:"content_type"`
 	LastModified time.Time         `yaml:"last_modified"`

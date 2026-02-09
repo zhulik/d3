@@ -8,6 +8,7 @@ env:
 includes:
   test: tasks/test.yml
   lint: tasks/lint.yml
+  generate: tasks/generate.yml
 
 tasks:
   default:

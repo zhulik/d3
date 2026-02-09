@@ -9,18 +9,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/mock"
 	"github.com/zhulik/d3/internal/backends/management/yaml"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/internal/core/mocks"
 	"github.com/zhulik/d3/pkg/iampol"
 	yamlPkg "github.com/zhulik/d3/pkg/yaml"
 )
-
-// MockLocker is a simple mock for the locker.
-type MockLocker struct{}
-
-func (m *MockLocker) Lock(ctx context.Context, _ string) (context.Context, context.CancelFunc, error) {
-	return ctx, func() {}, nil
-}
 
 var _ = Describe("YAML Backend", func() {
 	var (
@@ -30,7 +25,6 @@ var _ = Describe("YAML Backend", func() {
 		cfg        *core.Config
 		backend    *yaml.Backend
 		logger     *slog.Logger
-		mockLocker *MockLocker
 	)
 
 	BeforeEach(func() {
@@ -49,7 +43,13 @@ var _ = Describe("YAML Backend", func() {
 		lo.Must0(os.MkdirAll(filepath.Join(tmpPath, "tmp"), 0755))
 
 		logger = slog.New(slog.DiscardHandler)
-		mockLocker = &MockLocker{}
+		mockLocker := mocks.NewMockLocker(GinkgoT())
+
+		mockLocker.EXPECT().Lock(mock.Anything, mock.Anything).Maybe().Return(
+			func(ctx context.Context, _ string) (context.Context, context.CancelFunc, error) {
+				return ctx, func() {}, nil
+			},
+		)
 
 		backend = &yaml.Backend{
 			Config: cfg,

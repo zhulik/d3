@@ -9,21 +9,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/mock"
 	"github.com/zhulik/d3/pkg/atomicwriter"
 )
-
-// NoOpLocker is a simple locker implementation that does nothing.
-type NoOpLocker struct{}
-
-func (l *NoOpLocker) Lock(ctx context.Context, _ string) (context.Context, context.CancelFunc, error) {
-	return ctx, func() {}, nil
-}
 
 var _ = Describe("AtomicWriter", func() {
 	var (
 		tmpDir      string
 		tmpDataPath string
-		locker      = &NoOpLocker{}
+		locker      atomicwriter.Locker
 		writer      *atomicwriter.AtomicWriter
 	)
 
@@ -33,6 +27,15 @@ var _ = Describe("AtomicWriter", func() {
 		tmpDataPath = filepath.Join(tmpDir, "data")
 		lo.Must0(os.MkdirAll(tmpDataPath, 0755))
 
+		mockLocker := NewMockLocker(GinkgoT())
+
+		mockLocker.EXPECT().Lock(mock.Anything, mock.Anything).Maybe().Return(
+			func(ctx context.Context, _ string) (context.Context, context.CancelFunc, error) {
+				return ctx, func() {}, nil
+			},
+		)
+
+		locker = mockLocker
 		writer = atomicwriter.New(locker, tmpDataPath)
 	})
 
@@ -223,7 +226,9 @@ var _ = Describe("AtomicWriter", func() {
 
 		Describe("Error cases - Lock failures", func() {
 			It("returns error if lock fails", func() {
-				failingLocker := &FailingLocker{}
+				failingLocker := NewMockLocker(GinkgoT())
+				lockErr := errors.New("lock error") //nolint:err113
+				failingLocker.EXPECT().Lock(mock.Anything, mock.Anything).Maybe().Return(nil, nil, lockErr)
 				failingWriter := atomicwriter.New(failingLocker, tmpDataPath)
 				filename := filepath.Join(tmpDir, "file.txt")
 
@@ -318,7 +323,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(err).NotTo(HaveOccurred())
 				defer func() { _ = os.Chmod(readOnlyTmpDir, 0755) }()
 
-				failingWriter := atomicwriter.New(&NoOpLocker{}, readOnlyTmpDir)
+				failingWriter := atomicwriter.New(locker, readOnlyTmpDir)
 
 				err = failingWriter.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal([]byte("content")))
@@ -526,10 +531,3 @@ var _ = Describe("AtomicWriter", func() {
 		})
 	})
 })
-
-// FailingLocker is a locker that always returns an error.
-type FailingLocker struct{}
-
-func (l *FailingLocker) Lock(_ context.Context, _ string) (context.Context, context.CancelFunc, error) {
-	return nil, nil, errors.New("lock error") //nolint:err113
-}

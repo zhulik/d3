@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  default:
+    desc: Run code generation
+    deps:
+      - generate
+
+  generate:
+    desc: Run code generation
+    cmd: go generate ./...

@@ -1,0 +1,12 @@
+dir: '.'
+filename: mocks_test.go
+force-file-write: true
+log-level: error
+structname: '{{.Mock}}{{.InterfaceName}}'
+pkgname: '{{.SrcPackageName}}_test'
+template: testify
+packages:
+  github.com/zhulik/d3/pkg/atomicwriter:
+    config:
+    interfaces:
+      Locker:

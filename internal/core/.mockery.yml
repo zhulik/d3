@@ -1,0 +1,11 @@
+dir: './mocks'
+filename: mocks.go
+force-file-write: true
+log-level: error
+structname: '{{.Mock}}{{.InterfaceName}}'
+pkgname: 'mocks'
+template: testify
+packages:
+  github.com/zhulik/d3/internal/core:
+    interfaces:
+      Locker:

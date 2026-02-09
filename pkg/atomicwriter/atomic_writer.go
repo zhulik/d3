@@ -8,6 +8,7 @@ import (
 
 type ContentMapFunc func(ctx context.Context, content []byte) ([]byte, error)
 
+//go:generate go tool mockery
 type Locker interface {
 	Lock(ctx context.Context, key string) (context.Context, context.CancelFunc, error)
 }
