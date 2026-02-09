@@ -258,6 +258,116 @@ func (c *Client) DeletePolicy(ctx context.Context, policyID string) error {
 	return nil
 }
 
+func (c *Client) ListBindings(ctx context.Context) ([]core.PolicyBinding, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.Config.ServerURL+"/bindings", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var bindings []core.PolicyBinding
+
+	err = json.NewDecoder(resp.Body).Decode(&bindings)
+
+	return bindings, err
+}
+
+func (c *Client) GetBindingsByUser(ctx context.Context, userName string) ([]core.PolicyBinding, error) {
+	url := c.Config.ServerURL + "/bindings/user/" + userName
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var bindings []core.PolicyBinding
+
+	err = json.NewDecoder(resp.Body).Decode(&bindings)
+
+	return bindings, err
+}
+
+func (c *Client) GetBindingsByPolicy(ctx context.Context, policyID string) ([]core.PolicyBinding, error) {
+	url := c.Config.ServerURL + "/bindings/policy/" + policyID
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusOK)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	var bindings []core.PolicyBinding
+
+	err = json.NewDecoder(resp.Body).Decode(&bindings)
+
+	return bindings, err
+}
+
+func (c *Client) CreateBinding(ctx context.Context, binding *core.PolicyBinding) error {
+	body := map[string]string{
+		"user_name": binding.UserName,
+		"policy_id": binding.PolicyID,
+	}
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Config.ServerURL+"/bindings", bytes.NewReader(jsonBody))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusCreated)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func (c *Client) DeleteBinding(ctx context.Context, userName, policyID string) error {
+	url := c.Config.ServerURL + "/bindings/user/" + userName + "/policy/" + policyID
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.doSignedRequest(ctx, req, http.StatusNoContent)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
 // doSignedRequest signs the provided HTTP request using the client's signer and credentials,
 // performs the request using the client's httpClient and verifies the response status code
 // matches expectedStatus. On success, it returns the *http.Response (caller must close body).

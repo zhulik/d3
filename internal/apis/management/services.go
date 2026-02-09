@@ -9,6 +9,7 @@ func Provide() pal.ServiceDef {
 	return pal.ProvideList(
 		pal.Provide(&APIUsers{}),
 		pal.Provide(&APIPolicies{}),
+		pal.Provide(&APIBindings{}),
 		pal.Provide(&Server{}),
 		pal.Provide(&Echo{}),
 		middlewares.Provide(),

@@ -25,5 +25,9 @@ var (
 	ErrPolicyNotFound      = errors.New("policy not found")
 	ErrPolicyAlreadyExists = errors.New("policy already exists")
 
+	ErrBindingNotFound      = errors.New("binding not found")
+	ErrBindingAlreadyExists = errors.New("binding already exists")
+	ErrBindingInvalid       = errors.New("invalid binding")
+
 	ErrUnauthorized = errors.New("unauthorized")
 )

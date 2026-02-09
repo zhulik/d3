@@ -16,4 +16,5 @@ type ManagementConfig struct {
 	AdminUser core.User                    `yaml:"admin_user"`
 	Users     map[string]*core.User        `yaml:"users"`
 	Policies  map[string]*iampol.IAMPolicy `yaml:"policies"`
+	Bindings  []*core.PolicyBinding        `yaml:"bindings"`
 }

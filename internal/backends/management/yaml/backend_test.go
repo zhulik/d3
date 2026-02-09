@@ -499,4 +499,335 @@ policies:
 			})
 		})
 	})
+
+	Describe("Binding Management", func() {
+		BeforeEach(func(ctx context.Context) {
+			lo.Must0(backend.Init(ctx))
+		})
+
+		Describe("GetBindings", func() {
+			When("no bindings exist", func() {
+				It("returns empty list", func(ctx context.Context) {
+					bindings, err := backend.GetBindings(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(bindings).To(BeEmpty())
+				})
+			})
+
+			When("bindings exist", func() {
+				BeforeEach(func(ctx context.Context) {
+					user := &core.User{
+						Name:            "bindinguser",
+						AccessKeyID:     "key",
+						SecretAccessKey: "secret",
+					}
+					lo.Must0(backend.CreateUser(ctx, user))
+
+					policy := &iampol.IAMPolicy{
+						ID: "bindingpolicy",
+					}
+					lo.Must0(backend.CreatePolicy(ctx, policy))
+
+					binding := &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "bindingpolicy",
+					}
+					lo.Must0(backend.CreateBinding(ctx, binding))
+				})
+
+				It("returns created bindings", func(ctx context.Context) {
+					bindings, err := backend.GetBindings(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(bindings).To(HaveLen(1))
+					Expect(bindings[0].UserName).To(Equal("bindinguser"))
+					Expect(bindings[0].PolicyID).To(Equal("bindingpolicy"))
+				})
+			})
+		})
+
+		Describe("GetBindingsByUser", func() {
+			When("user exists", func() {
+				BeforeEach(func(ctx context.Context) {
+					user := &core.User{
+						Name:            "bindinguser",
+						AccessKeyID:     "key",
+						SecretAccessKey: "secret",
+					}
+					lo.Must0(backend.CreateUser(ctx, user))
+
+					policy1 := &iampol.IAMPolicy{
+						ID: "policy1",
+					}
+					lo.Must0(backend.CreatePolicy(ctx, policy1))
+
+					policy2 := &iampol.IAMPolicy{
+						ID: "policy2",
+					}
+					lo.Must0(backend.CreatePolicy(ctx, policy2))
+
+					binding1 := &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "policy1",
+					}
+					lo.Must0(backend.CreateBinding(ctx, binding1))
+
+					binding2 := &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "policy2",
+					}
+					lo.Must0(backend.CreateBinding(ctx, binding2))
+				})
+
+				It("returns bindings for user", func(ctx context.Context) {
+					bindings, err := backend.GetBindingsByUser(ctx, "bindinguser")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(bindings).To(HaveLen(2))
+					policyIDs := lo.Map(bindings, func(binding *core.PolicyBinding, _ int) string {
+						return binding.PolicyID
+					})
+					Expect(policyIDs).To(ContainElement("policy1"))
+					Expect(policyIDs).To(ContainElement("policy2"))
+				})
+			})
+
+			Context("when user does not exist", func() {
+				It("returns empty list", func(ctx context.Context) {
+					bindings, err := backend.GetBindingsByUser(ctx, "nonexistent")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(bindings).To(BeEmpty())
+				})
+			})
+
+			When("user has no bindings", func() {
+				BeforeEach(func(ctx context.Context) {
+					user := &core.User{
+						Name:            "nobindingsuser",
+						AccessKeyID:     "key",
+						SecretAccessKey: "secret",
+					}
+					lo.Must0(backend.CreateUser(ctx, user))
+				})
+
+				It("returns empty list", func(ctx context.Context) {
+					bindings, err := backend.GetBindingsByUser(ctx, "nobindingsuser")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(bindings).To(BeEmpty())
+				})
+			})
+		})
+
+		Describe("GetBindingsByPolicy", func() {
+			When("policy exists", func() {
+				BeforeEach(func(ctx context.Context) {
+					user1 := &core.User{
+						Name:            "user1",
+						AccessKeyID:     "key1",
+						SecretAccessKey: "secret1",
+					}
+					lo.Must0(backend.CreateUser(ctx, user1))
+
+					user2 := &core.User{
+						Name:            "user2",
+						AccessKeyID:     "key2",
+						SecretAccessKey: "secret2",
+					}
+					lo.Must0(backend.CreateUser(ctx, user2))
+
+					policy := &iampol.IAMPolicy{
+						ID: "sharedpolicy",
+					}
+					lo.Must0(backend.CreatePolicy(ctx, policy))
+
+					binding1 := &core.PolicyBinding{
+						UserName: "user1",
+						PolicyID: "sharedpolicy",
+					}
+					lo.Must0(backend.CreateBinding(ctx, binding1))
+
+					binding2 := &core.PolicyBinding{
+						UserName: "user2",
+						PolicyID: "sharedpolicy",
+					}
+					lo.Must0(backend.CreateBinding(ctx, binding2))
+				})
+
+				It("returns bindings for policy", func(ctx context.Context) {
+					bindings, err := backend.GetBindingsByPolicy(ctx, "sharedpolicy")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(bindings).To(HaveLen(2))
+					userNames := lo.Map(bindings, func(binding *core.PolicyBinding, _ int) string {
+						return binding.UserName
+					})
+					Expect(userNames).To(ContainElement("user1"))
+					Expect(userNames).To(ContainElement("user2"))
+				})
+			})
+
+			Context("when policy does not exist", func() {
+				It("returns empty list", func(ctx context.Context) {
+					bindings, err := backend.GetBindingsByPolicy(ctx, "nonexistent")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(bindings).To(BeEmpty())
+				})
+			})
+
+			When("policy has no bindings", func() {
+				BeforeEach(func(ctx context.Context) {
+					policy := &iampol.IAMPolicy{
+						ID: "nobindingspolicy",
+					}
+					lo.Must0(backend.CreatePolicy(ctx, policy))
+				})
+
+				It("returns empty list", func(ctx context.Context) {
+					bindings, err := backend.GetBindingsByPolicy(ctx, "nobindingspolicy")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(bindings).To(BeEmpty())
+				})
+			})
+		})
+
+		Describe("CreateBinding", func() {
+			BeforeEach(func(ctx context.Context) {
+				user := &core.User{
+					Name:            "bindinguser",
+					AccessKeyID:     "key",
+					SecretAccessKey: "secret",
+				}
+				lo.Must0(backend.CreateUser(ctx, user))
+
+				policy := &iampol.IAMPolicy{
+					ID: "bindingpolicy",
+				}
+				lo.Must0(backend.CreatePolicy(ctx, policy))
+			})
+
+			When("binding is valid", func() {
+				It("creates the binding", func(ctx context.Context) {
+					binding := &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "bindingpolicy",
+					}
+					err := backend.CreateBinding(ctx, binding)
+					Expect(err).NotTo(HaveOccurred())
+
+					retrieved, err := backend.GetBindings(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(retrieved).To(HaveLen(1))
+					Expect(retrieved[0].UserName).To(Equal("bindinguser"))
+					Expect(retrieved[0].PolicyID).To(Equal("bindingpolicy"))
+
+				})
+			})
+
+			When("binding already exists", func() {
+				BeforeEach(func(ctx context.Context) {
+					binding := &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "bindingpolicy",
+					}
+					lo.Must0(backend.CreateBinding(ctx, binding))
+				})
+
+				It("returns binding already exists error", func(ctx context.Context) {
+					binding := &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "bindingpolicy",
+					}
+					err := backend.CreateBinding(ctx, binding)
+					Expect(err).To(MatchError(core.ErrBindingAlreadyExists))
+				})
+			})
+
+			Context("when user does not exist", func() {
+				It("returns user not found error", func(ctx context.Context) {
+					binding := &core.PolicyBinding{
+						UserName: "nonexistent",
+						PolicyID: "bindingpolicy",
+					}
+					err := backend.CreateBinding(ctx, binding)
+					Expect(err).To(MatchError(core.ErrUserNotFound))
+				})
+			})
+
+			Context("when policy does not exist", func() {
+				It("returns policy not found error", func(ctx context.Context) {
+					binding := &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "nonexistent",
+					}
+					err := backend.CreateBinding(ctx, binding)
+					Expect(err).To(MatchError(core.ErrPolicyNotFound))
+				})
+			})
+
+			When("user name is empty", func() {
+				It("returns invalid binding error", func(ctx context.Context) {
+					binding := &core.PolicyBinding{
+						UserName: "",
+						PolicyID: "bindingpolicy",
+					}
+					err := backend.CreateBinding(ctx, binding)
+					Expect(err).To(MatchError(core.ErrBindingInvalid))
+				})
+			})
+
+			When("policy ID is empty", func() {
+				It("returns invalid binding error", func(ctx context.Context) {
+					binding := &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "",
+					}
+					err := backend.CreateBinding(ctx, binding)
+					Expect(err).To(MatchError(core.ErrBindingInvalid))
+				})
+			})
+		})
+
+		Describe("DeleteBinding", func() {
+			BeforeEach(func(ctx context.Context) {
+				user := &core.User{
+					Name:            "bindinguser",
+					AccessKeyID:     "key",
+					SecretAccessKey: "secret",
+				}
+				lo.Must0(backend.CreateUser(ctx, user))
+
+				policy := &iampol.IAMPolicy{
+					ID: "bindingpolicy",
+				}
+				lo.Must0(backend.CreatePolicy(ctx, policy))
+
+				binding := &core.PolicyBinding{
+					UserName: "bindinguser",
+					PolicyID: "bindingpolicy",
+				}
+				lo.Must0(backend.CreateBinding(ctx, binding))
+			})
+
+			When("binding exists", func() {
+				It("deletes the binding", func(ctx context.Context) {
+					err := backend.DeleteBinding(ctx, &core.PolicyBinding{
+						UserName: "bindinguser",
+						PolicyID: "bindingpolicy",
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					retrieved, err := backend.GetBindings(ctx)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(retrieved).To(BeEmpty())
+				})
+			})
+
+			Context("when binding does not exist", func() {
+				It("returns binding not found error", func(ctx context.Context) {
+					err := backend.DeleteBinding(ctx, &core.PolicyBinding{
+						UserName: "nonexistent",
+						PolicyID: "nonexistent",
+					})
+					Expect(err).To(MatchError(core.ErrBindingNotFound))
+				})
+			})
+		})
+	})
 })

@@ -33,7 +33,12 @@ type Backend struct {
 	adminUser          *core.User
 	usersByName        map[string]*core.User
 	usersByAccessKeyID map[string]*core.User
-	policiesByID       map[string]*iampol.IAMPolicy
+
+	policiesByID map[string]*iampol.IAMPolicy
+
+	bindings         []*core.PolicyBinding
+	bindingsByUser   map[string][]*core.PolicyBinding
+	bindingsByPolicy map[string][]*core.PolicyBinding
 
 	rwLock sync.RWMutex
 	writer *atomicwriter.AtomicWriter
@@ -72,6 +77,7 @@ func (b *Backend) Init(ctx context.Context) error {
 					SecretAccessKey: secretAccessKey,
 				},
 				Policies: map[string]*iampol.IAMPolicy{},
+				Bindings: []*core.PolicyBinding{},
 			}
 
 			err := yaml.MarshalToFile(cfg, managementConfigPath)
@@ -251,6 +257,93 @@ func (b *Backend) DeletePolicy(ctx context.Context, policyID string) error {
 	})
 }
 
+func (b *Backend) GetBindings(_ context.Context) ([]*core.PolicyBinding, error) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	return b.bindings, nil
+}
+
+func (b *Backend) GetBindingsByUser(_ context.Context, userName string) ([]*core.PolicyBinding, error) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	bindings, ok := b.bindingsByUser[userName]
+	if !ok {
+		return nil, nil
+	}
+
+	return bindings, nil
+}
+
+func (b *Backend) GetBindingsByPolicy(_ context.Context, policyID string) ([]*core.PolicyBinding, error) {
+	b.rwLock.RLock()
+	defer b.rwLock.RUnlock()
+
+	bindings, ok := b.bindingsByPolicy[policyID]
+	if !ok {
+		return nil, nil
+	}
+
+	return bindings, nil
+}
+
+func (b *Backend) CreateBinding(ctx context.Context, binding *core.PolicyBinding) error {
+	if binding.UserName == "" || binding.PolicyID == "" {
+		return core.ErrBindingInvalid
+	}
+
+	b.rwLock.RLock()
+	// Validate user exists
+	userExists := binding.UserName == b.adminUser.Name || b.usersByName[binding.UserName] != nil
+	if !userExists {
+		b.rwLock.RUnlock()
+
+		return core.ErrUserNotFound
+	}
+
+	// Validate policy exists
+	_, policyExists := b.policiesByID[binding.PolicyID]
+	if !policyExists {
+		b.rwLock.RUnlock()
+
+		return core.ErrPolicyNotFound
+	}
+
+	b.rwLock.RUnlock()
+
+	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		// Check if binding already exists
+		exists := lo.ContainsBy(cfg.Bindings, func(existingBinding *core.PolicyBinding) bool {
+			return existingBinding.UserName == binding.UserName && existingBinding.PolicyID == binding.PolicyID
+		})
+		if exists {
+			return cfg, core.ErrBindingAlreadyExists
+		}
+
+		cfg.Bindings = append(cfg.Bindings, binding)
+
+		return cfg, nil
+	})
+}
+
+func (b *Backend) DeleteBinding(ctx context.Context, binding *core.PolicyBinding) error {
+	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		found := lo.ContainsBy(cfg.Bindings, func(existingBinding *core.PolicyBinding) bool {
+			return existingBinding.UserName == binding.UserName && existingBinding.PolicyID == binding.PolicyID
+		})
+		if !found {
+			return cfg, core.ErrBindingNotFound
+		}
+
+		cfg.Bindings = lo.Filter(cfg.Bindings, func(existingBinding *core.PolicyBinding, _ int) bool {
+			return existingBinding.UserName != binding.UserName || existingBinding.PolicyID != binding.PolicyID
+		})
+
+		return cfg, nil
+	})
+}
+
 // Run watches the main config file and reloads the user repository when it changes.
 func (b *Backend) Run(ctx context.Context) error {
 	ticker := time.NewTicker(pollInterval)
@@ -347,6 +440,8 @@ func (b *Backend) reload(ctx context.Context) error {
 	b.usersByName = map[string]*core.User{}
 	b.usersByAccessKeyID = map[string]*core.User{}
 	b.policiesByID = map[string]*iampol.IAMPolicy{}
+	b.bindingsByUser = map[string][]*core.PolicyBinding{}
+	b.bindingsByPolicy = map[string][]*core.PolicyBinding{}
 	b.lastUpdated = info.ModTime()
 	b.adminUser = &managementConfig.AdminUser
 	b.adminUser.Name = "admin"
@@ -362,6 +457,13 @@ func (b *Backend) reload(ctx context.Context) error {
 	}
 
 	maps.Copy(b.policiesByID, managementConfig.Policies)
+	b.bindings = managementConfig.Bindings
+
+	// Index bindings by user and policy
+	for _, binding := range managementConfig.Bindings {
+		b.bindingsByUser[binding.UserName] = append(b.bindingsByUser[binding.UserName], binding)
+		b.bindingsByPolicy[binding.PolicyID] = append(b.bindingsByPolicy[binding.PolicyID], binding)
+	}
 
 	return nil
 }

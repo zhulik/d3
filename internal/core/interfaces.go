@@ -48,6 +48,11 @@ func (u User) ARN() string {
 	return "arn:aws:iam:::user/" + u.Name
 }
 
+type PolicyBinding struct {
+	UserName string `json:"user_name" yaml:"user_name"`
+	PolicyID string `json:"policy_id" yaml:"policy_id"`
+}
+
 type Bucket interface { //nolint:interfacebloat
 	Name() string
 	ARN() string
@@ -97,6 +102,12 @@ type ManagementBackend interface { //nolint:interfacebloat
 	CreatePolicy(ctx context.Context, policy *iampol.IAMPolicy) error
 	UpdatePolicy(ctx context.Context, policy *iampol.IAMPolicy) error
 	DeletePolicy(ctx context.Context, id string) error
+
+	GetBindings(ctx context.Context) ([]*PolicyBinding, error)
+	GetBindingsByUser(ctx context.Context, userName string) ([]*PolicyBinding, error)
+	GetBindingsByPolicy(ctx context.Context, policyID string) ([]*PolicyBinding, error)
+	CreateBinding(ctx context.Context, binding *PolicyBinding) error
+	DeleteBinding(ctx context.Context, binding *PolicyBinding) error
 }
 
 type Locker interface {
