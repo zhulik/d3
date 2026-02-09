@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/zhulik/d3/pkg/iampol"
+	"github.com/zhulik/d3/pkg/s3actions"
 )
 
 type ObjectMetadata struct {
@@ -112,4 +113,10 @@ type ManagementBackend interface { //nolint:interfacebloat
 
 type Locker interface {
 	Lock(ctx context.Context, key string) (context.Context, context.CancelFunc, error)
+}
+
+// Authorizer decides if a user is allowed to perform an action on a resource.
+// The key is the S3 resource identifier: bucket name for bucket operations, or "bucket/key" for object operations.
+type Authorizer interface {
+	IsAllowed(ctx context.Context, username string, action s3actions.Action, key string) (bool, error)
 }
