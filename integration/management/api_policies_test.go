@@ -7,6 +7,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/client/apiclient"
 	"github.com/zhulik/d3/pkg/iampol"
+	"github.com/zhulik/d3/pkg/s3actions"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,7 +43,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -68,7 +69,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject", "s3:PutObject"},
+							Action:   []s3actions.Action{"s3:GetObject", "s3:PutObject"},
 							Resource: []string{"arn:aws:s3:::test-bucket/*"},
 						},
 					},
@@ -107,7 +108,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 						Statement: []iampol.Statement{
 							{
 								Effect:   iampol.EffectAllow,
-								Action:   []string{"s3:GetObject"},
+								Action:   []s3actions.Action{"s3:GetObject"},
 								Resource: []string{"arn:aws:s3:::my-bucket/*"},
 							},
 						},
@@ -135,12 +136,12 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 						Statement: []iampol.Statement{
 							{
 								Effect:   iampol.EffectAllow,
-								Action:   []string{"s3:GetObject"},
+								Action:   []s3actions.Action{"s3:GetObject"},
 								Resource: []string{"arn:aws:s3:::bucket1/*"},
 							},
 							{
 								Effect:   iampol.EffectDeny,
-								Action:   []string{"s3:DeleteObject"},
+								Action:   []s3actions.Action{"s3:DeleteObject"},
 								Resource: []string{"arn:aws:s3:::bucket2/*"},
 							},
 						},
@@ -166,7 +167,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 						Statement: []iampol.Statement{
 							{
 								Effect:   iampol.EffectDeny,
-								Action:   []string{"s3:DeleteObject"},
+								Action:   []s3actions.Action{"s3:DeleteObject"},
 								Resource: []string{"arn:aws:s3:::protected-bucket/*"},
 							},
 						},
@@ -191,7 +192,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -205,7 +206,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -224,7 +225,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -254,7 +255,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.Effect("allow"), // lowercase, invalid
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -272,7 +273,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{},
+							Action:   []s3actions.Action{},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -290,7 +291,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"NotAnAction"},
+							Action:   []s3actions.Action{"NotAnAction"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -308,7 +309,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{},
 						},
 					},
@@ -326,7 +327,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:sqs:::queue"},
 						},
 					},
@@ -346,7 +347,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::old-bucket/*"},
 						},
 					},
@@ -360,7 +361,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject", "s3:PutObject"},
+							Action:   []s3actions.Action{"s3:GetObject", "s3:PutObject"},
 							Resource: []string{"arn:aws:s3:::new-bucket/*"},
 						},
 					},
@@ -383,12 +384,12 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectDeny,
-							Action:   []string{"s3:DeleteObject"},
+							Action:   []s3actions.Action{"s3:DeleteObject"},
 							Resource: []string{"arn:aws:s3:::protected-bucket/*"},
 						},
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::protected-bucket/*"},
 						},
 					},
@@ -411,7 +412,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -430,7 +431,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -444,7 +445,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{},
+							Action:   []s3actions.Action{},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -460,7 +461,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"invalid-resource"},
 						},
 					},
@@ -480,7 +481,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},

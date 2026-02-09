@@ -38,9 +38,9 @@ type IAMPolicy struct {
 // for instance it only supports arrays of Actions and Resources,
 // and does not support Conditions or Principals.
 type Statement struct {
-	Effect   Effect   `json:"Effect"`
-	Action   []string `json:"Action"`
-	Resource []string `json:"Resource"`
+	Effect   Effect             `json:"Effect"`
+	Action   []s3actions.Action `json:"Action"`
+	Resource []string           `json:"Resource"`
 }
 
 func Parse(policyBytes []byte) (*IAMPolicy, error) {
@@ -67,7 +67,7 @@ func Parse(policyBytes []byte) (*IAMPolicy, error) {
 		}
 
 		for _, action := range stmt.Action {
-			if !lo.Contains(s3actions.Actions, s3actions.Action(action)) {
+			if !lo.Contains(s3actions.Actions, action) {
 				return nil, fmt.Errorf("%w: invalid Action in Statement %d, Action %s", ErrInvalidPolicy, i, action)
 			}
 		}

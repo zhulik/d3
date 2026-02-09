@@ -8,6 +8,7 @@ import (
 	"github.com/zhulik/d3/internal/client/apiclient"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/iampol"
+	"github.com/zhulik/d3/pkg/s3actions"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,8 +45,8 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
-							Resource: []string{"arn:aws:s3:::my-bucket/*"},
+							Action:   []s3actions.Action{"s3:GetObject"},
+							Resource: []string{"arn:aws:s3:::my-bucket/*", "arn:aws:s3:::my-bucket/key"},
 						},
 					},
 				}
@@ -79,7 +80,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -91,7 +92,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:PutObject"},
+							Action:   []s3actions.Action{"s3:PutObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -155,7 +156,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -202,7 +203,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -226,7 +227,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 				Statement: []iampol.Statement{
 					{
 						Effect:   iampol.EffectAllow,
-						Action:   []string{"s3:GetObject"},
+						Action:   []s3actions.Action{"s3:GetObject"},
 						Resource: []string{"arn:aws:s3:::my-bucket/*"},
 					},
 				},
@@ -261,7 +262,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
@@ -324,7 +325,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 					Statement: []iampol.Statement{
 						{
 							Effect:   iampol.EffectAllow,
-							Action:   []string{"s3:GetObject"},
+							Action:   []s3actions.Action{"s3:GetObject"},
 							Resource: []string{"arn:aws:s3:::my-bucket/*"},
 						},
 					},
