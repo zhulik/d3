@@ -16,6 +16,7 @@ func (c *Runner) Run(ctx context.Context) error {
 		Usage: "D3 management client",
 		Commands: []*cli.Command{
 			commands.UserCommand,
+			commands.BindingCommand,
 		},
 	}).Run(ctx, os.Args)
 }
