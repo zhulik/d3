@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,23 +30,23 @@ type Bucket struct {
 	Locker core.Locker
 }
 
-func (b Bucket) Name() string {
+func (b *Bucket) Name() string {
 	return b.name
 }
 
-func (b Bucket) ARN() string {
+func (b *Bucket) ARN() string {
 	return "arn:aws:s3:::" + b.Name()
 }
 
-func (b Bucket) Region() string {
+func (b *Bucket) Region() string {
 	return "local"
 }
 
-func (b Bucket) CreationDate() time.Time {
+func (b *Bucket) CreationDate() time.Time {
 	return b.creationDate
 }
 
-func (b Bucket) HeadObject(_ context.Context, key string) (core.Object, error) {
+func (b *Bucket) HeadObject(_ context.Context, key string) (core.Object, error) {
 	object, err := b.getObject(key)
 	if err != nil {
 		return nil, err
@@ -56,7 +55,7 @@ func (b Bucket) HeadObject(_ context.Context, key string) (core.Object, error) {
 	return object, nil
 }
 
-func (b Bucket) PutObject(ctx context.Context, key string, input core.PutObjectInput) error { //nolint:funlen
+func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObjectInput) error { //nolint:funlen
 	bucketPath := b.config.bucketPath(b.name)
 
 	_, err := os.Stat(bucketPath)
@@ -129,7 +128,7 @@ func (b Bucket) PutObject(ctx context.Context, key string, input core.PutObjectI
 	return nil
 }
 
-func (b Bucket) GetObject(_ context.Context, key string) (core.Object, error) {
+func (b *Bucket) GetObject(_ context.Context, key string) (core.Object, error) {
 	object, err := b.getObject(key)
 	if err != nil {
 		return nil, err
@@ -138,68 +137,22 @@ func (b Bucket) GetObject(_ context.Context, key string) (core.Object, error) {
 	return object, nil
 }
 
-func (b Bucket) ListObjectsV2(_ context.Context, input core.ListObjectsV2Input) ([]core.Object, error) {
+func (b *Bucket) ListObjectsV2(ctx context.Context, input core.ListObjectsV2Input) ([]core.Object, error) {
 	objects := []core.Object{}
 
-	bucketPath := b.config.bucketPath(b.name)
-
-	// TODO: support pagination
-	// TODO: when prefix is given, we should first find all directories that match the prefix and then walk through them
-	err := filepath.WalkDir(bucketPath, func(path string, entry fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		// skip files
-		if !entry.IsDir() {
-			return nil
-		}
-
-		if path == bucketPath {
-			return nil
-		}
-
-		key, err := filepath.Rel(bucketPath, path)
-		if err != nil {
-			return err
-		}
-
-		key = filepath.ToSlash(key) // Normalize to forward slashes for S3 keys
-
-		if !strings.HasPrefix(key, input.Prefix) {
-			return nil
-		}
-
-		object, err := ObjectFromPath(b.config, b.name, key)
-		if err != nil {
-			return err
-		}
-
-		if object == nil {
-			return nil
-		}
-
-		metadata := object.Metadata()
-
-		objects = append(objects, &Object{
-			key:          key,
-			lastModified: metadata.LastModified,
-			size:         metadata.Size,
-		})
+	err := WalkBucket(ctx, b, input.Prefix, func(_ context.Context, object core.Object) error {
+		objects = append(objects, object)
 
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, core.ErrBucketNotFound
-		}
-
 		return nil, err
 	}
 
 	return objects, nil
 }
 
-func (b Bucket) DeleteObjects(ctx context.Context, quiet bool, keys ...string) ([]core.DeleteResult, error) { //nolint:lll
+func (b *Bucket) DeleteObjects(ctx context.Context, quiet bool, keys ...string) ([]core.DeleteResult, error) { //nolint:lll
 	results := []core.DeleteResult{}
 
 	for _, key := range keys {
@@ -225,7 +178,7 @@ func (b Bucket) DeleteObjects(ctx context.Context, quiet bool, keys ...string) (
 	return results, nil
 }
 
-func (b Bucket) CreateMultipartUpload(_ context.Context, _ string, metadata core.ObjectMetadata) (string, error) { //nolint:lll
+func (b *Bucket) CreateMultipartUpload(_ context.Context, _ string, metadata core.ObjectMetadata) (string, error) { //nolint:lll
 	id, uploadPath := b.config.newMultipartUploadPath()
 
 	err := os.MkdirAll(uploadPath, 0755)
@@ -241,7 +194,7 @@ func (b Bucket) CreateMultipartUpload(_ context.Context, _ string, metadata core
 	return id, nil
 }
 
-func (b Bucket) UploadPart(ctx context.Context, _ string, uploadID string, partNumber int, body io.Reader) error { //nolint:lll
+func (b *Bucket) UploadPart(ctx context.Context, _ string, uploadID string, partNumber int, body io.Reader) error { //nolint:lll
 	uploadPath := b.config.multipartUploadPath(uploadID)
 	path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", partNumber))
 
@@ -270,7 +223,7 @@ func (b Bucket) UploadPart(ctx context.Context, _ string, uploadID string, partN
 	return nil
 }
 
-func (b Bucket) CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []core.CompletePart) error { //nolint:lll,funlen
+func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []core.CompletePart) error { //nolint:lll,funlen
 	slices.SortFunc(parts, func(a, b core.CompletePart) int {
 		return a.PartNumber - b.PartNumber
 	})
@@ -350,14 +303,14 @@ func (b Bucket) CompleteMultipartUpload(ctx context.Context, key string, uploadI
 	return nil
 }
 
-func (b Bucket) AbortMultipartUpload(_ context.Context, _ string, uploadID string) error {
+func (b *Bucket) AbortMultipartUpload(_ context.Context, _ string, uploadID string) error {
 	uploadPath := b.config.multipartUploadPath(uploadID)
 
 	return os.RemoveAll(uploadPath)
 }
 
-func (b Bucket) getObject(key string) (*Object, error) {
-	object, err := ObjectFromPath(b.config, b.name, key)
+func (b *Bucket) getObject(key string) (*Object, error) {
+	object, err := ObjectFromPath(b, key)
 	if err != nil {
 		return nil, err
 	}
@@ -367,6 +320,10 @@ func (b Bucket) getObject(key string) (*Object, error) {
 	}
 
 	return object, nil
+}
+
+func (b *Bucket) rootPath() string {
+	return b.config.bucketPath(b.name)
 }
 
 func objectMetadata(input core.PutObjectInput, sha256 string) (core.ObjectMetadata, error) {

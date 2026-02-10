@@ -20,8 +20,7 @@ type Object struct {
 	lastModified time.Time
 	size         int64
 
-	config   *Config
-	bucket   string
+	bucket   *Bucket
 	path     string
 	blobPath string
 	metadata *core.ObjectMetadata
@@ -39,8 +38,8 @@ func (o *Object) Size() int64 {
 	return o.size
 }
 
-func ObjectFromPath(cfg *Config, bucket, key string) (*Object, error) {
-	path := cfg.objectPath(bucket, key)
+func ObjectFromPath(bucket *Bucket, key string) (*Object, error) {
+	path := bucket.config.objectPath(bucket.name, key)
 
 	isObject, err := IsObjectPath(path)
 	if err != nil {
@@ -63,9 +62,9 @@ func ObjectFromPath(cfg *Config, bucket, key string) (*Object, error) {
 	}
 
 	return &Object{
-		config:   cfg,
-		path:     path,
 		bucket:   bucket,
+		path:     path,
+		key:      key,
 		blobPath: filepath.Join(path, blobFilename),
 	}, nil
 }
@@ -114,7 +113,7 @@ func (o *Object) Metadata() *core.ObjectMetadata {
 }
 
 func (o *Object) Delete() error {
-	err := os.Rename(o.path, o.config.newBinPath())
+	err := os.Rename(o.path, o.bucket.config.newBinPath())
 	if err != nil {
 		return err
 	}
@@ -124,7 +123,7 @@ func (o *Object) Delete() error {
 	entries, readErr := os.ReadDir(parentDir)
 	if readErr == nil && len(entries) == 0 {
 		// we ignore the on purpose because there might be concurrent uploads to the same directory
-		if parentDir != o.config.bucketPath(o.bucket) {
+		if parentDir != o.bucket.rootPath() {
 			os.Remove(parentDir)
 		}
 	}
