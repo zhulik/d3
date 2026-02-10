@@ -14,7 +14,8 @@ import (
 type Echo struct {
 	*echo.Echo
 
-	Auth *middlewares2.Authenticator
+	Authenticator *middlewares2.Authenticator
+	Authorizer    *middlewares2.Authorizer
 
 	rootQueryRouter *QueryParamsRouter
 }
@@ -31,7 +32,8 @@ func (e *Echo) Init(_ context.Context) error {
 		middleware.Recover(),
 		apictx.Middleware(),
 		middlewares2.ErrorRenderer(),
-		e.Auth.Middleware(),
+		e.Authenticator.Middleware(),
+		e.Authorizer.Middleware(),
 	)
 
 	return nil
