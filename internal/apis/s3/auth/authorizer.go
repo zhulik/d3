@@ -21,7 +21,7 @@ type Authorizer struct {
 // IsAllowed returns whether the user is allowed to perform the action on the resource.
 // key is the S3 resource identifier: bucket name for bucket ops, or "bucket/key" for object ops.
 func (a *Authorizer) IsAllowed(
-	ctx context.Context, username string, action s3actions.Action, key string,
+	ctx context.Context, username string, action s3actions.Action, resource string,
 ) (bool, error) {
 	if username == "admin" {
 		return true, nil
@@ -48,7 +48,7 @@ func (a *Authorizer) IsAllowed(
 				continue
 			}
 
-			if a.statementMatches(stmt, action, key) {
+			if a.statementMatches(stmt, action, resource) {
 				return false, nil
 			}
 		}
@@ -70,7 +70,7 @@ func (a *Authorizer) IsAllowed(
 				continue
 			}
 
-			if a.statementMatches(stmt, action, key) {
+			if a.statementMatches(stmt, action, resource) {
 				return true, nil
 			}
 		}
