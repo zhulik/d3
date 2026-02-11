@@ -22,13 +22,16 @@ type prefixEntry struct {
 }
 
 type listObjectsV2Result struct {
-	IsTruncated    bool            `xml:"IsTruncated"`
-	Contents       []*types.Object `xml:"Contents"`
-	Name           string          `xml:"Name"`
-	Prefix         string          `xml:"Prefix"`
-	Delimiter      string          `xml:"Delimiter,omitempty"`
-	MaxKeys        int             `xml:"MaxKeys"`
-	CommonPrefixes []prefixEntry   `xml:"CommonPrefixes,omitempty"`
+	IsTruncated           bool            `xml:"IsTruncated"`
+	Contents              []*types.Object `xml:"Contents"`
+	Name                  string          `xml:"Name"`
+	Prefix                string          `xml:"Prefix"`
+	Delimiter             string          `xml:"Delimiter,omitempty"`
+	MaxKeys               int             `xml:"MaxKeys"`
+	KeyCount              int             `xml:"KeyCount"`
+	NextContinuationToken *string         `xml:"NextContinuationToken,omitempty"`
+
+	CommonPrefixes []prefixEntry `xml:"CommonPrefixes,omitempty"`
 }
 
 type taggingXML struct {

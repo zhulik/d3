@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/smartio"
 	"github.com/zhulik/d3/pkg/yaml"
@@ -137,19 +138,47 @@ func (b *Bucket) GetObject(_ context.Context, key string) (core.Object, error) {
 	return object, nil
 }
 
-func (b *Bucket) ListObjectsV2(ctx context.Context, input core.ListObjectsV2Input) ([]core.Object, error) {
+func (b *Bucket) ListObjectsV2(ctx context.Context, input core.ListObjectsV2Input) (*core.ListV2Result, error) {
 	objects := []core.Object{}
 
-	err := WalkBucket(ctx, b, input.Prefix, func(_ context.Context, object core.Object) error {
+	isTruncated := false
+
+	var continuationToken *string
+
+	var nextKey *string
+
+	if input.ContinuationToken != "" {
+		decodedKey, err := base64.StdEncoding.DecodeString(input.ContinuationToken)
+		if err != nil {
+			return nil, err
+		}
+
+		nextKey = lo.ToPtr(string(decodedKey))
+	}
+
+	err := WalkBucket(ctx, b, input.Prefix, nextKey, func(_ context.Context, object core.Object) error {
+		if len(objects) >= input.MaxKeys {
+			// there is at least one more object after the last one, so we consider the list truncated
+			isTruncated = true
+
+			continuationToken = lo.ToPtr(base64.StdEncoding.EncodeToString([]byte(object.Key())))
+
+			return StopWalk
+		}
+
 		objects = append(objects, object)
 
 		return nil
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, filepath.SkipAll) {
 		return nil, err
 	}
 
-	return objects, nil
+	return &core.ListV2Result{
+		Objects:           objects,
+		ContinuationToken: continuationToken,
+		IsTruncated:       isTruncated,
+	}, nil
 }
 
 func (b *Bucket) DeleteObjects(ctx context.Context, quiet bool, keys ...string) ([]core.DeleteResult, error) { //nolint:lll

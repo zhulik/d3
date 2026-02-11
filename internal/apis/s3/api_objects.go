@@ -160,6 +160,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	prefix := c.QueryParam("prefix")
 	listType := c.QueryParam("list-type")
 	maxKeys := c.QueryParam("max-keys")
+	continuationToken := c.QueryParam("continuation-token")
 
 	maxKeysInt := core.MaxKeys
 
@@ -177,27 +178,30 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	}
 
 	objects, err := bucket.ListObjectsV2(c.Request().Context(), core.ListObjectsV2Input{
-		MaxKeys: maxKeysInt,
-		Prefix:  prefix,
+		MaxKeys:           maxKeysInt,
+		Prefix:            prefix,
+		ContinuationToken: continuationToken,
 	})
 	if err != nil {
 		return err
 	}
 
 	xmlResponse := listObjectsV2Result{
-		IsTruncated: false,
-		Contents: lo.Map(objects, func(object core.Object, _ int) *types.Object {
+		Contents: lo.Map(objects.Objects, func(object core.Object, _ int) *types.Object {
 			return &types.Object{
 				Key:          lo.ToPtr(object.Key()),
 				LastModified: lo.ToPtr(object.LastModified()),
 				Size:         lo.ToPtr(object.Size()),
 			}
 		}),
-		Name:           bucket.Name(),
-		Prefix:         prefix,
-		Delimiter:      core.Delimiter,
-		MaxKeys:        maxKeysInt,
-		CommonPrefixes: []prefixEntry{},
+		Name:                  bucket.Name(),
+		Prefix:                prefix,
+		Delimiter:             core.Delimiter,
+		MaxKeys:               maxKeysInt,
+		KeyCount:              len(objects.Objects),
+		NextContinuationToken: objects.ContinuationToken,
+		IsTruncated:           objects.IsTruncated,
+		CommonPrefixes:        []prefixEntry{},
 	}
 
 	return c.XML(http.StatusOK, xmlResponse)

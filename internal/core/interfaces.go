@@ -27,8 +27,15 @@ type PutObjectInput struct {
 }
 
 type ListObjectsV2Input struct {
-	Prefix  string
-	MaxKeys int
+	Prefix            string
+	MaxKeys           int
+	ContinuationToken string
+}
+
+type ListV2Result struct {
+	Objects           []Object
+	ContinuationToken *string
+	IsTruncated       bool
 }
 
 type DeleteResult struct {
@@ -65,7 +72,7 @@ type Bucket interface { //nolint:interfacebloat
 	HeadObject(ctx context.Context, key string) (Object, error)
 	PutObject(ctx context.Context, key string, input PutObjectInput) error
 	GetObject(ctx context.Context, key string) (Object, error)
-	ListObjectsV2(ctx context.Context, input ListObjectsV2Input) ([]Object, error)
+	ListObjectsV2(ctx context.Context, input ListObjectsV2Input) (*ListV2Result, error)
 	DeleteObjects(ctx context.Context, quiet bool, keys ...string) ([]DeleteResult, error)
 
 	CreateMultipartUpload(ctx context.Context, key string, metadata ObjectMetadata) (string, error)

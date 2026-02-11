@@ -130,6 +130,87 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				Expect(listObjectsOutput.Contents[1].Key).To(Equal(lo.ToPtr("hello.txt")))
 			})
 		})
+
+		Context("pagination", func() {
+			const paginatePrefix = "paginate/"
+			paginateKeys := []string{"paginate/a", "paginate/b", "paginate/c", "paginate/d", "paginate/e"}
+
+			BeforeAll(func(ctx context.Context) {
+				lo.ForEach(paginateKeys, func(key string, _ int) {
+					lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
+						Bucket: bucketName,
+						Key:    lo.ToPtr(key),
+						Body:   strings.NewReader("data"),
+					}))
+				})
+			})
+
+			When("max-keys is specified", func() {
+				It("returns requested number of objects", func(ctx context.Context) {
+					output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket:  bucketName,
+						Prefix:  lo.ToPtr(paginatePrefix),
+						MaxKeys: lo.ToPtr(int32(2)),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(output.Contents).To(HaveLen(2))
+					Expect(*output.IsTruncated).To(BeTrue())
+					Expect(output.Contents[0].Key).To(Equal(lo.ToPtr("paginate/a")))
+					Expect(output.Contents[1].Key).To(Equal(lo.ToPtr("paginate/b")))
+				})
+			})
+
+			When("continuation-token is provided", func() {
+				It("returns next page of results", func(ctx context.Context) {
+					firstPage, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket:  bucketName,
+						Prefix:  lo.ToPtr(paginatePrefix),
+						MaxKeys: lo.ToPtr(int32(2)),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(firstPage.NextContinuationToken).NotTo(BeNil())
+
+					secondPage, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket:            bucketName,
+						Prefix:            lo.ToPtr(paginatePrefix),
+						MaxKeys:           lo.ToPtr(int32(2)),
+						ContinuationToken: firstPage.NextContinuationToken,
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(secondPage.Contents).To(HaveLen(2))
+					Expect(secondPage.Contents[0].Key).To(Equal(lo.ToPtr("paginate/c")))
+					Expect(secondPage.Contents[1].Key).To(Equal(lo.ToPtr("paginate/d")))
+				})
+			})
+
+			When("iterating through all pages", func() {
+				It("returns all objects in order", func(ctx context.Context) {
+					var allKeys []string
+					var continuationToken *string
+
+					for {
+						output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+							Bucket:            bucketName,
+							Prefix:            lo.ToPtr(paginatePrefix),
+							MaxKeys:           lo.ToPtr(int32(2)),
+							ContinuationToken: continuationToken,
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						for _, obj := range output.Contents {
+							allKeys = append(allKeys, *obj.Key)
+						}
+
+						if output.IsTruncated == nil || !*output.IsTruncated {
+							break
+						}
+						continuationToken = output.NextContinuationToken
+					}
+
+					Expect(allKeys).To(Equal(paginateKeys))
+				})
+			})
+		})
 	})
 
 	Describe("HeadObject", func() {
