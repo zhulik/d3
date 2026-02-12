@@ -115,30 +115,30 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			switch action { //nolint:exhaustive
 			case s3actions.PutObject:
 				key := objectKeyOrEmpty
-				_, err = s3Client.PutObject(context.Background(), &s3.PutObjectInput{
+				_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
 					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 					Body:   strings.NewReader("data"),
 				})
 			case s3actions.GetObject:
 				key := objectKeyOrEmpty
-				_, err = s3Client.GetObject(context.Background(), &s3.GetObjectInput{
+				_, err = s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})
 			case s3actions.HeadObject:
 				key := objectKeyOrEmpty
-				_, err = s3Client.HeadObject(context.Background(), &s3.HeadObjectInput{
+				_, err = s3Client.HeadObject(ctx, &s3.HeadObjectInput{
 					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})
 			case s3actions.ListObjectsV2:
-				_, err = s3Client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
+				_, err = s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 					Bucket: lo.ToPtr(app.BucketName()),
 				})
 			case s3actions.DeleteObject:
 				key := objectKeyOrEmpty
-				_, err = s3Client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
+				_, err = s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})

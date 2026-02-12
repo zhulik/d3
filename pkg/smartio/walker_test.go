@@ -69,10 +69,10 @@ var _ = Describe("WalkDir", func() {
 	})
 
 	DescribeTable("walk and error cases",
-		func(prefix, startFromRel string, expectedExactRel []string, expectErr error) {
-			walkCtx := context.Background()
+		func(ctx context.Context, prefix, startFromRel string, expectedExactRel []string, expectErr error) {
+			walkCtx := ctx
 			if expectErr != nil && errors.Is(expectErr, context.Canceled) {
-				cancelled, cancel := context.WithCancel(context.Background())
+				cancelled, cancel := context.WithCancel(ctx)
 				cancel()
 				walkCtx = cancelled
 			}
@@ -188,9 +188,9 @@ var _ = Describe("WalkDir", func() {
 	)
 
 	Context("edge cases", func() {
-		It("propagates error from callback and stops walk", func() {
+		It("propagates error from callback and stops walk", func(ctx context.Context) {
 			var callCount int
-			err := smartio.WalkDir(context.Background(), root, "", nil, func(path string) error {
+			err := smartio.WalkDir(ctx, root, "", nil, func(path string) error {
 				callCount++
 				if filepath.Base(path) == "third" {
 					return errStopWalk
@@ -202,11 +202,11 @@ var _ = Describe("WalkDir", func() {
 			Expect(callCount).To(BeNumerically("<", 25))
 		})
 
-		It("invokes fn for root when root is the only entry and prefix is empty", func() {
+		It("invokes fn for root when root is the only entry and prefix is empty", func(ctx context.Context) {
 			emptyRoot := lo.Must(os.MkdirTemp("", "walkdir-single-*"))
 			DeferCleanup(func() { _ = os.RemoveAll(emptyRoot) })
 			var got []string
-			err := smartio.WalkDir(context.Background(), emptyRoot, "", nil, func(path string) error {
+			err := smartio.WalkDir(ctx, emptyRoot, "", nil, func(path string) error {
 				got = append(got, path)
 
 				return nil
@@ -215,9 +215,9 @@ var _ = Describe("WalkDir", func() {
 			Expect(got).To(Equal([]string{emptyRoot}))
 		})
 
-		It("prefix with trailing slash is trimmed and matches same as without", func() {
+		It("prefix with trailing slash is trimmed and matches same as without", func(ctx context.Context) {
 			var got []string
-			err := smartio.WalkDir(context.Background(), root, "first/", nil, func(path string) error {
+			err := smartio.WalkDir(ctx, root, "first/", nil, func(path string) error {
 				got = append(got, path)
 
 				return nil

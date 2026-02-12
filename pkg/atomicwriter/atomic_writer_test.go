@@ -54,10 +54,10 @@ var _ = Describe("AtomicWriter", func() {
 
 	Describe("ReadWrite", func() {
 		Describe("Happy path", func() {
-			It("creates a new file when it doesn't exist", func() {
+			It("creates a new file when it doesn't exist", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "new_file.txt")
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("new content"), nil
@@ -69,14 +69,14 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal([]byte("new content")))
 			})
 
-			It("reads and modifies existing file content", func() {
+			It("reads and modifies existing file content", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "existing_file.txt")
 				originalContent := []byte("original content")
 
 				err := os.WriteFile(filename, originalContent, 0644)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal(originalContent))
 
 					return append(content, []byte(" - modified")...), nil
@@ -88,7 +88,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal([]byte("original content - modified")))
 			})
 
-			It("preserves file permissions for existing files", func() {
+			It("preserves file permissions for existing files", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "permission_file.txt")
 				originalContent := []byte("content")
 				originalPerm := os.FileMode(0755)
@@ -100,7 +100,7 @@ var _ = Describe("AtomicWriter", func() {
 				err = os.Chmod(filename, originalPerm)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal(originalContent))
 
 					return []byte("new content"), nil
@@ -113,10 +113,10 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(fileInfo.Mode()).To(Equal(originalPerm))
 			})
 
-			It("uses default permissions (0644) for new files", func() {
+			It("uses default permissions (0644) for new files", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "new_perm_file.txt")
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("content"), nil
@@ -129,13 +129,13 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(fileInfo.Mode()).To(Equal(os.FileMode(0644)))
 			})
 
-			It("handles empty file correctly", func() {
+			It("handles empty file correctly", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "empty_file.txt")
 
 				err := os.WriteFile(filename, []byte{}, 0644)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("populated"), nil
@@ -147,14 +147,14 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal([]byte("populated")))
 			})
 
-			It("handles large file content", func() {
+			It("handles large file content", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "large_file.txt")
 				largeContent := make([]byte, 1024*1024) // 1MB
 				for i := range largeContent {
 					largeContent[i] = byte(i % 256)
 				}
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return largeContent, nil
@@ -166,17 +166,17 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal(largeContent))
 			})
 
-			It("appends content to existing file", func() {
+			It("appends content to existing file", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "append_file.txt")
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("line1\n"), nil
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal([]byte("line1\n")))
 
 					return append(content, []byte("line2\n")...), nil
@@ -188,11 +188,11 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal([]byte("line1\nline2\n")))
 			})
 
-			It("handles binary content correctly", func() {
+			It("handles binary content correctly", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "binary_file.bin")
 				binaryContent := []byte{0xFF, 0xFE, 0x00, 0x01, 0xAB, 0xCD, 0xEF}
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return binaryContent, nil
@@ -204,14 +204,14 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal(binaryContent))
 			})
 
-			It("returns unchanged content when contentMap returns input as-is", func() {
+			It("returns unchanged content when contentMap returns input as-is", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "unchanged_file.txt")
 				originalContent := []byte("original")
 
 				err := os.WriteFile(filename, originalContent, 0644)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal(originalContent))
 
 					return content, nil
@@ -225,14 +225,14 @@ var _ = Describe("AtomicWriter", func() {
 		})
 
 		Describe("Error cases - Lock failures", func() {
-			It("returns error if lock fails", func() {
+			It("returns error if lock fails", func(ctx context.Context) {
 				failingLocker := NewMockLocker(GinkgoT())
 				lockErr := errors.New("lock error") //nolint:err113
 				failingLocker.EXPECT().Lock(mock.Anything, mock.Anything).Maybe().Return(nil, nil, lockErr)
 				failingWriter := atomicwriter.New(failingLocker, tmpDataPath)
 				filename := filepath.Join(tmpDir, "file.txt")
 
-				err := failingWriter.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := failingWriter.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("content"), nil
@@ -244,11 +244,11 @@ var _ = Describe("AtomicWriter", func() {
 		})
 
 		Describe("Error cases - Directory handling", func() {
-			It("returns error if directory of file doesn't exist", func() {
+			It("returns error if directory of file doesn't exist", func(ctx context.Context) {
 				nonExistentDir := filepath.Join(tmpDir, "non_existent_dir")
 				filename := filepath.Join(nonExistentDir, "file.txt")
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("content"), nil
@@ -259,11 +259,11 @@ var _ = Describe("AtomicWriter", func() {
 		})
 
 		Describe("Error cases - ContentMap function failures", func() {
-			It("returns error if contentMap function fails", func() {
+			It("returns error if contentMap function fails", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "file.txt")
 				expectedError := errors.New("custom content map error") //nolint:err113
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return nil, expectedError
@@ -275,7 +275,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("returns error if contentMap fails on existing file", func() {
+			It("returns error if contentMap fails on existing file", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "file.txt")
 				originalContent := []byte("original")
 
@@ -283,7 +283,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				expectedError := errors.New("content transformation error") //nolint:err113
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal(originalContent))
 
 					return nil, expectedError
@@ -299,7 +299,7 @@ var _ = Describe("AtomicWriter", func() {
 		})
 
 		Describe("Error cases - File system operations", func() {
-			It("returns error if temp file creation fails", func() {
+			It("returns error if temp file creation fails", func(ctx context.Context) {
 				readOnlyDir, err := os.MkdirTemp("", "atomicwriter-readonly-*")
 				Expect(err).NotTo(HaveOccurred())
 				defer func() { _ = os.RemoveAll(readOnlyDir) }()
@@ -325,7 +325,7 @@ var _ = Describe("AtomicWriter", func() {
 
 				failingWriter := atomicwriter.New(locker, readOnlyTmpDir)
 
-				err = failingWriter.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = failingWriter.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal([]byte("content")))
 
 					return []byte("new content"), nil
@@ -334,14 +334,14 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("returns error if rename fails", func() {
+			It("returns error if rename fails", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "file.txt")
 
 				// Create a directory with the same name where the file should be
 				err := os.Mkdir(filename, 0755)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("content"), nil
@@ -352,9 +352,9 @@ var _ = Describe("AtomicWriter", func() {
 		})
 
 		Describe("Error cases - Context cancellation", func() {
-			It("returns error if context is cancelled before rename", func() {
+			It("returns error if context is cancelled before rename", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "file.txt")
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithCancel(ctx)
 
 				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
@@ -370,10 +370,10 @@ var _ = Describe("AtomicWriter", func() {
 		})
 
 		Describe("Edge cases", func() {
-			It("handles file with special characters in name", func() {
+			It("handles file with special characters in name", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "file-with_special.chars123.txt")
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("content"), nil
@@ -385,11 +385,11 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal([]byte("content")))
 			})
 
-			It("handles sequential writes correctly", func() {
+			It("handles sequential writes correctly", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "sequential.txt")
 
 				// First write
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("first"), nil
@@ -397,7 +397,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// Second write
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal([]byte("first")))
 
 					return []byte("second"), nil
@@ -405,7 +405,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				// Third write
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal([]byte("second")))
 
 					return []byte("third"), nil
@@ -417,7 +417,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal([]byte("third")))
 			})
 
-			It("handles file with no read permissions on existing file gracefully", func() {
+			It("handles file with no read permissions on existing file gracefully", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "no_read_perm.txt")
 				err := os.WriteFile(filename, []byte("content"), 0755)
 				Expect(err).NotTo(HaveOccurred())
@@ -427,7 +427,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(err).NotTo(HaveOccurred())
 				defer func() { _ = os.Chmod(filename, 0644) }()
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return []byte("new"), nil
@@ -437,12 +437,12 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(err).To(HaveOccurred())
 			})
 
-			It("handles contentMap that transforms input content", func() {
+			It("handles contentMap that transforms input content", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "transform.txt")
 				err := os.WriteFile(filename, []byte("hello"), 0644)
 				Expect(err).NotTo(HaveOccurred())
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal([]byte("hello")))
 					// Transform: uppercase and add suffix
 					result := []byte{}
@@ -463,11 +463,11 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal([]byte("HELLO-TRANSFORMED")))
 			})
 
-			It("handles file content with null bytes", func() {
+			It("handles file content with null bytes", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "null_bytes.bin")
 				contentWithNulls := []byte{0x00, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x00}
 
-				err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err := writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(BeEmpty())
 
 					return contentWithNulls, nil
@@ -479,7 +479,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(content).To(Equal(contentWithNulls))
 			})
 
-			It("correctly updates file mtime", func() {
+			It("correctly updates file mtime", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "mtime.txt")
 				err := os.WriteFile(filename, []byte("original"), 0644)
 				Expect(err).NotTo(HaveOccurred())
@@ -492,7 +492,7 @@ var _ = Describe("AtomicWriter", func() {
 				// In practice, this may not always show a difference on fast systems
 				// but the atomic rename should ensure file is updated
 
-				err = writer.ReadWrite(context.Background(), filename, func(_ context.Context, content []byte) ([]byte, error) {
+				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
 					Expect(content).To(Equal([]byte("original")))
 
 					return []byte("modified"), nil
@@ -507,7 +507,7 @@ var _ = Describe("AtomicWriter", func() {
 				Expect(mtime2.After(mtime1) || mtime2.Equal(mtime1)).To(BeTrue())
 			})
 
-			It("handles multiple concurrent writes with sequential processing", func() {
+			It("handles multiple concurrent writes with sequential processing", func(ctx context.Context) {
 				filenames := []string{
 					filepath.Join(tmpDir, "file1.txt"),
 					filepath.Join(tmpDir, "file2.txt"),
@@ -516,7 +516,7 @@ var _ = Describe("AtomicWriter", func() {
 
 				for i, filename := range filenames {
 					content := []byte("content" + string(rune('1'+i)))
-					err := writer.ReadWrite(context.Background(), filename, func(_ context.Context, _ []byte) ([]byte, error) {
+					err := writer.ReadWrite(ctx, filename, func(_ context.Context, _ []byte) ([]byte, error) {
 						return content, nil
 					})
 					Expect(err).NotTo(HaveOccurred())
