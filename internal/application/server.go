@@ -18,25 +18,25 @@ import (
 )
 
 func NewServer(config *core.Config) *pal.Pal {
-	var logger *slog.Logger
+	var handler slog.Handler
 
-	if config.Environment == "development" ||
-		config.Environment == "test" {
-		opts := &devslog.Options{
+	switch config.Environment {
+	case "development":
+		handler = devslog.NewHandler(os.Stdout, &devslog.Options{
 			MaxSlicePrintSize: 4,
 			SortKeys:          true,
 			TimeFormat:        "[04:05]",
 			NewLineAfterLog:   true,
 			DebugColor:        devslog.Magenta,
 			StringerFormatter: true,
-		}
-
-		logger = slog.New(devslog.NewHandler(os.Stdout, opts))
-	} else {
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, nil))
+		})
+	case "test":
+		handler = slog.DiscardHandler
+	default:
+		handler = slog.NewJSONHandler(os.Stdout, nil)
 	}
 
-	slog.SetDefault(logger)
+	slog.SetDefault(slog.New(handler))
 
 	return pal.New(
 		s3.Provide(),
