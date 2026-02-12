@@ -43,7 +43,7 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string, strin
 	time.Sleep(100 * time.Millisecond)
 
 	userRepository := pal.MustInvoke[core.ManagementBackend](ctx, app)
-	adminAccessKeyID, adminSecretAccessKey := userRepository.AdminCredentials()
+	admin := lo.Must(userRepository.GetUserByName(ctx, "admin"))
 
 	go func() {
 		lo.Must0(app.Run(appCtx))
@@ -51,7 +51,7 @@ func runApp(ctx context.Context) (int, context.CancelFunc, string, string, strin
 
 	time.Sleep(100 * time.Millisecond)
 
-	return appConfig.ManagementPort, cancelApp, adminAccessKeyID, adminSecretAccessKey, tempDir
+	return appConfig.ManagementPort, cancelApp, admin.AccessKeyID, admin.SecretAccessKey, tempDir
 }
 
 func prepareManagementTests(ctx context.Context) (*apiclient.Client, context.CancelFunc, string) {

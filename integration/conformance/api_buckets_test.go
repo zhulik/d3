@@ -14,13 +14,13 @@ import (
 
 var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Ordered, func() {
 	var s3Client *s3.Client
-	var bucketName *string
+	var bucketName string
 
 	var cancelApp context.CancelFunc
 	var tempDir string
 
 	BeforeAll(func(ctx context.Context) {
-		s3Client, bucketName, cancelApp, tempDir = prepareConformanceTests(ctx)
+		s3Client, bucketName, _, cancelApp, tempDir, _ = prepareConformanceTests(ctx)
 	})
 
 	AfterAll(func(ctx context.Context) {
@@ -33,7 +33,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 		When("bucket already exists", func() {
 			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
-					Bucket: bucketName,
+					Bucket: &bucketName,
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -46,7 +46,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 			Expect(err).NotTo(HaveOccurred())
 
 			found := lo.ContainsBy(listBucketsOutput.Buckets, func(bucket types.Bucket) bool {
-				return *bucket.Name == *bucketName
+				return *bucket.Name == bucketName
 			})
 
 			Expect(found).To(BeTrue())
@@ -57,7 +57,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 		When("bucket is not empty", func() {
 			BeforeAll(func(ctx context.Context) {
 				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
-					Bucket: bucketName,
+					Bucket: &bucketName,
 					Key:    lo.ToPtr("hello.txt"),
 					Body:   strings.NewReader("hello world"),
 				})
@@ -66,7 +66,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 
 			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
-					Bucket: bucketName,
+					Bucket: &bucketName,
 				})
 				Expect(err).To(HaveOccurred())
 			})

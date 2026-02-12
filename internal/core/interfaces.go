@@ -98,8 +98,6 @@ type StorageBackend interface {
 }
 
 type ManagementBackend interface { //nolint:interfacebloat
-	AdminCredentials() (string, string)
-
 	GetUsers(ctx context.Context) ([]string, error)
 	GetUserByName(ctx context.Context, name string) (*User, error)
 	GetUserByAccessKeyID(ctx context.Context, accessKeyID string) (*User, error)
@@ -127,5 +125,5 @@ type Locker interface {
 // Authorizer decides if a user is allowed to perform an action on a resource.
 // The key is the S3 resource identifier: bucket name for bucket operations, or "bucket/key" for object operations.
 type Authorizer interface {
-	IsAllowed(ctx context.Context, username string, action s3actions.Action, key string) (bool, error)
+	IsAllowed(ctx context.Context, username *string, action s3actions.Action, key string) (bool, error)
 }

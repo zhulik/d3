@@ -360,14 +360,6 @@ policies:
 				})
 			})
 		})
-
-		Describe("AdminCredentials", func() {
-			It("should return admin credentials", func() {
-				key, secret := backend.AdminCredentials()
-				Expect(key).NotTo(BeEmpty())
-				Expect(secret).NotTo(BeEmpty())
-			})
-		})
 	})
 
 	Describe("Policy Management", func() {

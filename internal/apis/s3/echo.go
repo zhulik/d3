@@ -33,7 +33,6 @@ func (e *Echo) Init(_ context.Context) error {
 		apictx.Middleware(),
 		middlewares2.ErrorRenderer(),
 		e.Authenticator.Middleware(),
-		e.Authorizer.Middleware(),
 	)
 
 	return nil

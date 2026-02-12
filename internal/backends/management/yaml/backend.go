@@ -78,6 +78,7 @@ func (b *Backend) Init(ctx context.Context) error {
 				},
 				Policies: map[string]*iampol.IAMPolicy{},
 				Bindings: []*core.PolicyBinding{},
+				Users:    map[string]*core.User{},
 			}
 
 			err := yaml.MarshalToFile(cfg, managementConfigPath)
@@ -193,13 +194,6 @@ func (b *Backend) DeleteUser(ctx context.Context, userName string) error {
 
 		return cfg, nil
 	})
-}
-
-func (b *Backend) AdminCredentials() (string, string) {
-	b.rwLock.RLock()
-	defer b.rwLock.RUnlock()
-
-	return b.adminUser.AccessKeyID, b.adminUser.SecretAccessKey
 }
 
 func (b *Backend) GetPolicies(_ context.Context) ([]string, error) {

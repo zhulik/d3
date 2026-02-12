@@ -9,5 +9,6 @@ func Provide() pal.ServiceDef {
 		pal.Provide(&Authenticator{}),
 		pal.Provide(&BucketFinder{}),
 		pal.Provide(&ObjectFinder{}),
+		pal.Provide(&Authorizer{}),
 	)
 }

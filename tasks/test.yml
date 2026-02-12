@@ -29,3 +29,7 @@ tasks:
   management:
     desc: Run manage API tests
     cmd: ginkgo run --label-filter=management ./integration/management
+
+  authorization:
+    desc: Run authorization tests
+    cmd: ginkgo run --label-filter=authorization ./integration/conformance
