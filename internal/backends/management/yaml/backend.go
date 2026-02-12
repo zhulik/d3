@@ -144,24 +144,32 @@ func (b *Backend) GetUserByAccessKeyID(_ context.Context, accessKeyID string) (*
 	return user, nil
 }
 
-func (b *Backend) CreateUser(ctx context.Context, newUser *core.User) error {
-	if newUser.Name == "" || newUser.AccessKeyID == "" || newUser.SecretAccessKey == "" {
-		return core.ErrUserInvalid
+func (b *Backend) CreateUser(ctx context.Context, username string) (*core.User, error) {
+	if username == "" {
+		return nil, core.ErrUserInvalid
 	}
 
-	return b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
-		if _, ok := cfg.Users[newUser.Name]; ok {
+	accessKeyID, secretAccessKey := credentials.GenerateCredentials()
+	newUser := &core.User{
+		Name:            username,
+		AccessKeyID:     accessKeyID,
+		SecretAccessKey: secretAccessKey,
+	}
+
+	err := b.readWriteConfig(ctx, func(cfg ManagementConfig) (ManagementConfig, error) {
+		if _, ok := cfg.Users[username]; ok {
 			return cfg, core.ErrUserAlreadyExists
 		}
 
-		cfg.Users[newUser.Name] = &core.User{
-			Name:            newUser.Name,
-			AccessKeyID:     newUser.AccessKeyID,
-			SecretAccessKey: newUser.SecretAccessKey,
-		}
+		cfg.Users[username] = newUser
 
 		return cfg, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	return newUser, nil
 }
 
 func (b *Backend) UpdateUser(ctx context.Context, updatedUser *core.User) error {

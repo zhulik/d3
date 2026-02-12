@@ -55,25 +55,16 @@ func (a APIUsers) CreateUser(c *echo.Context) error {
 		return err
 	}
 
-	accessKeyID, secretAccessKey := credentials.GenerateCredentials()
-	user := &core.User{
-		Name:            r.Name,
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-	}
-
-	err = a.Backend.CreateUser(c.Request().Context(), user)
+	user, err := a.Backend.CreateUser(c.Request().Context(), r.Name)
 	if err != nil {
 		return err
 	}
 
-	response := createUserResponseBody{
+	return c.JSON(http.StatusOK, createUserResponseBody{
 		Name:            user.Name,
 		AccessKeyID:     user.AccessKeyID,
 		SecretAccessKey: user.SecretAccessKey,
-	}
-
-	return c.JSON(http.StatusOK, response)
+	})
 }
 
 // UpdateUser updates the user.

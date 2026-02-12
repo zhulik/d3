@@ -7,7 +7,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/core"
-	"github.com/zhulik/d3/pkg/credentials"
 	"github.com/zhulik/d3/pkg/iampol"
 	"github.com/zhulik/d3/pkg/s3actions"
 
@@ -97,34 +96,24 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 		userClients = make(map[string]*s3.Client)
 		userClients["admin"] = adminS3Client
 
-		reader := &core.User{Name: "reader"}
-		reader.AccessKeyID, reader.SecretAccessKey = credentials.GenerateCredentials()
-		lo.Must0(mgmtBackend.CreateUser(ctx, reader))
+		reader := lo.Must(mgmtBackend.CreateUser(ctx, "reader"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "reader", PolicyID: "read-only-policy"}))
 		userClients["reader"] = createS3Client(ctx, port, reader.AccessKeyID, reader.SecretAccessKey)
 
-		writer := &core.User{Name: "writer"}
-		writer.AccessKeyID, writer.SecretAccessKey = credentials.GenerateCredentials()
-		lo.Must0(mgmtBackend.CreateUser(ctx, writer))
+		writer := lo.Must(mgmtBackend.CreateUser(ctx, "writer"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "writer", PolicyID: "write-only-policy"}))
 		userClients["writer"] = createS3Client(ctx, port, writer.AccessKeyID, writer.SecretAccessKey)
 
-		publicReader := &core.User{Name: "public-reader"}
-		publicReader.AccessKeyID, publicReader.SecretAccessKey = credentials.GenerateCredentials()
-		lo.Must0(mgmtBackend.CreateUser(ctx, publicReader))
+		publicReader := lo.Must(mgmtBackend.CreateUser(ctx, "public-reader"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "public-reader", PolicyID: "public-read-policy"}))
 		userClients["public-reader"] = createS3Client(ctx, port, publicReader.AccessKeyID, publicReader.SecretAccessKey)
 
-		restrictedWriter := &core.User{Name: "restricted-writer"}
-		restrictedWriter.AccessKeyID, restrictedWriter.SecretAccessKey = credentials.GenerateCredentials()
-		lo.Must0(mgmtBackend.CreateUser(ctx, restrictedWriter))
+		restrictedWriter := lo.Must(mgmtBackend.CreateUser(ctx, "restricted-writer"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "restricted-writer", PolicyID: "write-only-policy"}))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "restricted-writer", PolicyID: "deny-delete-policy"}))
 		userClients["restricted-writer"] = createS3Client(ctx, port, restrictedWriter.AccessKeyID, restrictedWriter.SecretAccessKey)
 
-		noPerms := &core.User{Name: "no-permissions-user"}
-		noPerms.AccessKeyID, noPerms.SecretAccessKey = credentials.GenerateCredentials()
-		lo.Must0(mgmtBackend.CreateUser(ctx, noPerms))
+		noPerms := lo.Must(mgmtBackend.CreateUser(ctx, "no-permissions-user"))
 		userClients["no-permissions-user"] = createS3Client(ctx, port, noPerms.AccessKeyID, noPerms.SecretAccessKey)
 	})
 

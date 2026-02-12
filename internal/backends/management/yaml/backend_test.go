@@ -152,19 +152,15 @@ policies:
 		Describe("GetUserByName", func() {
 			Context("when user exists", func() {
 				BeforeEach(func(ctx context.Context) {
-					user := &core.User{
-						Name:            "testuser",
-						AccessKeyID:     "test-key",
-						SecretAccessKey: "test-secret",
-					}
-					lo.Must0(backend.CreateUser(ctx, user))
+					lo.Must(backend.CreateUser(ctx, "testuser"))
 				})
 
 				It("should return the user", func(ctx context.Context) {
 					user, err := backend.GetUserByName(ctx, "testuser")
 					Expect(err).NotTo(HaveOccurred())
 					Expect(user.Name).To(Equal("testuser"))
-					Expect(user.AccessKeyID).To(Equal("test-key"))
+					Expect(user.AccessKeyID).To(HaveLen(20))
+					Expect(user.SecretAccessKey).To(HaveLen(40))
 				})
 			})
 
@@ -188,13 +184,9 @@ policies:
 			Context("when access key exists", func() {
 				var testKey string
 				BeforeEach(func(ctx context.Context) {
-					testKey = "test-key-123"
-					user := &core.User{
-						Name:            "testuser",
-						AccessKeyID:     testKey,
-						SecretAccessKey: "test-secret",
-					}
-					lo.Must0(backend.CreateUser(ctx, user))
+
+					user := lo.Must(backend.CreateUser(ctx, "testuser"))
+					testKey = user.AccessKeyID
 				})
 
 				It("should return the user", func(ctx context.Context) {
@@ -215,70 +207,31 @@ policies:
 		Describe("CreateUser", func() {
 			Context("with valid user", func() {
 				It("should create the user", func(ctx context.Context) {
-					user := &core.User{
-						Name:            "newuser",
-						AccessKeyID:     "new-key",
-						SecretAccessKey: "new-secret",
-					}
-					err := backend.CreateUser(ctx, user)
+					_, err := backend.CreateUser(ctx, "newuser")
 					Expect(err).NotTo(HaveOccurred())
 
 					retrieved, err := backend.GetUserByName(ctx, "newuser")
 					Expect(err).NotTo(HaveOccurred())
-					Expect(retrieved.AccessKeyID).To(Equal("new-key"))
+					Expect(retrieved.Name).To(Equal("newuser"))
+					Expect(retrieved.AccessKeyID).To(HaveLen(20))
+					Expect(retrieved.SecretAccessKey).To(HaveLen(40))
 				})
 			})
 
 			Context("with empty name", func() {
 				It("should return invalid user error", func(ctx context.Context) {
-					user := &core.User{
-						AccessKeyID:     "key",
-						SecretAccessKey: "secret",
-					}
-					err := backend.CreateUser(ctx, user)
-					Expect(err).To(MatchError(core.ErrUserInvalid))
-				})
-			})
-
-			Context("with empty access key", func() {
-				It("should return invalid user error", func(ctx context.Context) {
-					user := &core.User{
-						Name:            "user",
-						SecretAccessKey: "secret",
-					}
-					err := backend.CreateUser(ctx, user)
-					Expect(err).To(MatchError(core.ErrUserInvalid))
-				})
-			})
-
-			Context("with empty secret", func() {
-				It("should return invalid user error", func(ctx context.Context) {
-					user := &core.User{
-						Name:        "user",
-						AccessKeyID: "key",
-					}
-					err := backend.CreateUser(ctx, user)
+					_, err := backend.CreateUser(ctx, "")
 					Expect(err).To(MatchError(core.ErrUserInvalid))
 				})
 			})
 
 			Context("when user already exists", func() {
 				BeforeEach(func(ctx context.Context) {
-					user := &core.User{
-						Name:            "existing",
-						AccessKeyID:     "key",
-						SecretAccessKey: "secret",
-					}
-					lo.Must0(backend.CreateUser(ctx, user))
+					lo.Must(backend.CreateUser(ctx, "existing"))
 				})
 
 				It("should return user already exists error", func(ctx context.Context) {
-					user := &core.User{
-						Name:            "existing",
-						AccessKeyID:     "key2",
-						SecretAccessKey: "secret2",
-					}
-					err := backend.CreateUser(ctx, user)
+					_, err := backend.CreateUser(ctx, "existing")
 					Expect(err).To(MatchError(core.ErrUserAlreadyExists))
 				})
 			})
@@ -286,12 +239,7 @@ policies:
 
 		Describe("UpdateUser", func() {
 			BeforeEach(func(ctx context.Context) {
-				user := &core.User{
-					Name:            "updateuser",
-					AccessKeyID:     "old-key",
-					SecretAccessKey: "old-secret",
-				}
-				lo.Must0(backend.CreateUser(ctx, user))
+				lo.Must(backend.CreateUser(ctx, "updateuser"))
 			})
 
 			Context("with valid update", func() {
@@ -335,12 +283,7 @@ policies:
 
 		Describe("DeleteUser", func() {
 			BeforeEach(func(ctx context.Context) {
-				user := &core.User{
-					Name:            "deleteuser",
-					AccessKeyID:     "key",
-					SecretAccessKey: "secret",
-				}
-				lo.Must0(backend.CreateUser(ctx, user))
+				lo.Must(backend.CreateUser(ctx, "deleteuser"))
 			})
 
 			Context("when user exists", func() {
@@ -508,12 +451,7 @@ policies:
 
 			When("bindings exist", func() {
 				BeforeEach(func(ctx context.Context) {
-					user := &core.User{
-						Name:            "bindinguser",
-						AccessKeyID:     "key",
-						SecretAccessKey: "secret",
-					}
-					lo.Must0(backend.CreateUser(ctx, user))
+					lo.Must(backend.CreateUser(ctx, "bindinguser"))
 
 					policy := &iampol.IAMPolicy{
 						ID: "bindingpolicy",
@@ -540,12 +478,7 @@ policies:
 		Describe("GetBindingsByUser", func() {
 			When("user exists", func() {
 				BeforeEach(func(ctx context.Context) {
-					user := &core.User{
-						Name:            "bindinguser",
-						AccessKeyID:     "key",
-						SecretAccessKey: "secret",
-					}
-					lo.Must0(backend.CreateUser(ctx, user))
+					lo.Must(backend.CreateUser(ctx, "bindinguser"))
 
 					policy1 := &iampol.IAMPolicy{
 						ID: "policy1",
@@ -592,12 +525,7 @@ policies:
 
 			When("user has no bindings", func() {
 				BeforeEach(func(ctx context.Context) {
-					user := &core.User{
-						Name:            "nobindingsuser",
-						AccessKeyID:     "key",
-						SecretAccessKey: "secret",
-					}
-					lo.Must0(backend.CreateUser(ctx, user))
+					lo.Must(backend.CreateUser(ctx, "nobindingsuser"))
 				})
 
 				It("returns empty list", func(ctx context.Context) {
@@ -611,19 +539,8 @@ policies:
 		Describe("GetBindingsByPolicy", func() {
 			When("policy exists", func() {
 				BeforeEach(func(ctx context.Context) {
-					user1 := &core.User{
-						Name:            "user1",
-						AccessKeyID:     "key1",
-						SecretAccessKey: "secret1",
-					}
-					lo.Must0(backend.CreateUser(ctx, user1))
-
-					user2 := &core.User{
-						Name:            "user2",
-						AccessKeyID:     "key2",
-						SecretAccessKey: "secret2",
-					}
-					lo.Must0(backend.CreateUser(ctx, user2))
+					lo.Must(backend.CreateUser(ctx, "user1"))
+					lo.Must(backend.CreateUser(ctx, "user2"))
 
 					policy := &iampol.IAMPolicy{
 						ID: "sharedpolicy",
@@ -681,12 +598,7 @@ policies:
 
 		Describe("CreateBinding", func() {
 			BeforeEach(func(ctx context.Context) {
-				user := &core.User{
-					Name:            "bindinguser",
-					AccessKeyID:     "key",
-					SecretAccessKey: "secret",
-				}
-				lo.Must0(backend.CreateUser(ctx, user))
+				lo.Must(backend.CreateUser(ctx, "bindinguser"))
 
 				policy := &iampol.IAMPolicy{
 					ID: "bindingpolicy",
@@ -778,12 +690,7 @@ policies:
 
 		Describe("DeleteBinding", func() {
 			BeforeEach(func(ctx context.Context) {
-				user := &core.User{
-					Name:            "bindinguser",
-					AccessKeyID:     "key",
-					SecretAccessKey: "secret",
-				}
-				lo.Must0(backend.CreateUser(ctx, user))
+				lo.Must(backend.CreateUser(ctx, "bindinguser"))
 
 				policy := &iampol.IAMPolicy{
 					ID: "bindingpolicy",
