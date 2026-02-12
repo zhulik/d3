@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/zhulik/d3/integration/testhelpers"
 
 	"github.com/samber/lo"
 
@@ -23,18 +24,18 @@ var (
 )
 
 var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Ordered, func() {
+	var app *testhelpers.App
 	var s3Client *s3.Client
 	var bucketName string
 
-	var cancelApp context.CancelFunc
-	var tempDir string
-
-	BeforeAll(func(ctx SpecContext) {
-		s3Client, bucketName, _, cancelApp, tempDir, _ = prepareConformanceTests(ctx)
+	BeforeAll(func(ctx context.Context) {
+		app = testhelpers.NewApp() //nolint:contextcheck
+		s3Client = app.S3Client(ctx, "admin")
+		bucketName = app.BucketName()
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupS3(ctx, cancelApp, s3Client, bucketName, tempDir)
+		app.Stop(ctx)
 	})
 
 	Describe("PutObject", func() {

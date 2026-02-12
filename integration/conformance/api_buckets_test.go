@@ -7,29 +7,30 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/samber/lo"
+	"github.com/zhulik/d3/integration/testhelpers"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Ordered, func() {
+	var app *testhelpers.App
 	var s3Client *s3.Client
 	var bucketName string
 
-	var cancelApp context.CancelFunc
-	var tempDir string
-
 	BeforeAll(func(ctx context.Context) {
-		s3Client, bucketName, _, cancelApp, tempDir, _ = prepareConformanceTests(ctx)
+		app = testhelpers.NewApp() //nolint:contextcheck
+		s3Client = app.S3Client(ctx, "admin")
+		bucketName = app.BucketName()
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupS3(ctx, cancelApp, s3Client, bucketName, tempDir)
+		app.Stop(ctx)
 	})
 
 	Describe("CreateBucket", func() {
 		When("bucket already exists", func() {
-			It("returnserror", func(ctx context.Context) {
+			It("returns error", func(ctx context.Context) {
 				_, err := s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
 					Bucket: &bucketName,
 				})

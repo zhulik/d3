@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/samber/lo"
+	"github.com/zhulik/d3/integration/testhelpers"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/iampol"
 	"github.com/zhulik/d3/pkg/s3actions"
@@ -16,21 +17,18 @@ import (
 
 var _ = Describe("Authorization", Label("conformance"), Label("authorization"), Ordered, func() {
 	var (
-		bucketName string
-		cancelApp  context.CancelFunc
-		tempDir    string
-
+		bucketName  string
 		userClients map[string]*s3.Client
 	)
 
-	BeforeAll(func(ctx context.Context) {
-		var (
-			adminS3Client *s3.Client
-			mgmtBackend   core.ManagementBackend
-			port          int
-		)
+	var app *testhelpers.App
 
-		adminS3Client, bucketName, port, cancelApp, tempDir, mgmtBackend = prepareConformanceTests(ctx)
+	BeforeAll(func(ctx context.Context) {
+		app = testhelpers.NewApp() //nolint:contextcheck
+		adminS3Client := app.S3Client(ctx, "admin")
+		bucketName = app.BucketName()
+
+		mgmtBackend := app.ManagementBackend(ctx)
 
 		testObjectKeys := []string{"public/file1.txt", "public/file2.txt", "private/file2.txt", "shared/file3.txt"}
 		for _, key := range testObjectKeys {
@@ -98,27 +96,27 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 
 		reader := lo.Must(mgmtBackend.CreateUser(ctx, "reader"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "reader", PolicyID: "read-only-policy"}))
-		userClients["reader"] = createS3Client(ctx, port, reader.AccessKeyID, reader.SecretAccessKey)
+		userClients["reader"] = app.S3Client(ctx, reader.Name)
 
 		writer := lo.Must(mgmtBackend.CreateUser(ctx, "writer"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "writer", PolicyID: "write-only-policy"}))
-		userClients["writer"] = createS3Client(ctx, port, writer.AccessKeyID, writer.SecretAccessKey)
+		userClients["writer"] = app.S3Client(ctx, writer.Name)
 
 		publicReader := lo.Must(mgmtBackend.CreateUser(ctx, "public-reader"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "public-reader", PolicyID: "public-read-policy"}))
-		userClients["public-reader"] = createS3Client(ctx, port, publicReader.AccessKeyID, publicReader.SecretAccessKey)
+		userClients["public-reader"] = app.S3Client(ctx, publicReader.Name)
 
 		restrictedWriter := lo.Must(mgmtBackend.CreateUser(ctx, "restricted-writer"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "restricted-writer", PolicyID: "write-only-policy"}))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "restricted-writer", PolicyID: "deny-delete-policy"}))
-		userClients["restricted-writer"] = createS3Client(ctx, port, restrictedWriter.AccessKeyID, restrictedWriter.SecretAccessKey)
+		userClients["restricted-writer"] = app.S3Client(ctx, restrictedWriter.Name)
 
 		noPerms := lo.Must(mgmtBackend.CreateUser(ctx, "no-permissions-user"))
-		userClients["no-permissions-user"] = createS3Client(ctx, port, noPerms.AccessKeyID, noPerms.SecretAccessKey)
+		userClients["no-permissions-user"] = app.S3Client(ctx, noPerms.Name)
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupS3(ctx, cancelApp, userClients["admin"], bucketName, tempDir)
+		app.Stop(ctx)
 	})
 
 	DescribeTable("Authorization checks",

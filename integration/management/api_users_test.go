@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/zhulik/d3/integration/testhelpers"
 	"github.com/zhulik/d3/internal/client/apiclient"
 	"github.com/zhulik/d3/internal/core"
 
@@ -13,15 +14,15 @@ import (
 
 var _ = Describe("Users API", Label("management"), Label("api-users"), Ordered, func() {
 	var client *apiclient.Client
-	var cancelApp context.CancelFunc
-	var tempDir string
+	var app *testhelpers.App
 
 	BeforeAll(func(ctx context.Context) {
-		client, cancelApp, tempDir = prepareManagementTests(ctx)
+		app = testhelpers.NewApp() //nolint:contextcheck
+		client = app.ManagementClient(ctx)
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupManagementTests(ctx, cancelApp, tempDir)
+		app.Stop(ctx)
 	})
 
 	Describe("ListUsers", func() {
