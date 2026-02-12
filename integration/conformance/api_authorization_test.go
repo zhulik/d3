@@ -16,24 +16,18 @@ import (
 )
 
 var _ = Describe("Authorization", Label("conformance"), Label("authorization"), Ordered, func() {
-	var (
-		bucketName  string
-		userClients map[string]*s3.Client
-	)
-
 	var app *testhelpers.App
 
 	BeforeAll(func(ctx context.Context) {
 		app = testhelpers.NewApp() //nolint:contextcheck
 		adminS3Client := app.S3Client(ctx, "admin")
-		bucketName = app.BucketName()
 
 		mgmtBackend := app.ManagementBackend(ctx)
 
 		testObjectKeys := []string{"public/file1.txt", "public/file2.txt", "private/file2.txt", "shared/file3.txt"}
 		for _, key := range testObjectKeys {
 			lo.Must(adminS3Client.PutObject(ctx, &s3.PutObjectInput{
-				Bucket: &bucketName,
+				Bucket: lo.ToPtr(app.BucketName()),
 				Key:    lo.ToPtr(key),
 				Body:   strings.NewReader("data"),
 			}))
@@ -46,7 +40,7 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			Statement: []iampol.Statement{{
 				Effect:   iampol.EffectAllow,
 				Action:   []s3actions.Action{s3actions.GetObject, s3actions.HeadObject, s3actions.ListObjectsV2},
-				Resource: []string{arnPrefix + bucketName, arnPrefix + bucketName + "/*"},
+				Resource: []string{arnPrefix + app.BucketName(), arnPrefix + app.BucketName() + "/*"},
 			}},
 		}
 		lo.Must0(mgmtBackend.CreatePolicy(ctx, readOnlyPolicy))
@@ -56,7 +50,7 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			Statement: []iampol.Statement{{
 				Effect:   iampol.EffectAllow,
 				Action:   []s3actions.Action{s3actions.PutObject, s3actions.DeleteObject},
-				Resource: []string{arnPrefix + bucketName, arnPrefix + bucketName + "/*"},
+				Resource: []string{arnPrefix + app.BucketName(), arnPrefix + app.BucketName() + "/*"},
 			}},
 		}
 		lo.Must0(mgmtBackend.CreatePolicy(ctx, writeOnlyPolicy))
@@ -66,7 +60,7 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			Statement: []iampol.Statement{{
 				Effect:   iampol.EffectAllow,
 				Action:   []s3actions.Action{s3actions.GetObject},
-				Resource: []string{arnPrefix + bucketName + "/public/*"},
+				Resource: []string{arnPrefix + app.BucketName() + "/public/*"},
 			}},
 		}
 		lo.Must0(mgmtBackend.CreatePolicy(ctx, publicReadPolicy))
@@ -76,7 +70,7 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			Statement: []iampol.Statement{{
 				Effect:   iampol.EffectDeny,
 				Action:   []s3actions.Action{s3actions.DeleteObject},
-				Resource: []string{arnPrefix + bucketName + "/*"},
+				Resource: []string{arnPrefix + app.BucketName() + "/*"},
 			}},
 		}
 		lo.Must0(mgmtBackend.CreatePolicy(ctx, denyDeletePolicy))
@@ -86,33 +80,25 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			Statement: []iampol.Statement{{
 				Effect:   iampol.EffectAllow,
 				Action:   []s3actions.Action{s3actions.All},
-				Resource: []string{arnPrefix + bucketName, arnPrefix + bucketName + "/*"},
+				Resource: []string{arnPrefix + app.BucketName(), arnPrefix + app.BucketName() + "/*"},
 			}},
 		}
 		lo.Must0(mgmtBackend.CreatePolicy(ctx, fullAccessPolicy))
 
-		userClients = make(map[string]*s3.Client)
-		userClients["admin"] = adminS3Client
-
-		reader := lo.Must(mgmtBackend.CreateUser(ctx, "reader"))
+		lo.Must(mgmtBackend.CreateUser(ctx, "reader"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "reader", PolicyID: "read-only-policy"}))
-		userClients["reader"] = app.S3Client(ctx, reader.Name)
 
-		writer := lo.Must(mgmtBackend.CreateUser(ctx, "writer"))
+		lo.Must(mgmtBackend.CreateUser(ctx, "writer"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "writer", PolicyID: "write-only-policy"}))
-		userClients["writer"] = app.S3Client(ctx, writer.Name)
 
-		publicReader := lo.Must(mgmtBackend.CreateUser(ctx, "public-reader"))
+		lo.Must(mgmtBackend.CreateUser(ctx, "public-reader"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "public-reader", PolicyID: "public-read-policy"}))
-		userClients["public-reader"] = app.S3Client(ctx, publicReader.Name)
 
-		restrictedWriter := lo.Must(mgmtBackend.CreateUser(ctx, "restricted-writer"))
+		lo.Must(mgmtBackend.CreateUser(ctx, "restricted-writer"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "restricted-writer", PolicyID: "write-only-policy"}))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "restricted-writer", PolicyID: "deny-delete-policy"}))
-		userClients["restricted-writer"] = app.S3Client(ctx, restrictedWriter.Name)
 
-		noPerms := lo.Must(mgmtBackend.CreateUser(ctx, "no-permissions-user"))
-		userClients["no-permissions-user"] = app.S3Client(ctx, noPerms.Name)
+		lo.Must(mgmtBackend.CreateUser(ctx, "no-permissions-user"))
 	})
 
 	AfterAll(func(ctx context.Context) {
@@ -120,9 +106,9 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 	})
 
 	DescribeTable("Authorization checks",
-		func(userName string, action s3actions.Action, objectKeyOrEmpty string, shouldSucceed bool) {
+		func(ctx context.Context, userName string, action s3actions.Action, objectKeyOrEmpty string, shouldSucceed bool) {
 			// Choose S3 client for the user.
-			var s3Client = userClients[userName]
+			var s3Client = app.S3Client(ctx, userName)
 
 			var err error
 
@@ -130,30 +116,30 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			case s3actions.PutObject:
 				key := objectKeyOrEmpty
 				_, err = s3Client.PutObject(context.Background(), &s3.PutObjectInput{
-					Bucket: &bucketName,
+					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 					Body:   strings.NewReader("data"),
 				})
 			case s3actions.GetObject:
 				key := objectKeyOrEmpty
 				_, err = s3Client.GetObject(context.Background(), &s3.GetObjectInput{
-					Bucket: &bucketName,
+					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})
 			case s3actions.HeadObject:
 				key := objectKeyOrEmpty
 				_, err = s3Client.HeadObject(context.Background(), &s3.HeadObjectInput{
-					Bucket: &bucketName,
+					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})
 			case s3actions.ListObjectsV2:
 				_, err = s3Client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
-					Bucket: &bucketName,
+					Bucket: lo.ToPtr(app.BucketName()),
 				})
 			case s3actions.DeleteObject:
 				key := objectKeyOrEmpty
 				_, err = s3Client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
-					Bucket: &bucketName,
+					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})
 			default:
