@@ -118,8 +118,7 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupS3(ctx, userClients["admin"], bucketName, tempDir)
-		cancelApp()
+		cleanupS3(ctx, cancelApp, userClients["admin"], bucketName, tempDir)
 	})
 
 	DescribeTable("Authorization checks",

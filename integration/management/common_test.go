@@ -71,6 +71,7 @@ func prepareManagementTests(ctx context.Context) (*apiclient.Client, context.Can
 	return client, cancelApp, tempDir
 }
 
-func cleanupManagementTests(_ context.Context, tempDir string) {
+func cleanupManagementTests(_ context.Context, cancelApp context.CancelFunc, tempDir string) {
+	cancelApp()
 	lo.Must0(os.RemoveAll(tempDir))
 }

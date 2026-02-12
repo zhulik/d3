@@ -23,8 +23,7 @@ var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ord
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupManagementTests(ctx, tempDir)
-		cancelApp()
+		cleanupManagementTests(ctx, cancelApp, tempDir)
 	})
 
 	Describe("ListPolicies", func() {

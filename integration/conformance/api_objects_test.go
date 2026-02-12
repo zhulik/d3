@@ -29,14 +29,12 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 	var cancelApp context.CancelFunc
 	var tempDir string
 
-	BeforeAll(func(ctx context.Context) {
+	BeforeAll(func(ctx SpecContext) {
 		s3Client, bucketName, _, cancelApp, tempDir, _ = prepareConformanceTests(ctx)
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupS3(ctx, s3Client, bucketName, tempDir)
-
-		cancelApp()
+		cleanupS3(ctx, cancelApp, s3Client, bucketName, tempDir)
 	})
 
 	Describe("PutObject", func() {

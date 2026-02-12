@@ -24,9 +24,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupS3(ctx, s3Client, bucketName, tempDir)
-
-		cancelApp()
+		cleanupS3(ctx, cancelApp, s3Client, bucketName, tempDir)
 	})
 
 	Describe("CreateBucket", func() {

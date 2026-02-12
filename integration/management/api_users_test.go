@@ -21,8 +21,7 @@ var _ = Describe("Users API", Label("management"), Label("api-users"), Ordered, 
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupManagementTests(ctx, tempDir)
-		cancelApp()
+		cleanupManagementTests(ctx, cancelApp, tempDir)
 	})
 
 	Describe("ListUsers", func() {

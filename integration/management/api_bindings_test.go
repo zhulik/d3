@@ -24,8 +24,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 	})
 
 	AfterAll(func(ctx context.Context) {
-		cleanupManagementTests(ctx, tempDir)
-		cancelApp()
+		cleanupManagementTests(ctx, cancelApp, tempDir)
 	})
 
 	Describe("ListBindings", func() {

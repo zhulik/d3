@@ -88,7 +88,7 @@ func prepareConformanceTests(ctx context.Context) (*s3.Client, string, int, cont
 	return s3Client, bucketName, port, cancelApp, tempDir, mgmtBackend
 }
 
-func cleanupS3(ctx context.Context, s3Client *s3.Client, bucketName string, tempDir string) {
+func cleanupS3(ctx context.Context, cancelApp context.CancelFunc, s3Client *s3.Client, bucketName string, tempDir string) {
 	objects := lo.Must(s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 		Bucket: &bucketName,
 	}))
@@ -107,5 +107,6 @@ func cleanupS3(ctx context.Context, s3Client *s3.Client, bucketName string, temp
 		Bucket: &bucketName,
 	}))
 
+	cancelApp()
 	lo.Must0(os.RemoveAll(tempDir))
 }
