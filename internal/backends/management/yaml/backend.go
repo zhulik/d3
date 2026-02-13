@@ -44,7 +44,7 @@ type Backend struct {
 	writer *atomicwriter.AtomicWriter
 }
 
-func (b *Backend) Init(ctx context.Context) error {
+func (b *Backend) Init(ctx context.Context) error { //nolint:funlen
 	// Lock the backend to prevent concurrent initialization
 	ctx, cancel, err := b.Locker.Lock(ctx, "yaml-management-backend-init")
 	if err != nil {
