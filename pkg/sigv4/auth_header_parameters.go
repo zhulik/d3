@@ -1,6 +1,9 @@
 package sigv4
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type AuthHeaderParameters struct {
 	algo          string
@@ -17,7 +20,7 @@ type AuthHeaderParameters struct {
 func (hp *AuthHeaderParameters) Validate() error {
 	if hp.algo != "AWS4-HMAC-SHA256" || hp.accessKey == "" || hp.signedHeaders == "" ||
 		hp.signature == "" || hp.requestTime == "" {
-		return ErrSignatureDoesNotMatch
+		return fmt.Errorf("%w: signature or request time missing", ErrSignatureDoesNotMatch)
 	}
 
 	// Minimal validation of scope

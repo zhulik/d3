@@ -71,7 +71,7 @@ func (a APIBuckets) CreateBucket(c *echo.Context) error {
 		"x-amz-bucket-arn": "arn:aws:s3:::" + name,
 	})
 
-	return c.NoContent(http.StatusCreated)
+	return c.NoContent(http.StatusOK)
 }
 
 func (a APIBuckets) DeleteBucket(c *echo.Context) error {

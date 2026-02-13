@@ -70,6 +70,7 @@ func (b *Backend) Init(ctx context.Context) error {
 	if err != nil {
 		if os.IsNotExist(err) {
 			accessKeyID, secretAccessKey := credentials.GenerateCredentials()
+
 			cfg := ManagementConfig{
 				Version: ConfigVersion,
 				AdminUser: core.User{
@@ -85,6 +86,9 @@ func (b *Backend) Init(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+
+			b.Logger.Info("YAML management backend initialized with admin credentials",
+				"AWS_ACCESS_KEY_ID", accessKeyID, "AWS_SECRET_ACCESS_KEY", secretAccessKey)
 
 			return b.reload(ctx)
 		}
