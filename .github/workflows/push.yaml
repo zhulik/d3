@@ -41,6 +41,8 @@ jobs:
 
       - uses: asdf-vm/actions/install@v4
 
+      - name: Run compose
+        run: docker compose up -d
 
       - name: Run tests
         run: task test test:integration
