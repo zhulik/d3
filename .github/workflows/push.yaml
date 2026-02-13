@@ -103,4 +103,4 @@ jobs:
         env:
           KO_DOCKER_REPO: ghcr.io/zhulik
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ko build -B --tags latest github.com/zhulik/d3/cmd/server
+        run: ko build -B --tags latest github.com/zhulik/d3/cmd/d3-server

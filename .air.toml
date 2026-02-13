@@ -1,7 +1,7 @@
 tmp_dir = "/tmp"
 
 [build]
-  cmd = "go build -o /tmp/d3 ./cmd/server"
+  cmd = "go build -o /tmp/d3 ./cmd/d3-server"
   delay = 100
   entrypoint = ["/tmp/d3"]
   exclude_dir = ["d3_data"]
