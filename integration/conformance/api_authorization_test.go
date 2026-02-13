@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/integration/testhelpers"
 	"github.com/zhulik/d3/internal/core"
@@ -24,7 +25,10 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 
 		mgmtBackend := app.ManagementBackend(ctx)
 
-		testObjectKeys := []string{"public/file1.txt", "public/file2.txt", "private/file2.txt", "shared/file3.txt"}
+		testObjectKeys := []string{
+			"public/file1.txt", "public/file2.txt", "private/file2.txt", "shared/file3.txt",
+			"a/object.txt", "b/object.txt", "a/other.txt", "x/y/object.txt",
+		}
 		for _, key := range testObjectKeys {
 			lo.Must(adminS3Client.PutObject(ctx, &s3.PutObjectInput{
 				Bucket: lo.ToPtr(app.BucketName()),
@@ -39,7 +43,7 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			ID: "read-only-policy",
 			Statement: []iampol.Statement{{
 				Effect:   iampol.EffectAllow,
-				Action:   []s3actions.Action{s3actions.GetObject, s3actions.HeadObject, s3actions.ListObjectsV2},
+				Action:   []s3actions.Action{s3actions.GetObject, s3actions.HeadObject, s3actions.ListObjectsV2, s3actions.GetObjectTagging},
 				Resource: []string{arnPrefix + app.BucketName(), arnPrefix + app.BucketName() + "/*"},
 			}},
 		}
@@ -49,7 +53,7 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			ID: "write-only-policy",
 			Statement: []iampol.Statement{{
 				Effect:   iampol.EffectAllow,
-				Action:   []s3actions.Action{s3actions.PutObject, s3actions.DeleteObject},
+				Action:   []s3actions.Action{s3actions.PutObject, s3actions.DeleteObject, s3actions.DeleteObjects},
 				Resource: []string{arnPrefix + app.BucketName(), arnPrefix + app.BucketName() + "/*"},
 			}},
 		}
@@ -85,6 +89,26 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 		}
 		lo.Must0(mgmtBackend.CreatePolicy(ctx, fullAccessPolicy))
 
+		specificObjectPolicy := &iampol.IAMPolicy{
+			ID: "specific-object-policy",
+			Statement: []iampol.Statement{{
+				Effect:   iampol.EffectAllow,
+				Action:   []s3actions.Action{s3actions.GetObject, s3actions.HeadObject},
+				Resource: []string{arnPrefix + app.BucketName() + "/shared/file3.txt"},
+			}},
+		}
+		lo.Must0(mgmtBackend.CreatePolicy(ctx, specificObjectPolicy))
+
+		wildcardMiddlePolicy := &iampol.IAMPolicy{
+			ID: "wildcard-middle-policy",
+			Statement: []iampol.Statement{{
+				Effect:   iampol.EffectAllow,
+				Action:   []s3actions.Action{s3actions.GetObject, s3actions.HeadObject},
+				Resource: []string{arnPrefix + app.BucketName() + "/*/object.txt"},
+			}},
+		}
+		lo.Must0(mgmtBackend.CreatePolicy(ctx, wildcardMiddlePolicy))
+
 		lo.Must(mgmtBackend.CreateUser(ctx, "reader"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "reader", PolicyID: "read-only-policy"}))
 
@@ -99,6 +123,12 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "restricted-writer", PolicyID: "deny-delete-policy"}))
 
 		lo.Must(mgmtBackend.CreateUser(ctx, "no-permissions-user"))
+
+		lo.Must(mgmtBackend.CreateUser(ctx, "specific-object-user"))
+		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "specific-object-user", PolicyID: "specific-object-policy"}))
+
+		lo.Must(mgmtBackend.CreateUser(ctx, "wildcard-middle-user"))
+		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "wildcard-middle-user", PolicyID: "wildcard-middle-policy"}))
 	})
 
 	AfterAll(func(ctx context.Context) {
@@ -142,6 +172,20 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})
+			case s3actions.DeleteObjects:
+				key := objectKeyOrEmpty
+				_, err = s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+					Bucket: lo.ToPtr(app.BucketName()),
+					Delete: &types.Delete{
+						Objects: []types.ObjectIdentifier{{Key: lo.ToPtr(key)}},
+					},
+				})
+			case s3actions.GetObjectTagging:
+				key := objectKeyOrEmpty
+				_, err = s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
+					Bucket: lo.ToPtr(app.BucketName()),
+					Key:    lo.ToPtr(key),
+				})
 			default:
 				Fail("unsupported action in authorization table test")
 			}
@@ -169,5 +213,20 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 		Entry("restricted-writer cannot delete object", "restricted-writer", s3actions.DeleteObject, "public/file1.txt", false),
 		Entry("no-permissions-user cannot get object", "no-permissions-user", s3actions.GetObject, "public/file1.txt", false),
 		Entry("no-permissions-user cannot put object", "no-permissions-user", s3actions.PutObject, "noperm-new.txt", false),
+		Entry("specific-object-user can get shared file3", "specific-object-user", s3actions.GetObject, "shared/file3.txt", true),
+		Entry("specific-object-user can head shared file3", "specific-object-user", s3actions.HeadObject, "shared/file3.txt", true),
+		Entry("specific-object-user cannot get public file", "specific-object-user", s3actions.GetObject, "public/file1.txt", false),
+		Entry("specific-object-user cannot get private file", "specific-object-user", s3actions.GetObject, "private/file2.txt", false),
+		Entry("specific-object-user cannot put object", "specific-object-user", s3actions.PutObject, "shared/new.txt", false),
+		Entry("wildcard-middle-user can get a/object.txt", "wildcard-middle-user", s3actions.GetObject, "a/object.txt", true),
+		Entry("wildcard-middle-user can get b/object.txt", "wildcard-middle-user", s3actions.GetObject, "b/object.txt", true),
+		Entry("wildcard-middle-user can get x/y/object.txt", "wildcard-middle-user", s3actions.GetObject, "x/y/object.txt", true),
+		Entry("wildcard-middle-user can head a/object.txt", "wildcard-middle-user", s3actions.HeadObject, "a/object.txt", true),
+		Entry("wildcard-middle-user cannot get a/other.txt", "wildcard-middle-user", s3actions.GetObject, "a/other.txt", false),
+		Entry("wildcard-middle-user cannot get public/file1.txt", "wildcard-middle-user", s3actions.GetObject, "public/file1.txt", false),
+		Entry("writer can delete objects batch", "writer", s3actions.DeleteObjects, "public/file2.txt", true),
+		Entry("reader cannot delete objects batch", "reader", s3actions.DeleteObjects, "public/file1.txt", false),
+		Entry("reader can get object tagging", "reader", s3actions.GetObjectTagging, "shared/file3.txt", true),
+		Entry("writer cannot get object tagging", "writer", s3actions.GetObjectTagging, "shared/file3.txt", false),
 	)
 })

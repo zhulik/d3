@@ -118,14 +118,14 @@ func (o *Object) Delete() error {
 		return err
 	}
 
-	parentDir := filepath.Dir(o.path)
-
-	entries, readErr := os.ReadDir(parentDir)
-	if readErr == nil && len(entries) == 0 {
-		// we ignore the on purpose because there might be concurrent uploads to the same directory
-		if parentDir != o.bucket.rootPath() {
-			os.Remove(parentDir)
+	root := filepath.Clean(o.bucket.rootPath())
+	for parent := filepath.Clean(filepath.Dir(o.path)); parent != root; parent = filepath.Clean(filepath.Dir(parent)) {
+		entries, err := os.ReadDir(parent)
+		if err != nil || len(entries) != 0 {
+			return err
 		}
+		// we ignore the error on purpose because there might be concurrent uploads to the same directory
+		os.Remove(parent)
 	}
 
 	return nil
