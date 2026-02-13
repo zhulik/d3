@@ -12,30 +12,35 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/cache@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          path: ~/.asdf
+          key: |
+            asdf-${{ runner.os }}-${{ hashFiles('**/.tool-versions') }}
+          restore-keys: |
+            asdf-${{ runner.os }}-
 
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
-          args: --timeout=5m
+      - uses: asdf-vm/actions/install@v4
+
+      - name: Run linter
+        run: task lint
 
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: wizhi/setup-task@v1
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/cache@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          path: ~/.asdf
+          key: |
+            asdf-${{ runner.os }}-${{ hashFiles('**/.tool-versions') }}
+          restore-keys: |
+            asdf-${{ runner.os }}-
+
+      - uses: asdf-vm/actions/install@v4
+
 
       - name: Run tests
         run: task test test:integration
@@ -50,10 +55,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/cache@v5
         with:
-          go-version-file: 'go.mod'
+          path: ~/.asdf
+          key: |
+            asdf-${{ runner.os }}-${{ hashFiles('**/.tool-versions') }}
+          restore-keys: |
+            asdf-${{ runner.os }}-
+
+      - uses: asdf-vm/actions/install@v4
 
       - uses: ko-build/setup-ko@v0.9
 
