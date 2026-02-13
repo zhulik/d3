@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 jobs:
   lint:
@@ -74,8 +76,7 @@ jobs:
       - test
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
       - name: Cache asdf
         uses: actions/cache@v5
@@ -96,11 +97,19 @@ jobs:
             go-build-${{ runner.os }}-
 
       - uses: asdf-vm/actions/install@v4
-
       - uses: ko-build/setup-ko@v0.9
+
+      - name: Set image tags
+        id: tags
+        run: |
+          if [ "${{ github.ref_type }}" = "branch" ] && [ "${{ github.ref_name }}" = "main" ]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build and push image with ko
         env:
           KO_DOCKER_REPO: ghcr.io/zhulik
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ko build -B --tags latest github.com/zhulik/d3/cmd/d3-server
+        run: ko build -B --tags ${{ steps.tags.outputs.tag }} github.com/zhulik/d3/cmd/d3-server

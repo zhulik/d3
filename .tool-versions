@@ -3,3 +3,4 @@ golangci-lint 2.8.0
 task 3.46.4
 ginkgo 2.27.5
 awscli 2.33.5
+ko 0.18.1
