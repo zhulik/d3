@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/minio/minio-go/v7"
 	"github.com/zhulik/d3/integration/testhelpers"
 
 	"github.com/samber/lo"
@@ -26,11 +27,13 @@ var (
 var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Ordered, func() {
 	var app *testhelpers.App
 	var s3Client *s3.Client
+	var minioClient *minio.Client
 	var bucketName string
 
 	BeforeAll(func(ctx context.Context) {
 		app = testhelpers.NewApp() //nolint:contextcheck
 		s3Client = app.S3Client(ctx, "admin")
+		minioClient = app.MinioClient(ctx, "admin")
 		bucketName = app.BucketName()
 	})
 
@@ -119,7 +122,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 
 		When("prefix is not specified", func() {
-			It("lists all objects", func(ctx context.Context) {
+			It("lists all objects with AWS SDK", func(ctx context.Context) {
 				listObjectsOutput, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
 					Bucket: &bucketName,
 				})
@@ -127,6 +130,16 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				Expect(listObjectsOutput.Contents).To(HaveLen(2))
 				Expect(listObjectsOutput.Contents[0].Key).To(Equal(lo.ToPtr("dir/hello.txt")))
 				Expect(listObjectsOutput.Contents[1].Key).To(Equal(lo.ToPtr("hello.txt")))
+			})
+
+			XIt("lists all objects with Minio SDK", func(ctx context.Context) {
+				objectsChan := minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{})
+				objects := lo.ChannelToSlice(objectsChan)
+
+				// Expect(err).NotTo(HaveOccurred())
+				Expect(objects).To(HaveLen(2))
+				Expect(objects[0].Key).To(Equal("dir/hello.txt"))
+				Expect(objects[1].Key).To(Equal("hello.txt"))
 			})
 		})
 
@@ -214,7 +227,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 	Describe("HeadObject", func() {
 		When("object exists", func() {
-			It("returns object metadata", func(ctx context.Context) {
+			It("returns object metadata with AWS SDK", func(ctx context.Context) {
 				content := "hello world"
 				headObjectOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
 					Bucket: &bucketName,

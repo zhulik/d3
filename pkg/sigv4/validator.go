@@ -257,10 +257,7 @@ func buildCanonicalHeaders(signedHeaders string, r *http.Request) string {
 
 		val = collapseSpaces(val)
 
-		canonicalHeaders.WriteString(name)
-		canonicalHeaders.WriteString(":")
-		canonicalHeaders.WriteString(val)
-		canonicalHeaders.WriteString("\n")
+		canonicalHeaders.WriteString(fmt.Sprintf("%s:%s\n", name, val))
 	}
 
 	return canonicalHeaders.String()

@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/minio/minio-go/v7"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/integration/testhelpers"
 
@@ -16,11 +17,13 @@ import (
 var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Ordered, func() {
 	var app *testhelpers.App
 	var s3Client *s3.Client
+	var minioClient *minio.Client
 	var bucketName string
 
 	BeforeAll(func(ctx context.Context) {
 		app = testhelpers.NewApp() //nolint:contextcheck
 		s3Client = app.S3Client(ctx, "admin")
+		minioClient = app.MinioClient(ctx, "admin")
 		bucketName = app.BucketName()
 	})
 
@@ -49,6 +52,23 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 			})
 
 			Expect(found).To(BeTrue())
+		})
+	})
+
+	Describe("HeadBuckets", func() {
+		It("resturns a bucket using AWS SDK", func(ctx context.Context) {
+			headBucketOutput, err := s3Client.HeadBucket(ctx, &s3.HeadBucketInput{
+				Bucket: &bucketName,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(*headBucketOutput.BucketRegion).To(Equal("local"))
+		})
+
+		XIt("resturns a bucket using Minio SDK", func(ctx context.Context) {
+			headBucketOutput, err := minioClient.BucketExists(ctx, bucketName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(headBucketOutput).To(BeTrue())
 		})
 	})
 

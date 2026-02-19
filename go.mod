@@ -11,6 +11,7 @@ require (
 	github.com/golang-cz/devslog v0.0.15
 	github.com/google/uuid v1.6.0
 	github.com/labstack/echo/v5 v5.0.0
+	github.com/minio/minio-go/v7 v7.0.98
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.38.3
 	github.com/redis/rueidis v1.0.70
@@ -81,7 +82,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.0.98 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect

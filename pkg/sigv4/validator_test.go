@@ -28,6 +28,7 @@ var _ = Describe("Validate", func() {
 						"http://127.0.0.1:8080/",
 						"http://127.0.0.1:8080/foo?location=",
 						"http://127.0.0.1:8080/?limit=100",
+						"http://127.0.0.1:8080/bucket-b32835c8-eab9-42c7-bf4e-7ed8f2075b07/?delimiter=%2F&encoding-type=url&fetch-owner=true&list-type=2&prefix=",
 					} {
 						entries = append(entries, Entry(fmt.Sprintf("%s %s %s sum=%s", signRequestName, method, url, payloadSum), method, url, payloadSum, signFn))
 					}
