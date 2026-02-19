@@ -11,8 +11,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/google/uuid"
+	"github.com/minio/minio-go/v7"
+	minioCreds "github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/samber/lo"
 	"github.com/zhulik/d3/internal/application"
 	"github.com/zhulik/d3/internal/client/apiclient"
@@ -74,27 +75,7 @@ func NewApp() *App {
 	return app
 }
 
-func (a *App) Stop(ctx context.Context) {
-	s3Client := a.S3Client(context.Background(), "admin")
-
-	objects := lo.Must(s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-		Bucket: &a.bucketName,
-	}))
-	if len(objects.Contents) > 0 {
-		lo.Must(s3Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
-			Bucket: &a.bucketName,
-			Delete: &types.Delete{
-				Objects: lo.Map(objects.Contents, func(object types.Object, _ int) types.ObjectIdentifier {
-					return types.ObjectIdentifier{Key: object.Key}
-				}),
-			},
-		}))
-	}
-
-	lo.Must(s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{
-		Bucket: &a.bucketName,
-	}))
-
+func (a *App) Stop(_ context.Context) {
 	a.cancelApp()
 	lo.Must0(os.RemoveAll(a.tempDir))
 }
@@ -125,7 +106,7 @@ func (a *App) S3Client(ctx context.Context, username string) *s3.Client {
 		config.WithBaseEndpoint(fmt.Sprintf("http://localhost:%d", a.s3Port)),
 		config.WithRegion("local"),
 		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(user.AccessKeyID, user.SecretAccessKey, "test"),
+			credentials.NewStaticCredentialsProvider(user.AccessKeyID, user.SecretAccessKey, ""),
 		),
 	))
 
@@ -133,6 +114,21 @@ func (a *App) S3Client(ctx context.Context, username string) *s3.Client {
 		o.UsePathStyle = true
 		o.RetryMaxAttempts = 1
 	})
+}
+
+func (a *App) MinioClient(ctx context.Context, username string) *minio.Client {
+	managementBackend := pal.MustInvoke[core.ManagementBackend](ctx, a.pal)
+	user := lo.Must(managementBackend.GetUserByName(ctx, username))
+
+	endpoint := fmt.Sprintf("localhost:%d", a.s3Port)
+	client := lo.Must(minio.New(endpoint, &minio.Options{
+		Creds:        minioCreds.NewStaticV4(user.AccessKeyID, user.SecretAccessKey, ""),
+		Secure:       false, // no TLS
+		Region:       "local",
+		BucketLookup: minio.BucketLookupPath,
+	}))
+
+	return client
 }
 
 func (a *App) BucketName() string {
