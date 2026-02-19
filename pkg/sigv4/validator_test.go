@@ -26,6 +26,7 @@ var _ = Describe("Validate", func() {
 						"http://127.0.0.1:8080/foo/bar?baz=",
 						"http://127.0.0.1:8080/foo/bar/?baz=",
 						"http://127.0.0.1:8080/",
+						"http://127.0.0.1:8080/foo?location=",
 						"http://127.0.0.1:8080/?limit=100",
 					} {
 						entries = append(entries, Entry(fmt.Sprintf("%s %s %s sum=%s", signRequestName, method, url, payloadSum), method, url, payloadSum, signFn))
