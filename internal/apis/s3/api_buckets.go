@@ -23,15 +23,16 @@ type APIBuckets struct {
 
 func (a APIBuckets) Init(_ context.Context) error {
 	bucketFinder := a.BucketFinder.Middleware()
+	authorizer := a.Echo.Authorizer.Middleware()
 
-	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation, s3actions.GetBucketLocation, bucketFinder)
+	a.Echo.AddQueryParamRoute("location", a.GetBucketLocation, s3actions.GetBucketLocation, bucketFinder, authorizer)
 
-	a.Echo.GET("/", a.ListBuckets, middlewares.SetAction(s3actions.ListBuckets))
+	a.Echo.GET("/", a.ListBuckets, middlewares.SetAction(s3actions.ListBuckets)) // TODO: authorizer
 
 	buckets := a.Echo.Group("/:bucket")
-	buckets.HEAD("", a.HeadBucket, middlewares.SetAction(s3actions.HeadBucket), bucketFinder)
+	buckets.HEAD("", a.HeadBucket, middlewares.SetAction(s3actions.HeadBucket), bucketFinder, authorizer)
 	buckets.PUT("", a.CreateBucket, middlewares.SetAction(s3actions.CreateBucket))
-	buckets.DELETE("", a.DeleteBucket, middlewares.SetAction(s3actions.DeleteBucket))
+	buckets.DELETE("", a.DeleteBucket, middlewares.SetAction(s3actions.DeleteBucket)) // TODO: authorizer
 
 	return nil
 }
