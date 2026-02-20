@@ -34,17 +34,36 @@ var (
 type AccessKeyResolver func(ctx context.Context, accessKey string) (string, error)
 
 func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyResolver) (string, error) {
-	hp, err := extractAuthHeaderParameters(r)
+	keyId, err := validate(ctx, r.Method, r.URL, r.Header, r.Host, accessKeyResolver)
+	if errors.Is(err, ErrSignatureDoesNotMatch) {
+		// we want to retry the validation with a trailing slash
+
+		// if the path already has a trailing slash, we return the error as is
+		if strings.HasSuffix(r.URL.Path, "/") {
+			return "", err
+		}
+
+		// if the path doesn't have a trailing slash, we add it and retry the validation
+		newURL := *r.URL
+		newURL.Path = newURL.Path + "/"
+		return validate(ctx, r.Method, &newURL, r.Header, r.Host, accessKeyResolver)
+	}
+
+	return keyId, nil
+}
+
+func validate(ctx context.Context, method string, u *url.URL, header http.Header, host string, accessKeyResolver AccessKeyResolver) (string, error) {
+	hp, err := extractAuthHeaderParameters(u, header)
 	if err != nil {
 		return "", err
 	}
 
-	canURI := buildCanonicalURI(r)
-	canQuery := buildCanonicalQueryString(r)
-	canHeaders := buildCanonicalHeaders(hp.signedHeaders, r)
+	canURI := buildCanonicalURI(u)
+	canQuery := buildCanonicalQueryString(u)
+	canHeaders := buildCanonicalHeaders(hp.signedHeaders, header, host)
 
 	canReq := strings.Join([]string{
-		r.Method,
+		method,
 		canURI,
 		canQuery,
 		canHeaders,
@@ -82,20 +101,20 @@ func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyR
 	return hp.accessKey, nil
 }
 
-func extractAuthHeaderParameters(r *http.Request) (*AuthHeaderParameters, error) {
+func extractAuthHeaderParameters(u *url.URL, header http.Header) (*AuthHeaderParameters, error) {
 	var headerParams *AuthHeaderParameters
 
-	qs := r.URL.Query()
+	qs := u.Query()
 
 	var err error
 
-	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "AWS4-HMAC-SHA256 ") {
-		headerParams, err = extractAuthHeadersParamsFromAuthHeader(r)
+	if auth := header.Get("Authorization"); strings.HasPrefix(auth, "AWS4-HMAC-SHA256 ") {
+		headerParams, err = extractAuthHeadersParamsFromAuthHeader(header)
 		if err != nil {
 			return nil, err
 		}
 	} else if qs.Get("X-Amz-Algorithm") == AlgoHMAC256 {
-		headerParams, err = extractAuthHeadersParamsFromSignedURL(r)
+		headerParams, err = extractAuthHeadersParamsFromSignedURL(u)
 		if err != nil {
 			return nil, err
 		}
@@ -110,13 +129,13 @@ func extractAuthHeaderParameters(r *http.Request) (*AuthHeaderParameters, error)
 	return headerParams, nil
 }
 
-func extractAuthHeadersParamsFromAuthHeader(r *http.Request) (*AuthHeaderParameters, error) {
-	auth := r.Header.Get("Authorization")
+func extractAuthHeadersParamsFromAuthHeader(header http.Header) (*AuthHeaderParameters, error) {
+	auth := header.Get("Authorization")
 
 	headerParams := &AuthHeaderParameters{
 		algo:          AlgoHMAC256,
-		hashedPayload: r.Header.Get("X-Amz-Content-Sha256"),
-		requestTime:   r.Header.Get("X-Amz-Date"),
+		hashedPayload: header.Get("X-Amz-Content-Sha256"),
+		requestTime:   header.Get("X-Amz-Date"),
 	}
 
 	if headerParams.requestTime == "" {
@@ -156,8 +175,8 @@ func extractAuthHeadersParamsFromAuthHeader(r *http.Request) (*AuthHeaderParamet
 	return headerParams, nil
 }
 
-func extractAuthHeadersParamsFromSignedURL(r *http.Request) (*AuthHeaderParameters, error) {
-	qs := r.URL.Query()
+func extractAuthHeadersParamsFromSignedURL(u *url.URL) (*AuthHeaderParameters, error) {
+	qs := u.Query()
 	headerParams := &AuthHeaderParameters{
 		algo:          AlgoHMAC256,
 		requestTime:   qs.Get("X-Amz-Date"),
@@ -194,8 +213,8 @@ func extractAuthHeadersParamsFromSignedURL(r *http.Request) (*AuthHeaderParamete
 	return headerParams, nil
 }
 
-func buildCanonicalURI(r *http.Request) string {
-	canURI := r.URL.EscapedPath()
+func buildCanonicalURI(url *url.URL) string {
+	canURI := url.EscapedPath()
 	if canURI == "" {
 		canURI = "/"
 	}
@@ -203,12 +222,12 @@ func buildCanonicalURI(r *http.Request) string {
 	return canURI
 }
 
-func buildCanonicalQueryString(r *http.Request) string {
+func buildCanonicalQueryString(u *url.URL) string {
 	var canQuery string
 
 	qp := url.Values{}
 
-	for k, vs := range r.URL.Query() {
+	for k, vs := range u.Query() {
 		if k == "X-Amz-Signature" {
 			continue
 		}
@@ -241,7 +260,7 @@ func buildCanonicalQueryString(r *http.Request) string {
 	return canQuery
 }
 
-func buildCanonicalHeaders(signedHeaders string, r *http.Request) string {
+func buildCanonicalHeaders(signedHeaders string, header http.Header, host string) string {
 	sh := strings.Split(signedHeaders, ";")
 	sort.Strings(sh)
 
@@ -250,9 +269,9 @@ func buildCanonicalHeaders(signedHeaders string, r *http.Request) string {
 	for _, h := range sh {
 		name := strings.ToLower(strings.TrimSpace(h))
 
-		val := strings.TrimSpace(r.Header.Get(name))
+		val := strings.TrimSpace(header.Get(name))
 		if name == "host" && val == "" {
-			val = r.Host
+			val = host
 		}
 
 		val = collapseSpaces(val)

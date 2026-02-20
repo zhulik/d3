@@ -25,7 +25,7 @@ func (e *Echo) Init(_ context.Context) error {
 	e.Logger = slog.Default()
 	e.rootQueryRouter = NewQueryParamsRouter()
 
-	// e.Pre(middleware.RemoveTrailingSlash())
+	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(
 		apictx.Middleware(),
 		middlewares.Logger(),
