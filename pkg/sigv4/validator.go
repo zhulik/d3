@@ -17,6 +17,8 @@ import (
 const (
 	AlgoHMAC256      = "AWS4-HMAC-SHA256"
 	ScopeAWS4Request = "aws4_request"
+	TimeFormat       = "20060102T150405Z"
+	ShortTimeFormat  = "20060102"
 )
 
 var (
@@ -45,14 +47,15 @@ func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyR
 
 		// if the path doesn't have a trailing slash, we add it and retry the validation
 		newURL := *r.URL
-		newURL.Path = newURL.Path + "/"
+		newURL.Path += "/"
+
 		return validate(ctx, r.Method, &newURL, r.Header, r.Host, accessKeyResolver)
 	}
 
 	return keyID, nil
 }
 
-func validate(ctx context.Context, method string, u *url.URL, header http.Header, host string, accessKeyResolver AccessKeyResolver) (string, error) {
+func validate(ctx context.Context, method string, u *url.URL, header http.Header, host string, accessKeyResolver AccessKeyResolver) (string, error) { //nolint:lll
 	hp, err := extractAuthHeaderParameters(u, header)
 	if err != nil {
 		return "", err
@@ -74,10 +77,10 @@ func validate(ctx context.Context, method string, u *url.URL, header http.Header
 	hash := sha256.Sum256([]byte(canReq))
 	canReqHashHex := hex.EncodeToString(hash[:])
 
-	scope := strings.Join([]string{hp.scopeDate, hp.scopeRegion, hp.scopeService, ScopeAWS4Request}, "/")
+	scope := buildSigningScope(hp.scopeRegion, hp.scopeService, hp.scopeDate)
 	sts := strings.Join([]string{
 		AlgoHMAC256,
-		hp.requestTime,
+		hp.requestTime.Format(TimeFormat),
 		scope,
 		canReqHashHex,
 	}, "\n")
@@ -87,10 +90,8 @@ func validate(ctx context.Context, method string, u *url.URL, header http.Header
 		return "", fmt.Errorf("%w: %w", ErrInvalidAccessKeyID, err)
 	}
 
-	kDate := hmacSHA256([]byte("AWS4"+secretKey), hp.scopeDate)
-	kRegion := hmacSHA256(kDate, hp.scopeRegion)
-	kService := hmacSHA256(kRegion, hp.scopeService)
-	kSigning := hmacSHA256(kService, ScopeAWS4Request)
+	kSigning := deriveSigningKey(hp.scopeRegion, hp.scopeService, secretKey, hp.scopeDate)
+
 	sigBytes := hmacSHA256(kSigning, sts)
 	calcSig := hex.EncodeToString(sigBytes)
 
@@ -132,13 +133,18 @@ func extractAuthHeaderParameters(u *url.URL, header http.Header) (*AuthHeaderPar
 func extractAuthHeadersParamsFromAuthHeader(header http.Header) (*AuthHeaderParameters, error) {
 	auth := header.Get("Authorization")
 
+	requestTime, err := time.Parse(TimeFormat, header.Get("X-Amz-Date"))
+	if err != nil {
+		return nil, err
+	}
+
 	headerParams := &AuthHeaderParameters{
 		algo:          AlgoHMAC256,
 		hashedPayload: header.Get("X-Amz-Content-Sha256"),
-		requestTime:   header.Get("X-Amz-Date"),
+		requestTime:   requestTime,
 	}
 
-	if headerParams.requestTime == "" {
+	if headerParams.requestTime.IsZero() {
 		return nil, ErrMissingDateHeader
 	}
 
@@ -161,7 +167,13 @@ func extractAuthHeadersParamsFromAuthHeader(header http.Header) (*AuthHeaderPara
 			credParts := strings.Split(val, "/")
 			if len(credParts) >= 5 {
 				headerParams.accessKey = credParts[0]
-				headerParams.scopeDate = credParts[1]
+
+				scopeDate, err := time.Parse(ShortTimeFormat, credParts[1])
+				if err != nil {
+					return nil, err
+				}
+
+				headerParams.scopeDate = scopeDate
 				headerParams.scopeRegion = credParts[2]
 				headerParams.scopeService = credParts[3]
 			}
@@ -177,9 +189,15 @@ func extractAuthHeadersParamsFromAuthHeader(header http.Header) (*AuthHeaderPara
 
 func extractAuthHeadersParamsFromSignedURL(u *url.URL) (*AuthHeaderParameters, error) {
 	qs := u.Query()
+
+	requestTime, err := time.Parse(TimeFormat, qs.Get("X-Amz-Date"))
+	if err != nil {
+		return nil, err
+	}
+
 	headerParams := &AuthHeaderParameters{
 		algo:          AlgoHMAC256,
-		requestTime:   qs.Get("X-Amz-Date"),
+		requestTime:   requestTime,
 		signedHeaders: qs.Get("X-Amz-SignedHeaders"),
 		signature:     strings.ToLower(qs.Get("X-Amz-Signature")),
 		hashedPayload: qs.Get("X-Amz-Content-Sha256"),
@@ -194,19 +212,21 @@ func extractAuthHeadersParamsFromSignedURL(u *url.URL) (*AuthHeaderParameters, e
 	credParts := strings.Split(cred, "/")
 	if len(credParts) >= 5 {
 		headerParams.accessKey = credParts[0]
-		headerParams.scopeDate = credParts[1]
+
+		scopeDate, err := time.Parse(ShortTimeFormat, credParts[1])
+		if err != nil {
+			return nil, err
+		}
+
+		headerParams.scopeDate = scopeDate
 		headerParams.scopeRegion = credParts[2]
 		headerParams.scopeService = credParts[3]
 	}
 
 	if expStr := qs.Get("X-Amz-Expires"); expStr != "" {
-		if tReq, err := time.Parse("20060102T150405Z", headerParams.requestTime); err == nil {
-			maxT := tReq.Add(time.Duration(parseIntDefault(expStr, 0)) * time.Second).Add(5 * time.Minute)
-			if time.Now().UTC().After(maxT) {
-				return nil, ErrExpiredPresignRequest
-			}
-		} else {
-			return nil, ErrMalformedPresignedDate
+		maxT := headerParams.requestTime.Add(time.Duration(parseIntDefault(expStr, 0)) * time.Second).Add(5 * time.Minute)
+		if time.Now().UTC().After(maxT) {
+			return nil, ErrExpiredPresignRequest
 		}
 	}
 
