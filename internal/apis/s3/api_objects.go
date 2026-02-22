@@ -20,7 +20,12 @@ import (
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/rangeparser"
 	"github.com/zhulik/d3/pkg/s3actions"
+	"github.com/zhulik/d3/pkg/sigv4"
 	"github.com/zhulik/d3/pkg/smartio"
+)
+
+const (
+	StreamingHMACSHA256 = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
 )
 
 type APIObjects struct {
@@ -80,7 +85,8 @@ func (a APIObjects) HeadObject(c *echo.Context) error {
 }
 
 func (a APIObjects) PutObject(c *echo.Context) error {
-	bucket := apictx.FromContext(c.Request().Context()).Bucket
+	apiCtx := apictx.FromContext(c.Request().Context())
+	bucket := apiCtx.Bucket
 	key := c.Param("*")
 
 	tags, err := parseTags(c.Request().Header.Get("X-Amz-Tagging"))
@@ -88,11 +94,26 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 		return err
 	}
 
+	reader := c.Request().Body
+	sha256 := c.Request().Header.Get("X-Amz-Content-Sha256")
+
+	if sha256 == StreamingHMACSHA256 {
+		user := apiCtx.User
+		authParams := apiCtx.AuthParams
+
+		signer := sigv4.NewChunkSigner(
+			authParams.ScopeRegion, authParams.ScopeService,
+			authParams.Signature, authParams.RequestTime,
+			user.AccessKeyID, user.SecretAccessKey,
+		)
+		reader = sigv4.NewChunkedReader(reader, signer)
+	}
+
 	err = bucket.PutObject(c.Request().Context(), key, core.PutObjectInput{
-		Reader: c.Request().Body,
+		Reader: reader,
 		Metadata: core.ObjectMetadata{
 			ContentType: c.Request().Header.Get("Content-Type"),
-			SHA256:      c.Request().Header.Get("X-Amz-Content-Sha256"),
+			SHA256:      sha256,
 			Size:        c.Request().ContentLength,
 			Tags:        tags,
 			Meta:        parseMeta(c),

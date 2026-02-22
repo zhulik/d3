@@ -6,30 +6,30 @@ import (
 )
 
 type AuthHeaderParameters struct {
-	algo          string
-	accessKey     string
-	scopeDate     time.Time
-	scopeRegion   string
-	scopeService  string
-	signedHeaders string
-	signature     string
-	requestTime   time.Time
-	hashedPayload string
+	Algo          string
+	AccessKey     string
+	ScopeDate     time.Time
+	ScopeRegion   string
+	ScopeService  string
+	SignedHeaders string
+	Signature     []byte
+	RequestTime   time.Time
+	HashedPayload string
 }
 
 func (hp *AuthHeaderParameters) Validate() error {
-	if hp.algo != "AWS4-HMAC-SHA256" || hp.accessKey == "" || hp.signedHeaders == "" ||
-		hp.signature == "" || hp.requestTime.IsZero() {
+	if hp.Algo != "AWS4-HMAC-SHA256" || hp.AccessKey == "" || hp.SignedHeaders == "" ||
+		len(hp.Signature) == 0 || hp.RequestTime.IsZero() {
 		return fmt.Errorf("%w: signature or request time missing", ErrSignatureDoesNotMatch)
 	}
 
 	// Minimal validation of scope
-	if hp.scopeDate.IsZero() || hp.scopeRegion == "" || hp.scopeService != "s3" {
+	if hp.ScopeDate.IsZero() || hp.ScopeRegion == "" || hp.ScopeService != "s3" {
 		return ErrCredMalformed
 	}
 
 	// Validate time skew (+/- 5 minutes)
-	if d := time.Since(hp.requestTime.UTC()); d > 5*time.Minute || d < -5*time.Minute {
+	if d := time.Since(hp.RequestTime.UTC()); d > 5*time.Minute || d < -5*time.Minute {
 		return ErrRequestNotReadyYet
 	}
 

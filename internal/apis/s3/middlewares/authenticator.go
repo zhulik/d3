@@ -18,7 +18,7 @@ type Authenticator struct {
 func (a *Authenticator) Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			accessKey, err := sigv4.Validate(c.Request().Context(), c.Request(), a.getAccessKeySecret)
+			authParams, err := sigv4.Validate(c.Request().Context(), c.Request(), a.getAccessKeySecret)
 			if err != nil {
 				a.Logger.Error("failed to validate credentials", "error", err)
 
@@ -26,13 +26,14 @@ func (a *Authenticator) Middleware() echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			user, err := a.UserRepository.GetUserByAccessKeyID(c.Request().Context(), accessKey)
+			user, err := a.UserRepository.GetUserByAccessKeyID(c.Request().Context(), authParams.AccessKey)
 			if err != nil {
 				return err
 			}
 
 			apiCtx := apictx.FromContext(c.Request().Context())
 			apiCtx.User = user
+			apiCtx.AuthParams = authParams
 
 			return next(c)
 		}

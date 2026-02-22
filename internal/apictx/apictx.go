@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/s3actions"
+	"github.com/zhulik/d3/pkg/sigv4"
 )
 
 type ctxKey struct{}
@@ -27,7 +28,8 @@ type APICtx struct {
 	ContentLength int64
 	Headers       http.Header
 
-	User *core.User
+	User       *core.User
+	AuthParams *sigv4.AuthHeaderParameters
 
 	// For AWS S3 API:
 

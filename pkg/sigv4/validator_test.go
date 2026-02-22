@@ -43,9 +43,9 @@ var _ = Describe("Validate", func() {
 
 				signFn(ctx, req, payloadSum)
 
-				accessKey, err := sigv4.Validate(ctx, req, credentialStore.getAccessKeySecret)
+				authParams, err := sigv4.Validate(ctx, req, credentialStore.getAccessKeySecret)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(accessKey).To(Equal("test"))
+				Expect(authParams.AccessKey).To(Equal("test"))
 			},
 		}, entries)
 
@@ -62,9 +62,9 @@ var _ = Describe("Validate", func() {
 
 						req = httptest.NewRequest(http.MethodGet, url, nil)
 
-						accessKey, err := sigv4.Validate(ctx, req, credentialStore.getAccessKeySecret)
+						authParams, err := sigv4.Validate(ctx, req, credentialStore.getAccessKeySecret)
 						Expect(err).NotTo(HaveOccurred())
-						Expect(accessKey).To(Equal("test"))
+						Expect(authParams.AccessKey).To(Equal("test"))
 					},
 						Entry("/foo/bar?baz=qux", "/foo/bar?baz=qux"),
 					)

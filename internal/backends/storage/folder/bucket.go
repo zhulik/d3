@@ -19,10 +19,6 @@ import (
 	"github.com/zhulik/d3/pkg/yaml"
 )
 
-const (
-	StreamingHMACSHA256 = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
-)
-
 type Bucket struct {
 	name         string
 	creationDate time.Time
@@ -56,18 +52,7 @@ func (b *Bucket) HeadObject(_ context.Context, key string) (core.Object, error) 
 	return object, nil
 }
 
-func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObjectInput) error { //nolint:funlen
-	bucketPath := b.config.bucketPath(b.name)
-
-	_, err := os.Stat(bucketPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return core.ErrBucketNotFound
-		}
-
-		return err
-	}
-
+func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObjectInput) error {
 	path := b.config.objectPath(b.name, key)
 
 	_, cancel, err := b.Locker.Lock(ctx, path)
@@ -100,11 +85,8 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 		return err
 	}
 
-	// TODO: figure out what to do with streaming uploads
-	if input.Metadata.SHA256 != StreamingHMACSHA256 {
-		if input.Metadata.SHA256 != sha256sum {
-			return fmt.Errorf("%w: %s != %s", core.ErrObjectChecksumMismatch, input.Metadata.SHA256, sha256sum)
-		}
+	if input.Metadata.SHA256 != sha256sum {
+		return fmt.Errorf("%w: %s != %s", core.ErrObjectChecksumMismatch, input.Metadata.SHA256, sha256sum)
 	}
 
 	metadata, err := objectMetadata(input, sha256sum)

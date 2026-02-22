@@ -35,14 +35,14 @@ var (
 
 type AccessKeyResolver func(ctx context.Context, accessKey string) (string, error)
 
-func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyResolver) (string, error) {
+func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyResolver) (*AuthHeaderParameters, error) { //nolint:lll
 	keyID, err := validate(ctx, r.Method, r.URL, r.Header, r.Host, accessKeyResolver)
 	if errors.Is(err, ErrSignatureDoesNotMatch) {
 		// we want to retry the validation with a trailing slash
 
 		// if the path already has a trailing slash, we return the error as is
 		if strings.HasSuffix(r.URL.Path, "/") {
-			return "", err
+			return nil, err
 		}
 
 		// if the path doesn't have a trailing slash, we add it and retry the validation
@@ -55,51 +55,51 @@ func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyR
 	return keyID, nil
 }
 
-func validate(ctx context.Context, method string, u *url.URL, header http.Header, host string, accessKeyResolver AccessKeyResolver) (string, error) { //nolint:lll
+func validate(ctx context.Context, method string, u *url.URL, header http.Header, host string, accessKeyResolver AccessKeyResolver) (*AuthHeaderParameters, error) { //nolint:lll
 	hp, err := extractAuthHeaderParameters(u, header)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	canURI := buildCanonicalURI(u)
 	canQuery := buildCanonicalQueryString(u)
-	canHeaders := buildCanonicalHeaders(hp.signedHeaders, header, host)
+	canHeaders := buildCanonicalHeaders(hp.SignedHeaders, header, host)
 
 	canReq := strings.Join([]string{
 		method,
 		canURI,
 		canQuery,
 		canHeaders,
-		strings.ToLower(hp.signedHeaders),
-		hp.hashedPayload,
+		strings.ToLower(hp.SignedHeaders),
+		hp.HashedPayload,
 	}, "\n")
 
 	hash := sha256.Sum256([]byte(canReq))
 	canReqHashHex := hex.EncodeToString(hash[:])
 
-	scope := buildSigningScope(hp.scopeRegion, hp.scopeService, hp.scopeDate)
+	scope := buildSigningScope(hp.ScopeRegion, hp.ScopeService, hp.ScopeDate)
 	sts := strings.Join([]string{
 		AlgoHMAC256,
-		hp.requestTime.Format(TimeFormat),
+		hp.RequestTime.Format(TimeFormat),
 		scope,
 		canReqHashHex,
 	}, "\n")
 
-	secretKey, err := accessKeyResolver(ctx, hp.accessKey)
+	secretKey, err := accessKeyResolver(ctx, hp.AccessKey)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrInvalidAccessKeyID, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidAccessKeyID, err)
 	}
 
-	kSigning := deriveSigningKey(hp.scopeRegion, hp.scopeService, secretKey, hp.scopeDate)
+	kSigning := deriveSigningKey(hp.ScopeRegion, hp.ScopeService, secretKey, hp.ScopeDate)
 
 	sigBytes := hmacSHA256(kSigning, sts)
 	calcSig := hex.EncodeToString(sigBytes)
 
-	if !hmac.Equal([]byte(hp.signature), []byte(calcSig)) {
-		return "", ErrSignatureDoesNotMatch
+	if !hmac.Equal(hp.Signature, []byte(calcSig)) {
+		return nil, ErrSignatureDoesNotMatch
 	}
 
-	return hp.accessKey, nil
+	return hp, nil
 }
 
 func extractAuthHeaderParameters(u *url.URL, header http.Header) (*AuthHeaderParameters, error) {
@@ -139,16 +139,16 @@ func extractAuthHeadersParamsFromAuthHeader(header http.Header) (*AuthHeaderPara
 	}
 
 	headerParams := &AuthHeaderParameters{
-		algo:          AlgoHMAC256,
-		hashedPayload: header.Get("X-Amz-Content-Sha256"),
-		requestTime:   requestTime,
+		Algo:          AlgoHMAC256,
+		HashedPayload: header.Get("X-Amz-Content-Sha256"),
+		RequestTime:   requestTime,
 	}
 
-	if headerParams.requestTime.IsZero() {
+	if headerParams.RequestTime.IsZero() {
 		return nil, ErrMissingDateHeader
 	}
 
-	if headerParams.hashedPayload == "" {
+	if headerParams.HashedPayload == "" {
 		return nil, ErrInvalidDigest
 	}
 
@@ -166,21 +166,21 @@ func extractAuthHeadersParamsFromAuthHeader(header http.Header) (*AuthHeaderPara
 		case "Credential":
 			credParts := strings.Split(val, "/")
 			if len(credParts) >= 5 {
-				headerParams.accessKey = credParts[0]
+				headerParams.AccessKey = credParts[0]
 
 				scopeDate, err := time.Parse(ShortTimeFormat, credParts[1])
 				if err != nil {
 					return nil, err
 				}
 
-				headerParams.scopeDate = scopeDate
-				headerParams.scopeRegion = credParts[2]
-				headerParams.scopeService = credParts[3]
+				headerParams.ScopeDate = scopeDate
+				headerParams.ScopeRegion = credParts[2]
+				headerParams.ScopeService = credParts[3]
 			}
 		case "SignedHeaders":
-			headerParams.signedHeaders = val
+			headerParams.SignedHeaders = val
 		case "Signature":
-			headerParams.signature = strings.ToLower(val)
+			headerParams.Signature = []byte(strings.ToLower(val))
 		}
 	}
 
@@ -196,35 +196,35 @@ func extractAuthHeadersParamsFromSignedURL(u *url.URL) (*AuthHeaderParameters, e
 	}
 
 	headerParams := &AuthHeaderParameters{
-		algo:          AlgoHMAC256,
-		requestTime:   requestTime,
-		signedHeaders: qs.Get("X-Amz-SignedHeaders"),
-		signature:     strings.ToLower(qs.Get("X-Amz-Signature")),
-		hashedPayload: qs.Get("X-Amz-Content-Sha256"),
+		Algo:          AlgoHMAC256,
+		RequestTime:   requestTime,
+		SignedHeaders: qs.Get("X-Amz-SignedHeaders"),
+		Signature:     []byte(strings.ToLower(qs.Get("X-Amz-Signature"))),
+		HashedPayload: qs.Get("X-Amz-Content-Sha256"),
 	}
 
-	if headerParams.hashedPayload == "" {
-		headerParams.hashedPayload = "UNSIGNED-PAYLOAD"
+	if headerParams.HashedPayload == "" {
+		headerParams.HashedPayload = "UNSIGNED-PAYLOAD"
 	}
 
 	cred := qs.Get("X-Amz-Credential")
 
 	credParts := strings.Split(cred, "/")
 	if len(credParts) >= 5 {
-		headerParams.accessKey = credParts[0]
+		headerParams.AccessKey = credParts[0]
 
 		scopeDate, err := time.Parse(ShortTimeFormat, credParts[1])
 		if err != nil {
 			return nil, err
 		}
 
-		headerParams.scopeDate = scopeDate
-		headerParams.scopeRegion = credParts[2]
-		headerParams.scopeService = credParts[3]
+		headerParams.ScopeDate = scopeDate
+		headerParams.ScopeRegion = credParts[2]
+		headerParams.ScopeService = credParts[3]
 	}
 
 	if expStr := qs.Get("X-Amz-Expires"); expStr != "" {
-		maxT := headerParams.requestTime.Add(time.Duration(parseIntDefault(expStr, 0)) * time.Second).Add(5 * time.Minute)
+		maxT := headerParams.RequestTime.Add(time.Duration(parseIntDefault(expStr, 0)) * time.Second).Add(5 * time.Minute)
 		if time.Now().UTC().After(maxT) {
 			return nil, ErrExpiredPresignRequest
 		}

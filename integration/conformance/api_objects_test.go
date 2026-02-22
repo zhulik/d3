@@ -45,7 +45,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 	Describe("PutObject", func() {
 		When("object does not exist", func() {
-			It("creats an object with AWS SDK", func(ctx context.Context) {
+			It("creates an object with AWS SDK", func(ctx context.Context) {
 				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 					Bucket:      &bucketName,
 					Key:         objectKeyAWS,
@@ -57,7 +57,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			It("creats an object with Minio SDK", func(ctx context.Context) {
+			It("creates an object with Minio SDK", func(ctx context.Context) {
 				_, err := minioClient.PutObject(ctx, bucketName, objectKeyMinio, strings.NewReader(objectData), int64(len(objectData)), minio.PutObjectOptions{
 					ContentType:  "text/plain",
 					UserMetadata: objectMetadata,

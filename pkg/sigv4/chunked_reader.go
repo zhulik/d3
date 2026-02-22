@@ -29,6 +29,12 @@ var (
 	// ErrNoChunksSeparator appears if chunks not properly separated between each other.
 	// They should be divided with \r\n bytes.
 	ErrNoChunksSeparator = errors.New("no chunk separator")
+
+	ErrChunkLengthTooLarge = errors.New("http chunk length too large")
+
+	ErrInvalidByteInChunkLength = errors.New("invalid byte in chunk length")
+
+	ErrChunkHeaderMalformed = errors.New("chunk header is malformed")
 )
 
 // NewChunkedReader returns a new chunkedReader that translates the data read from r
@@ -55,8 +61,85 @@ type chunkedReader struct {
 	streamSigner   *ChunkSigner
 }
 
+// Read gets data from reader. Implements [io.ReadCloser].
+func (cr *chunkedReader) Read(b []uint8) (int, error) { //nolint:gocognit,funlen
+	var n int
+
+	for cr.err == nil {
+		if cr.checkEnd { //nolint:nestif
+			if n > 0 && cr.r.Buffered() < 2 {
+				// We have some data. Return early (per the io.Reader
+				// contract) instead of potentially blocking while
+				// reading more.
+				break
+			}
+
+			if _, cr.err = io.ReadFull(cr.r, cr.buf[:2]); cr.err == nil {
+				if string(cr.buf[:]) != "\r\n" {
+					cr.err = ErrNoChunksSeparator
+
+					break
+				}
+			} else {
+				if errors.Is(cr.err, io.EOF) {
+					cr.err = io.ErrUnexpectedEOF
+				}
+
+				break
+			}
+
+			cr.checkEnd = false
+		}
+
+		if cr.n == 0 {
+			if n > 0 && !cr.chunkHeaderAvailable() {
+				// We've read enough. Don't potentially block
+				// reading a new chunk header.
+				break
+			}
+
+			cr.beginChunk()
+
+			continue
+		}
+
+		if len(b) == 0 {
+			break
+		}
+
+		rbuf := b
+		if uint64(len(rbuf)) > cr.n {
+			rbuf = rbuf[:cr.n]
+		}
+
+		var n0 int
+
+		n0, cr.err = cr.r.Read(rbuf)
+		n += n0
+		b = b[n0:]
+		cr.n -= uint64(n0) //nolint:gosec
+		// Hashing chunk data to calculate the signature.
+		// rbuf may contain payload and empty bytes, taking only payload.
+		if _, err := cr.chunkHash.Write(rbuf[:n0]); err != nil {
+			cr.err = err
+
+			break
+		}
+
+		// If we're at the end of a chunk, read the next two
+		// bytes to verify they are "\r\n".
+		if cr.n == 0 && cr.err == nil {
+			cr.checkEnd = true
+		} else if errors.Is(cr.err, io.EOF) {
+			cr.err = io.ErrUnexpectedEOF
+		}
+	}
+
+	return n, cr.err
+}
+
 // Close implements [io.ReadCloser].
-func (cr *chunkedReader) Close() (err error) {
+func (cr *chunkedReader) Close() error {
 	return cr.origReader.Close()
 }
 
@@ -123,81 +206,6 @@ func (cr *chunkedReader) chunkHeaderAvailable() bool {
 	return false
 }
 
-// Read gets data from reader. Implements [io.ReadCloser].
-func (cr *chunkedReader) Read(b []uint8) (n int, err error) {
-	for cr.err == nil {
-		if cr.checkEnd {
-			if n > 0 && cr.r.Buffered() < 2 {
-				// We have some data. Return early (per the io.Reader
-				// contract) instead of potentially blocking while
-				// reading more.
-				break
-			}
-
-			if _, cr.err = io.ReadFull(cr.r, cr.buf[:2]); cr.err == nil {
-				if string(cr.buf[:]) != "\r\n" {
-					cr.err = ErrNoChunksSeparator
-
-					break
-				}
-			} else {
-				if errors.Is(cr.err, io.EOF) {
-					cr.err = io.ErrUnexpectedEOF
-				}
-
-				break
-			}
-
-			cr.checkEnd = false
-		}
-
-		if cr.n == 0 {
-			if n > 0 && !cr.chunkHeaderAvailable() {
-				// We've read enough. Don't potentially block
-				// reading a new chunk header.
-				break
-			}
-
-			cr.beginChunk()
-
-			continue
-		}
-
-		if len(b) == 0 {
-			break
-		}
-
-		rbuf := b
-		if uint64(len(rbuf)) > cr.n {
-			rbuf = rbuf[:cr.n]
-		}
-
-		var n0 int
-
-		n0, cr.err = cr.r.Read(rbuf)
-		n += n0
-		b = b[n0:]
-		cr.n -= uint64(n0)
-		// Hashing chunk data to calculate the signature.
-		// rbuf may contain payload and empty bytes, taking only payload.
-		if _, err = cr.chunkHash.Write(rbuf[:n0]); err != nil {
-			cr.err = err
-
-			break
-		}
-
-		// If we're at the end of a chunk, read the next two
-		// bytes to verify they are "\r\n".
-		if cr.n == 0 && cr.err == nil {
-			cr.checkEnd = true
-		} else if errors.Is(cr.err, io.EOF) {
-			cr.err = io.ErrUnexpectedEOF
-		}
-	}
-
-	return n, cr.err
-}
-
 // Read a line of bytes (up to \n) from b.
 // Give up if the line exceeds maxLineLength.
 // The returned bytes are owned by the bufio.Reader
@@ -231,7 +239,7 @@ func readChunkLine(b *bufio.Reader) ([]byte, []byte, error) {
 
 	_, after, ok := bytes.Cut(signaturePart, []byte{'='})
 	if !ok {
-		return nil, nil, errors.New("chunk header is malformed")
+		return nil, nil, ErrChunkHeaderMalformed
 	}
 
 	// even if '=' is the latest symbol, the new slice will be just empty
@@ -250,8 +258,6 @@ func isASCIISpace(b byte) bool {
 	return b == ' ' || b == '\t' || b == '\n' || b == '\r'
 }
 
-var semi = []byte(";")
-
 // removeChunkExtension removes any chunk-extension from p.
 // For example,
 //
@@ -265,7 +271,7 @@ func removeChunkExtension(p []byte) ([]byte, []byte, error) {
 		found          bool
 	)
 
-	p, chunkSignature, found = bytes.Cut(p, semi)
+	p, chunkSignature, found = bytes.Cut(p, []byte(";"))
 	if !found {
 		return nil, nil, ErrMissingSeparator
 	}
@@ -273,26 +279,28 @@ func removeChunkExtension(p []byte) ([]byte, []byte, error) {
 	return p, chunkSignature, nil
 }
 
-func parseHexUint(v []byte) (n uint64, err error) {
+func parseHexUint(v []byte) (uint64, error) {
+	var n uint64
+
 	for i, b := range v {
 		switch {
 		case '0' <= b && b <= '9':
-			b = b - '0'
+			b = b - '0' //nolint:gocritic
 		case 'a' <= b && b <= 'f':
 			b = b - 'a' + 10
 		case 'A' <= b && b <= 'F':
 			b = b - 'A' + 10
 		default:
-			return 0, errors.New("invalid byte in chunk length")
+			return 0, ErrInvalidByteInChunkLength
 		}
 
 		if i == 16 {
-			return 0, errors.New("http chunk length too large")
+			return 0, ErrChunkLengthTooLarge
 		}
 
 		n <<= 4
 		n |= uint64(b)
 	}
 
-	return
+	return n, nil
 }
