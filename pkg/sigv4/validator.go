@@ -34,7 +34,7 @@ var (
 type AccessKeyResolver func(ctx context.Context, accessKey string) (string, error)
 
 func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyResolver) (string, error) {
-	keyId, err := validate(ctx, r.Method, r.URL, r.Header, r.Host, accessKeyResolver)
+	keyID, err := validate(ctx, r.Method, r.URL, r.Header, r.Host, accessKeyResolver)
 	if errors.Is(err, ErrSignatureDoesNotMatch) {
 		// we want to retry the validation with a trailing slash
 
@@ -49,7 +49,7 @@ func Validate(ctx context.Context, r *http.Request, accessKeyResolver AccessKeyR
 		return validate(ctx, r.Method, &newURL, r.Header, r.Host, accessKeyResolver)
 	}
 
-	return keyId, nil
+	return keyID, nil
 }
 
 func validate(ctx context.Context, method string, u *url.URL, header http.Header, host string, accessKeyResolver AccessKeyResolver) (string, error) {
