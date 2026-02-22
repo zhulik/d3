@@ -16,8 +16,8 @@ func (a *Authorizer) Middleware() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			apiCtx := apictx.FromContext(c.Request().Context())
-			if apiCtx.Username == nil || *apiCtx.Username != "admin" {
-				a.Logger.Warn("Unauthorized access attempt", "username", apiCtx.Username)
+			if apiCtx.User == nil || apiCtx.User.Name != "admin" {
+				a.Logger.Warn("Unauthorized access attempt")
 
 				return core.ErrUnauthorized
 			}

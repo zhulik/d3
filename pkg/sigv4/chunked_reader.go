@@ -63,10 +63,12 @@ func (cr *chunkedReader) Close() (err error) {
 func (cr *chunkedReader) beginChunk() {
 	// chunk-size CRLF
 	var line, chunkSignature []byte
+
 	line, chunkSignature, cr.err = readChunkLine(cr.r)
 	if cr.err != nil {
 		return
 	}
+
 	cr.n, cr.err = parseHexUint(line)
 	if cr.err != nil {
 		return
@@ -74,6 +76,7 @@ func (cr *chunkedReader) beginChunk() {
 
 	if err := cr.validatePreviousChunkData(); err != nil {
 		cr.err = err
+
 		return
 	}
 
@@ -89,6 +92,7 @@ func (cr *chunkedReader) beginChunk() {
 	if cr.n == 0 {
 		if err := cr.validatePreviousChunkData(); err != nil {
 			cr.err = err
+
 			return
 		}
 
@@ -112,8 +116,10 @@ func (cr *chunkedReader) chunkHeaderAvailable() bool {
 	n := cr.r.Buffered()
 	if n > 0 {
 		peek, _ := cr.r.Peek(n)
+
 		return bytes.IndexByte(peek, '\n') >= 0
 	}
+
 	return false
 }
 
@@ -127,36 +133,47 @@ func (cr *chunkedReader) Read(b []uint8) (n int, err error) {
 				// reading more.
 				break
 			}
+
 			if _, cr.err = io.ReadFull(cr.r, cr.buf[:2]); cr.err == nil {
 				if string(cr.buf[:]) != "\r\n" {
 					cr.err = ErrNoChunksSeparator
+
 					break
 				}
 			} else {
-				if cr.err == io.EOF {
+				if errors.Is(cr.err, io.EOF) {
 					cr.err = io.ErrUnexpectedEOF
 				}
+
 				break
 			}
+
 			cr.checkEnd = false
 		}
+
 		if cr.n == 0 {
 			if n > 0 && !cr.chunkHeaderAvailable() {
 				// We've read enough. Don't potentially block
 				// reading a new chunk header.
 				break
 			}
+
 			cr.beginChunk()
+
 			continue
 		}
+
 		if len(b) == 0 {
 			break
 		}
+
 		rbuf := b
 		if uint64(len(rbuf)) > cr.n {
 			rbuf = rbuf[:cr.n]
 		}
+
 		var n0 int
+
 		n0, cr.err = cr.r.Read(rbuf)
 		n += n0
 		b = b[n0:]
@@ -165,6 +182,7 @@ func (cr *chunkedReader) Read(b []uint8) (n int, err error) {
 		// rbuf may contain payload and empty bytes, taking only payload.
 		if _, err = cr.chunkHash.Write(rbuf[:n0]); err != nil {
 			cr.err = err
+
 			break
 		}
 
@@ -172,10 +190,11 @@ func (cr *chunkedReader) Read(b []uint8) (n int, err error) {
 		// bytes to verify they are "\r\n".
 		if cr.n == 0 && cr.err == nil {
 			cr.checkEnd = true
-		} else if cr.err == io.EOF {
+		} else if errors.Is(cr.err, io.EOF) {
 			cr.err = io.ErrUnexpectedEOF
 		}
 	}
+
 	return n, cr.err
 }
 
@@ -188,13 +207,15 @@ func readChunkLine(b *bufio.Reader) ([]byte, []byte, error) {
 	if err != nil {
 		// We always know when EOF is coming.
 		// If the caller asked for a line, there should be a line.
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			err = io.ErrUnexpectedEOF
 		} else if errors.Is(err, bufio.ErrBufferFull) {
 			err = ErrLineTooLong
 		}
+
 		return nil, nil, err
 	}
+
 	if len(p) >= maxLineLength {
 		return nil, nil, ErrLineTooLong
 	}
@@ -202,24 +223,26 @@ func readChunkLine(b *bufio.Reader) ([]byte, []byte, error) {
 	var signaturePart []byte
 
 	p = trimTrailingWhitespace(p)
+
 	p, signaturePart, err = removeChunkExtension(p)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	pos := bytes.IndexByte(signaturePart, '=')
-	if pos == -1 {
+	_, after, ok := bytes.Cut(signaturePart, []byte{'='})
+	if !ok {
 		return nil, nil, errors.New("chunk header is malformed")
 	}
 
 	// even if '=' is the latest symbol, the new slice will be just empty
-	return p, signaturePart[pos+1:], nil
+	return p, after, nil
 }
 
 func trimTrailingWhitespace(b []byte) []byte {
 	for len(b) > 0 && isASCIISpace(b[len(b)-1]) {
 		b = b[:len(b)-1]
 	}
+
 	return b
 }
 
@@ -241,6 +264,7 @@ func removeChunkExtension(p []byte) ([]byte, []byte, error) {
 		chunkSignature []byte
 		found          bool
 	)
+
 	p, chunkSignature, found = bytes.Cut(p, semi)
 	if !found {
 		return nil, nil, ErrMissingSeparator
@@ -261,11 +285,14 @@ func parseHexUint(v []byte) (n uint64, err error) {
 		default:
 			return 0, errors.New("invalid byte in chunk length")
 		}
+
 		if i == 16 {
 			return 0, errors.New("http chunk length too large")
 		}
+
 		n <<= 4
 		n |= uint64(b)
 	}
+
 	return
 }

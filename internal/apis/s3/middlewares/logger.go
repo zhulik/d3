@@ -26,8 +26,8 @@ func Logger() echo.MiddlewareFunc {
 			apiCtx := apictx.FromContext(c.Request().Context())
 
 			username := ""
-			if apiCtx.Username != nil {
-				username = *apiCtx.Username
+			if apiCtx.User != nil {
+				username = apiCtx.User.Name
 			}
 
 			commonAttrs := []slog.Attr{

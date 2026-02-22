@@ -27,7 +27,7 @@ type APICtx struct {
 	ContentLength int64
 	Headers       http.Header
 
-	Username *string
+	User *core.User
 
 	// For AWS S3 API:
 

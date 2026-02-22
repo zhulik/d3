@@ -21,18 +21,18 @@ type Authorizer struct {
 // IsAllowed returns whether the user is allowed to perform the action on the resource.
 // key is the S3 resource identifier: bucket name for bucket ops, or "bucket/key" for object ops.
 func (a *Authorizer) IsAllowed(
-	ctx context.Context, username *string, action s3actions.Action, resource string,
+	ctx context.Context, user *core.User, action s3actions.Action, resource string,
 ) (bool, error) {
-	if username == nil {
+	if user == nil {
 		// TODO: anonymous access to public buckets
 		return false, nil
 	}
 
-	if *username == "admin" {
+	if user.Name == "admin" {
 		return true, nil
 	}
 
-	bindings, err := a.ManagementBackend.GetBindingsByUser(ctx, *username)
+	bindings, err := a.ManagementBackend.GetBindingsByUser(ctx, user.Name)
 	if err != nil {
 		return false, err
 	}

@@ -47,7 +47,7 @@ func (a *Authorizer) Middleware() echo.MiddlewareFunc {
 				}
 			}
 
-			allowed, err := a.Authorizer.IsAllowed(c.Request().Context(), apiCtx.Username, apiCtx.Action, resource)
+			allowed, err := a.Authorizer.IsAllowed(c.Request().Context(), apiCtx.User, apiCtx.Action, resource)
 			if err != nil {
 				return err
 			}

@@ -32,7 +32,7 @@ func (a *Authenticator) Middleware() echo.MiddlewareFunc {
 			}
 
 			apiCtx := apictx.FromContext(c.Request().Context())
-			apiCtx.Username = &user.Name
+			apiCtx.User = user
 
 			return next(c)
 		}

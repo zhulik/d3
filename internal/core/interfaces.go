@@ -125,5 +125,5 @@ type Locker interface {
 // Authorizer decides if a user is allowed to perform an action on a resource.
 // The key is the S3 resource identifier: bucket name for bucket operations, or "bucket/key" for object operations.
 type Authorizer interface {
-	IsAllowed(ctx context.Context, username *string, action s3actions.Action, key string) (bool, error)
+	IsAllowed(ctx context.Context, user *User, action s3actions.Action, key string) (bool, error)
 }
