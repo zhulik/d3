@@ -21,7 +21,9 @@ var (
 	objectMetadata = map[string]string{
 		"foo": "bar",
 	}
-	objectKey = lo.ToPtr("hello.txt")
+	objectKeyAWS   = lo.ToPtr("hello.txt")
+	objectKeyMinio = "hello-minio.txt"
+	objectData     = "hello world"
 )
 
 var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Ordered, func() {
@@ -43,14 +45,23 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 	Describe("PutObject", func() {
 		When("object does not exist", func() {
-			It("creats an object", func(ctx context.Context) {
+			It("creats an object with AWS SDK", func(ctx context.Context) {
 				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 					Bucket:      &bucketName,
-					Key:         objectKey,
-					Body:        strings.NewReader("hello world"),
+					Key:         objectKeyAWS,
+					Body:        strings.NewReader(objectData),
 					ContentType: lo.ToPtr("text/plain"),
 					Metadata:    objectMetadata,
 					Tagging:     lo.ToPtr("bar=baz"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("creats an object with Minio SDK", func(ctx context.Context) {
+				_, err := minioClient.PutObject(ctx, bucketName, objectKeyMinio, strings.NewReader(objectData), int64(len(objectData)), minio.PutObjectOptions{
+					ContentType:  "text/plain",
+					UserMetadata: objectMetadata,
+					UserTags:     map[string]string{"bar": "baz"},
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
@@ -60,8 +71,8 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("returns an error", func(ctx context.Context) {
 				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
-					Body:   strings.NewReader("hello world"),
+					Key:    objectKeyAWS,
+					Body:   strings.NewReader(objectData),
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -71,7 +82,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("returns an error", func(ctx context.Context) {
 				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 					Bucket: lo.ToPtr("does-not-exist"),
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -83,7 +94,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
 				Bucket: &bucketName,
 				Key:    lo.ToPtr("dir/hello.txt"),
-				Body:   strings.NewReader("hello world"),
+				Body:   strings.NewReader(objectData),
 			}))
 		})
 
@@ -95,8 +106,9 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Prefix: lo.ToPtr("h"),
 					})
 					Expect(err).NotTo(HaveOccurred())
-					Expect(listObjectsOutput.Contents).To(HaveLen(1))
-					Expect(listObjectsOutput.Contents[0].Key).To(Equal(lo.ToPtr("hello.txt")))
+					Expect(listObjectsOutput.Contents).To(HaveLen(2))
+					Expect(listObjectsOutput.Contents[0].Key).To(Equal(lo.ToPtr("hello-minio.txt")))
+					Expect(listObjectsOutput.Contents[1].Key).To(Equal(lo.ToPtr("hello.txt")))
 				})
 			})
 
@@ -127,9 +139,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					Bucket: &bucketName,
 				})
 				Expect(err).NotTo(HaveOccurred())
-				Expect(listObjectsOutput.Contents).To(HaveLen(2))
+				Expect(listObjectsOutput.Contents).To(HaveLen(3))
 				Expect(listObjectsOutput.Contents[0].Key).To(Equal(lo.ToPtr("dir/hello.txt")))
-				Expect(listObjectsOutput.Contents[1].Key).To(Equal(lo.ToPtr("hello.txt")))
+				Expect(listObjectsOutput.Contents[1].Key).To(Equal(lo.ToPtr("hello-minio.txt")))
+				Expect(listObjectsOutput.Contents[2].Key).To(Equal(lo.ToPtr("hello.txt")))
 			})
 
 			XIt("lists all objects with Minio SDK", func(ctx context.Context) {
@@ -228,14 +241,13 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 	Describe("HeadObject", func() {
 		When("object exists", func() {
 			It("returns object metadata with AWS SDK", func(ctx context.Context) {
-				content := "hello world"
 				headObjectOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(headObjectOutput.ContentLength).NotTo(BeNil())
-				Expect(*headObjectOutput.ContentLength).To(Equal(int64(len(content))))
+				Expect(*headObjectOutput.ContentLength).To(Equal(int64(len(objectData))))
 				Expect(*headObjectOutput.ContentType).To(Equal("text/plain"))
 				Expect(headObjectOutput.Metadata).To(Equal(objectMetadata))
 				Expect(*headObjectOutput.TagCount).To(Equal(int32(1)))
@@ -258,7 +270,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("returns object tagging", func(ctx context.Context) {
 				output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -279,11 +291,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 	Describe("GetObject", func() {
 		When("object exists", func() {
-			It("returns object and verifies content matches", func(ctx context.Context) {
-				content := "hello world"
+			It("returns object uploaded with AWS SDK and verifies content matches", func(ctx context.Context) {
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -291,7 +302,24 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 				bodyBytes, err := io.ReadAll(getObjectOutput.Body)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(string(bodyBytes)).To(Equal(content))
+				Expect(string(bodyBytes)).To(Equal(objectData))
+				Expect(*getObjectOutput.ContentType).To(Equal("text/plain"))
+				Expect(getObjectOutput.Metadata).To(Equal(objectMetadata))
+				Expect(*getObjectOutput.TagCount).To(Equal(int32(1)))
+			})
+
+			XIt("returns object uploaded with Minio SDK and verifies content matches", func(ctx context.Context) {
+				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+					Bucket: &bucketName,
+					Key:    &objectKeyMinio,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				defer getObjectOutput.Body.Close()
+
+				bodyBytes, err := io.ReadAll(getObjectOutput.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(bodyBytes)).To(Equal(objectData))
 				Expect(*getObjectOutput.ContentType).To(Equal("text/plain"))
 				Expect(getObjectOutput.Metadata).To(Equal(objectMetadata))
 				Expect(*getObjectOutput.TagCount).To(Equal(int32(1)))
@@ -302,7 +330,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("returns the range of the object", func(ctx context.Context) {
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 					Range:  lo.ToPtr("bytes=1-5"),
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -331,13 +359,13 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("deletes object", func(ctx context.Context) {
 				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
 				_, err = s3Client.HeadObject(ctx, &s3.HeadObjectInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -362,7 +390,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
 					Bucket: &bucketName,
 					Key:    lo.ToPtr(key),
-					Body:   strings.NewReader("hello world"),
+					Body:   strings.NewReader(objectData),
 				}))
 			})
 		})
@@ -397,7 +425,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("creates multipart upload", func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
@@ -410,7 +438,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				It(fmt.Sprintf("uploads part %d", i), func(ctx context.Context) {
 					_, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
 						Bucket:     &bucketName,
-						Key:        objectKey,
+						Key:        objectKeyAWS,
 						PartNumber: lo.ToPtr(int32(i)),
 						UploadId:   uploadID,
 						Body:       strings.NewReader(fmt.Sprintf("hello %d\n", i)),
@@ -424,7 +452,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("completes multipart upload", func(ctx context.Context) {
 				_, err := s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 					Bucket:   &bucketName,
-					Key:      objectKey,
+					Key:      objectKeyAWS,
 					UploadId: uploadID,
 					MultipartUpload: &types.CompletedMultipartUpload{
 						Parts: []types.CompletedPart{
@@ -450,7 +478,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("returns object", func(ctx context.Context) {
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).NotTo(HaveOccurred())
 
@@ -470,7 +498,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("creates multipart upload", func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
 					Bucket: &bucketName,
-					Key:    objectKey,
+					Key:    objectKeyAWS,
 				})
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
@@ -482,7 +510,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			It("aborts multipart upload", func(ctx context.Context) {
 				_, err := s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
 					Bucket:   &bucketName,
-					Key:      objectKey,
+					Key:      objectKeyAWS,
 					UploadId: uploadID,
 				})
 				Expect(err).NotTo(HaveOccurred())
