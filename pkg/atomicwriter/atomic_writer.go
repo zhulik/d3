@@ -103,7 +103,7 @@ func (w *AtomicWriter) ReadWrite(ctx context.Context, filename string, contentMa
 		return err
 	}
 
-	err = os.Rename(tempFile.Name(), filename)
+	err = os.Rename(tempFile.Name(), filename) //nolint:gosec
 	if err != nil {
 		return err
 	}

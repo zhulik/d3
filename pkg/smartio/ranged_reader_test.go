@@ -58,13 +58,16 @@ var _ = Describe("RangedReader", func() {
 					Expect(err).NotTo(HaveOccurred())
 
 					buf := make([]byte, bufSize)
+
 					n, err := rr.Read(buf)
 					if expectedErr == nil {
 						Expect(err).ToNot(HaveOccurred())
 					} else {
 						Expect(err).To(Equal(expectedErr))
 					}
+
 					Expect(n).To(Equal(expectedN))
+
 					if expectedN > 0 {
 						Expect(string(buf[:n])).To(Equal(expectedContent))
 					}
@@ -129,6 +132,7 @@ var _ = Describe("RangedReader", func() {
 					n, err := rr.Read(buf)
 					Expect(err).To(Equal(io.EOF))
 					Expect(n).To(Equal(expectedN))
+
 					if expectedN > 0 {
 						Expect(string(buf[:n])).To(Equal(expectedContent))
 					}
@@ -162,17 +166,22 @@ var _ = Describe("RangedReader", func() {
 
 				// Read with small buffer multiple times
 				var result []byte
+
 				for range 10 {
 					buf := make([]byte, 1)
+
 					n, err := rr.Read(buf)
 					if errors.Is(err, io.EOF) {
 						result = append(result, buf[:n]...)
 
 						break
 					}
+
 					Expect(err).NotTo(HaveOccurred())
+
 					result = append(result, buf[:n]...)
 				}
+
 				Expect(string(result)).To(Equal("56789a"))
 			})
 		})

@@ -30,7 +30,7 @@ func generateRandomString(length int, charset string) string {
 
 	result := make([]byte, length)
 	for i := range length {
-		result[i] = charset[bytes[i]%byte(len(charset))]
+		result[i] = charset[bytes[i]%byte(len(charset))] //nolint:gosec
 	}
 
 	return string(result)

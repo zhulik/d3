@@ -17,6 +17,7 @@ var _ = Describe("Validate", func() {
 
 	When("using a signed request", func() {
 		var entries []any
+
 		for _, payloadSum := range []string{"UNSIGNED-PAYLOAD", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"} {
 			for _, method := range []string{http.MethodGet, http.MethodHead} {
 				for signRequestName, signFn := range requestSigners {

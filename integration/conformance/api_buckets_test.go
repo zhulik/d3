@@ -15,10 +15,12 @@ import (
 )
 
 var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Ordered, func() {
-	var app *testhelpers.App
-	var s3Client *s3.Client
-	var minioClient *minio.Client
-	var bucketName string
+	var (
+		app         *testhelpers.App
+		s3Client    *s3.Client
+		minioClient *minio.Client
+		bucketName  string
+	)
 
 	BeforeAll(func(ctx context.Context) {
 		app = testhelpers.NewApp() //nolint:contextcheck

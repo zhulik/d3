@@ -392,7 +392,7 @@ func (c *Client) doSignedRequest(ctx context.Context, req *http.Request, expecte
 		return nil, err
 	}
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

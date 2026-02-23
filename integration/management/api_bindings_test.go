@@ -16,8 +16,10 @@ import (
 )
 
 var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ordered, func() {
-	var client *apiclient.Client
-	var app *testhelpers.App
+	var (
+		client *apiclient.Client
+		app    *testhelpers.App
+	)
 
 	BeforeAll(func(ctx context.Context) {
 		app = testhelpers.NewApp() //nolint:contextcheck
@@ -40,6 +42,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 		When("bindings exist", func() {
 			BeforeAll(func(ctx context.Context) {
 				lo.Must(client.CreateUser(ctx, "binding-user-1"))
+
 				policy := &iampol.IAMPolicy{
 					ID: "binding-policy-1",
 					Statement: []iampol.Statement{
@@ -75,6 +78,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 		When("user exists", func() {
 			BeforeAll(func(ctx context.Context) {
 				lo.Must(client.CreateUser(ctx, "binding-user-2"))
+
 				policy1 := &iampol.IAMPolicy{
 					ID: "binding-policy-2a",
 					Statement: []iampol.Statement{
@@ -222,6 +226,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 	Describe("CreateBinding", func() {
 		BeforeAll(func(ctx context.Context) {
 			lo.Must(client.CreateUser(ctx, "binding-user-create"))
+
 			policy := &iampol.IAMPolicy{
 				ID: "binding-policy-create",
 				Statement: []iampol.Statement{
@@ -257,6 +262,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 		When("binding already exists", func() {
 			BeforeAll(func(ctx context.Context) {
 				lo.Must(client.CreateUser(ctx, "binding-user-existing"))
+
 				policy := &iampol.IAMPolicy{
 					ID: "binding-policy-existing",
 					Statement: []iampol.Statement{
@@ -320,6 +326,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 		When("binding exists", func() {
 			BeforeAll(func(ctx context.Context) {
 				lo.Must(client.CreateUser(ctx, "binding-user-delete"))
+
 				policy := &iampol.IAMPolicy{
 					ID: "binding-policy-delete",
 					Statement: []iampol.Statement{
@@ -345,6 +352,7 @@ var _ = Describe("Bindings API", Label("management"), Label("api-bindings"), Ord
 
 				retrieved, err := client.ListBindings(ctx)
 				Expect(err).NotTo(HaveOccurred())
+
 				found := lo.ContainsBy(retrieved, func(binding core.PolicyBinding) bool {
 					return binding.UserName == "binding-user-delete" && binding.PolicyID == "binding-policy-delete"
 				})

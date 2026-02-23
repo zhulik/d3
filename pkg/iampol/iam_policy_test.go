@@ -17,6 +17,7 @@ import (
 var _ = Describe("Parse", func() {
 	// load test cases from testdata/policies.json
 	p := filepath.Join("testdata", "policies.json")
+
 	data, err := os.ReadFile(p)
 	if err != nil {
 		panic(fmt.Sprintf("failed to read test data file %s: %v", p, err))

@@ -8,7 +8,7 @@ import (
 	"syscall"
 
 	"github.com/zhulik/d3/internal/core"
-	"github.com/zhulik/d3/pkg/iter"
+	"github.com/zhulik/d3/pkg/xiter"
 	"github.com/zhulik/d3/pkg/yaml"
 )
 
@@ -59,7 +59,7 @@ func (b *Backend) ListBuckets(_ context.Context) ([]core.Bucket, error) {
 		return nil, err
 	}
 
-	return iter.ErrMap(entries, b.dirEntryToBucket)
+	return xiter.ErrMap(entries, b.dirEntryToBucket)
 }
 
 func (b *Backend) CreateBucket(_ context.Context, name string) error {

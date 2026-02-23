@@ -27,10 +27,12 @@ var (
 )
 
 var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Ordered, func() {
-	var app *testhelpers.App
-	var s3Client *s3.Client
-	var minioClient *minio.Client
-	var bucketName string
+	var (
+		app         *testhelpers.App
+		s3Client    *s3.Client
+		minioClient *minio.Client
+		bucketName  string
+	)
 
 	BeforeAll(func(ctx context.Context) {
 		app = testhelpers.NewApp() //nolint:contextcheck
@@ -158,6 +160,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 		Context("pagination", func() {
 			const paginatePrefix = "paginate/"
+
 			paginateKeys := []string{"paginate/a", "paginate/b", "paginate/c", "paginate/d", "paginate/e"}
 
 			BeforeAll(func(ctx context.Context) {
@@ -210,8 +213,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 			When("iterating through all pages", func() {
 				It("returns all objects in order", func(ctx context.Context) {
-					var allKeys []string
-					var continuationToken *string
+					var (
+						allKeys           []string
+						continuationToken *string
+					)
 
 					for {
 						output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
@@ -229,6 +234,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						if output.IsTruncated == nil || !*output.IsTruncated {
 							break
 						}
+
 						continuationToken = output.NextContinuationToken
 					}
 
@@ -470,7 +476,6 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					},
 				})
 				Expect(err).NotTo(HaveOccurred())
-
 			})
 		})
 

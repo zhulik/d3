@@ -61,9 +61,12 @@ var _ = Describe("WalkDir", func() {
 
 	BeforeEach(func() {
 		root = lo.Must(os.MkdirTemp("", "walkdir-*"))
+
 		DeferCleanup(func() { _ = os.RemoveAll(root) })
 		makeWalkerTree(root)
+
 		outsideRoot = lo.Must(os.MkdirTemp("", "walkdir-outside-*"))
+
 		DeferCleanup(func() { _ = os.RemoveAll(outsideRoot) })
 		lo.Must0(os.WriteFile(filepath.Join(outsideRoot, "x"), nil, 0o644))
 	})
@@ -74,9 +77,12 @@ var _ = Describe("WalkDir", func() {
 			if expectErr != nil && errors.Is(expectErr, context.Canceled) {
 				cancelled, cancel := context.WithCancel(ctx)
 				cancel()
+
 				walkCtx = cancelled
 			}
+
 			var startFrom *string
+
 			switch startFromRel {
 			case "":
 				// no startFrom
@@ -87,7 +93,9 @@ var _ = Describe("WalkDir", func() {
 			default:
 				startFrom = lo.ToPtr(filepath.Join(root, startFromRel))
 			}
+
 			var got []string
+
 			err := smartio.WalkDir(walkCtx, root, prefix, startFrom, func(path string) error {
 				got = append(got, path)
 
@@ -98,11 +106,14 @@ var _ = Describe("WalkDir", func() {
 
 				return
 			}
+
 			Expect(err).NotTo(HaveOccurred())
+
 			expectedExact := lo.Map(expectedExactRel, func(rel string, _ int) string {
 				return joinRoot(root, rel)
 			})
 			Expect(got).To(HaveLen(len(expectedExact)))
+
 			if len(expectedExact) > 0 {
 				Expect(got).To(Equal(expectedExact))
 			}
@@ -190,8 +201,10 @@ var _ = Describe("WalkDir", func() {
 	Context("edge cases", func() {
 		It("propagates error from callback and stops walk", func(ctx context.Context) {
 			var callCount int
+
 			err := smartio.WalkDir(ctx, root, "", nil, func(path string) error {
 				callCount++
+
 				if filepath.Base(path) == "third" {
 					return errStopWalk
 				}
@@ -204,8 +217,11 @@ var _ = Describe("WalkDir", func() {
 
 		It("invokes fn for root when root is the only entry and prefix is empty", func(ctx context.Context) {
 			emptyRoot := lo.Must(os.MkdirTemp("", "walkdir-single-*"))
+
 			DeferCleanup(func() { _ = os.RemoveAll(emptyRoot) })
+
 			var got []string
+
 			err := smartio.WalkDir(ctx, emptyRoot, "", nil, func(path string) error {
 				got = append(got, path)
 
@@ -217,6 +233,7 @@ var _ = Describe("WalkDir", func() {
 
 		It("prefix with trailing slash is trimmed and matches same as without", func(ctx context.Context) {
 			var got []string
+
 			err := smartio.WalkDir(ctx, root, "first/", nil, func(path string) error {
 				got = append(got, path)
 

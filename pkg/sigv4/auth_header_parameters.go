@@ -10,7 +10,7 @@ import (
 
 type AuthHeaderParameters struct {
 	Algo          string
-	AccessKey     string
+	AccessKey     string `json:"-"`
 	ScopeDate     time.Time
 	ScopeRegion   string
 	ScopeService  string

@@ -183,8 +183,8 @@ policies:
 		Describe("GetUserByAccessKeyID", func() {
 			Context("when access key exists", func() {
 				var testKey string
-				BeforeEach(func(ctx context.Context) {
 
+				BeforeEach(func(ctx context.Context) {
 					user := lo.Must(backend.CreateUser(ctx, "testuser"))
 					testKey = user.AccessKeyID
 				})
@@ -620,7 +620,6 @@ policies:
 					Expect(retrieved).To(HaveLen(1))
 					Expect(retrieved[0].UserName).To(Equal("bindinguser"))
 					Expect(retrieved[0].PolicyID).To(Equal("bindingpolicy"))
-
 				})
 			})
 

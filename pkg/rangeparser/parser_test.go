@@ -257,6 +257,7 @@ var _ = Describe("Parse", func() {
 		When("content length is very large", func() {
 			It("handles large ranges correctly", func() {
 				const largeContentLength = int64(1000000)
+
 				result, err := rangeparser.Parse("bytes=500000-750000", largeContentLength)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).NotTo(BeNil())
@@ -266,6 +267,7 @@ var _ = Describe("Parse", func() {
 
 			It("handles large suffix ranges correctly", func() {
 				const largeContentLength = int64(1000000)
+
 				result, err := rangeparser.Parse("bytes=-500000", largeContentLength)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(result).NotTo(BeNil())

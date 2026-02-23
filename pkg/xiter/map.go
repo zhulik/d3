@@ -1,4 +1,4 @@
-package iter
+package xiter
 
 func ErrMap[T any, R any](iter []T, fn func(T) (R, error)) ([]R, error) {
 	var result []R

@@ -149,6 +149,7 @@ var _ = Describe("AtomicWriter", func() {
 
 			It("handles large file content", func(ctx context.Context) {
 				filename := filepath.Join(tmpDir, "large_file.txt")
+
 				largeContent := make([]byte, 1024*1024) // 1MB
 				for i := range largeContent {
 					largeContent[i] = byte(i % 256)
@@ -302,6 +303,7 @@ var _ = Describe("AtomicWriter", func() {
 			It("returns error if temp file creation fails", func(ctx context.Context) {
 				readOnlyDir, err := os.MkdirTemp("", "atomicwriter-readonly-*")
 				Expect(err).NotTo(HaveOccurred())
+
 				defer func() { _ = os.RemoveAll(readOnlyDir) }()
 
 				// Create a file in the directory first
@@ -312,15 +314,18 @@ var _ = Describe("AtomicWriter", func() {
 				// Make directory read-only to prevent temp file creation
 				err = os.Chmod(readOnlyDir, 0555)
 				Expect(err).NotTo(HaveOccurred())
+
 				defer func() { _ = os.Chmod(readOnlyDir, 0755) }()
 
 				readOnlyTmpDir, err := os.MkdirTemp("", "atomicwriter-tmp-*")
 				Expect(err).NotTo(HaveOccurred())
+
 				defer func() { _ = os.RemoveAll(readOnlyTmpDir) }()
 
 				// Make tmp directory read-only to prevent temp file creation
 				err = os.Chmod(readOnlyTmpDir, 0555)
 				Expect(err).NotTo(HaveOccurred())
+
 				defer func() { _ = os.Chmod(readOnlyTmpDir, 0755) }()
 
 				failingWriter := atomicwriter.New(locker, readOnlyTmpDir)
@@ -425,6 +430,7 @@ var _ = Describe("AtomicWriter", func() {
 				// Change to 000 to make it unreadable
 				err = os.Chmod(filename, 0000)
 				Expect(err).NotTo(HaveOccurred())
+
 				defer func() { _ = os.Chmod(filename, 0644) }()
 
 				err = writer.ReadWrite(ctx, filename, func(_ context.Context, content []byte) ([]byte, error) {
@@ -446,6 +452,7 @@ var _ = Describe("AtomicWriter", func() {
 					Expect(content).To(Equal([]byte("hello")))
 					// Transform: uppercase and add suffix
 					result := []byte{}
+
 					for _, b := range content {
 						if b >= 'a' && b <= 'z' {
 							result = append(result, b-32)
@@ -486,6 +493,7 @@ var _ = Describe("AtomicWriter", func() {
 
 				fileInfo1, err := os.Stat(filename)
 				Expect(err).NotTo(HaveOccurred())
+
 				mtime1 := fileInfo1.ModTime()
 
 				// Small delay to ensure mtime difference
@@ -501,6 +509,7 @@ var _ = Describe("AtomicWriter", func() {
 
 				fileInfo2, err := os.Stat(filename)
 				Expect(err).NotTo(HaveOccurred())
+
 				mtime2 := fileInfo2.ModTime()
 
 				// After modification, mtime should be >= original

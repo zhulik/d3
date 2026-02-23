@@ -15,8 +15,10 @@ import (
 )
 
 var _ = Describe("Policies API", Label("management"), Label("api-policies"), Ordered, func() {
-	var client *apiclient.Client
-	var app *testhelpers.App
+	var (
+		client *apiclient.Client
+		app    *testhelpers.App
+	)
 
 	BeforeAll(func(ctx context.Context) {
 		app = testhelpers.NewApp() //nolint:contextcheck
