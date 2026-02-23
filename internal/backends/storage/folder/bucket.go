@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/zhulik/d3/internal/apis/s3"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/smartio"
 	"github.com/zhulik/d3/pkg/yaml"
@@ -44,15 +45,10 @@ func (b *Bucket) CreationDate() time.Time {
 }
 
 func (b *Bucket) HeadObject(_ context.Context, key string) (core.Object, error) {
-	object, err := b.getObject(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return object, nil
+	return b.getObject(key)
 }
 
-func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObjectInput) error {
+func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObjectInput) error { //nolint:funlen
 	path := b.config.objectPath(b.name, key)
 
 	_, cancel, err := b.Locker.Lock(ctx, path)
@@ -80,14 +76,20 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 	}
 	defer uploadFile.Close()
 
-	_, sha256sum, err := smartio.Copy(ctx, uploadFile, input.Reader)
+	actualSize, sha256sum, err := smartio.Copy(ctx, uploadFile, input.Reader)
 	if err != nil {
 		return err
+	}
+
+	if input.Metadata.SHA256 == s3.StreamingHMACSHA256 {
+		input.Metadata.SHA256 = sha256sum
 	}
 
 	if input.Metadata.SHA256 != sha256sum {
 		return fmt.Errorf("%w: %s != %s", core.ErrObjectChecksumMismatch, input.Metadata.SHA256, sha256sum)
 	}
+
+	input.Metadata.Size = actualSize
 
 	metadata, err := objectMetadata(input, sha256sum)
 	if err != nil {
@@ -112,12 +114,7 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 }
 
 func (b *Bucket) GetObject(_ context.Context, key string) (core.Object, error) {
-	object, err := b.getObject(key)
-	if err != nil {
-		return nil, err
-	}
-
-	return object, nil
+	return b.getObject(key)
 }
 
 func (b *Bucket) ListObjectsV2(ctx context.Context, input core.ListObjectsV2Input) (*core.ListV2Result, error) {

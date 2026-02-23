@@ -103,7 +103,7 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 
 		signer := sigv4.NewChunkSigner(
 			authParams.ScopeRegion, authParams.ScopeService,
-			authParams.Signature, authParams.RequestTime,
+			authParams.RawSignature(), authParams.RequestTime,
 			user.AccessKeyID, user.SecretAccessKey,
 		)
 		reader = sigv4.NewChunkedReader(reader, signer)

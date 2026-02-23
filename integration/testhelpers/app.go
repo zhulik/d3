@@ -126,6 +126,7 @@ func (a *App) MinioClient(ctx context.Context, username string) *minio.Client {
 		Secure:       false, // no TLS
 		Region:       "local",
 		BucketLookup: minio.BucketLookupPath,
+		MaxRetries:   1,
 	}))
 
 	return client

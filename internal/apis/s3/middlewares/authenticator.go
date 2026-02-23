@@ -11,8 +11,8 @@ import (
 )
 
 type Authenticator struct {
-	UserRepository core.ManagementBackend
-	Logger         *slog.Logger
+	ManagementBackend core.ManagementBackend
+	Logger            *slog.Logger
 }
 
 func (a *Authenticator) Middleware() echo.MiddlewareFunc {
@@ -26,14 +26,16 @@ func (a *Authenticator) Middleware() echo.MiddlewareFunc {
 				return next(c)
 			}
 
-			user, err := a.UserRepository.GetUserByAccessKeyID(c.Request().Context(), authParams.AccessKey)
-			if err != nil {
-				return err
-			}
+			if authParams != nil {
+				user, err := a.ManagementBackend.GetUserByAccessKeyID(c.Request().Context(), authParams.AccessKey)
+				if err != nil {
+					return err
+				}
 
-			apiCtx := apictx.FromContext(c.Request().Context())
-			apiCtx.User = user
-			apiCtx.AuthParams = authParams
+				apiCtx := apictx.FromContext(c.Request().Context())
+				apiCtx.User = user
+				apiCtx.AuthParams = authParams
+			}
 
 			return next(c)
 		}
@@ -41,7 +43,7 @@ func (a *Authenticator) Middleware() echo.MiddlewareFunc {
 }
 
 func (a *Authenticator) getAccessKeySecret(ctx context.Context, accessKey string) (string, error) {
-	user, err := a.UserRepository.GetUserByAccessKeyID(ctx, accessKey)
+	user, err := a.ManagementBackend.GetUserByAccessKeyID(ctx, accessKey)
 	if err != nil {
 		return "", err
 	}

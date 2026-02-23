@@ -1,8 +1,11 @@
 package sigv4
 
 import (
+	"encoding/hex"
 	"fmt"
 	"time"
+
+	"github.com/samber/lo"
 )
 
 type AuthHeaderParameters struct {
@@ -34,4 +37,8 @@ func (hp *AuthHeaderParameters) Validate() error {
 	}
 
 	return nil
+}
+
+func (hp *AuthHeaderParameters) RawSignature() []byte {
+	return lo.Must(hex.DecodeString(string(hp.Signature)))
 }

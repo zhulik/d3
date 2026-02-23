@@ -16,13 +16,10 @@ import (
 type Object struct {
 	io.ReadSeekCloser
 
-	key          string
-	lastModified time.Time
-	size         int64
+	key string
 
 	bucket   *Bucket
 	path     string
-	blobPath string
 	metadata *core.ObjectMetadata
 }
 
@@ -31,11 +28,11 @@ func (o *Object) Key() string {
 }
 
 func (o *Object) LastModified() time.Time {
-	return o.lastModified
+	return o.Metadata().LastModified
 }
 
 func (o *Object) Size() int64 {
-	return o.size
+	return o.Metadata().Size
 }
 
 func ObjectFromPath(bucket *Bucket, key string) (*Object, error) {
@@ -62,16 +59,15 @@ func ObjectFromPath(bucket *Bucket, key string) (*Object, error) {
 	}
 
 	return &Object{
-		bucket:   bucket,
-		path:     path,
-		key:      key,
-		blobPath: filepath.Join(path, blobFilename),
+		bucket: bucket,
+		path:   path,
+		key:    key,
 	}, nil
 }
 
 func (o *Object) Read(p []byte) (int, error) {
 	if o.ReadSeekCloser == nil {
-		rc, err := os.Open(o.blobPath)
+		rc, err := os.Open(filepath.Join(o.path, blobFilename))
 		if err != nil {
 			return 0, err
 		}
@@ -84,7 +80,7 @@ func (o *Object) Read(p []byte) (int, error) {
 
 func (o *Object) Seek(offset int64, whence int) (int64, error) {
 	if o.ReadSeekCloser == nil {
-		rc, err := os.Open(o.blobPath)
+		rc, err := os.Open(filepath.Join(o.path, blobFilename))
 		if err != nil {
 			return 0, err
 		}
@@ -105,8 +101,8 @@ func (o *Object) Close() error {
 
 func (o *Object) Metadata() *core.ObjectMetadata {
 	if o.metadata == nil {
-		ometadata := lo.Must(yaml.UnmarshalFromFile[core.ObjectMetadata](filepath.Join(o.path, metadataYamlFilename)))
-		o.metadata = &ometadata
+		metadata := lo.Must(yaml.UnmarshalFromFile[core.ObjectMetadata](filepath.Join(o.path, metadataYamlFilename)))
+		o.metadata = &metadata
 	}
 
 	return o.metadata

@@ -39,11 +39,8 @@ func NewChunkSigner(region, service string, seedSignature []byte, seedDate time.
 // GetSignatureByHash takes an event stream encoded headers and payload and returns a signature.
 func (s *ChunkSigner) GetSignatureByHash(payloadHash hash.Hash) []byte {
 	sigKey := deriveSigningKey(s.region, s.service, s.secretAccessKey, s.seedDate)
-
 	scope := buildSigningScope(s.region, s.service, s.seedDate)
-
 	stringToSign := buildStringToSign(payloadHash.Sum(nil), s.prevSig, scope, s.seedDate)
-
 	signature := hmacSHA256(sigKey, stringToSign)
 	s.prevSig = signature
 
