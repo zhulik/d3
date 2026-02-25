@@ -17,7 +17,11 @@ import (
 )
 
 var _ = Describe("Authorization", Label("conformance"), Label("authorization"), Ordered, func() {
-	var app *testhelpers.App
+	var (
+		app                      *testhelpers.App
+		tempBucketForAdminDelete string
+		mgmtDeleteBucket         string
+	)
 
 	BeforeAll(func(ctx context.Context) {
 		app = testhelpers.NewApp() //nolint:contextcheck
@@ -109,6 +113,26 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 		}
 		lo.Must0(mgmtBackend.CreatePolicy(ctx, wildcardMiddlePolicy))
 
+		listBucketsPolicy := &iampol.IAMPolicy{
+			ID: "list-buckets-policy",
+			Statement: []iampol.Statement{{
+				Effect:   iampol.EffectAllow,
+				Action:   []s3actions.Action{s3actions.ListBuckets},
+				Resource: []string{arnPrefix + "*"},
+			}},
+		}
+		lo.Must0(mgmtBackend.CreatePolicy(ctx, listBucketsPolicy))
+
+		bucketMgmtPolicy := &iampol.IAMPolicy{
+			ID: "bucket-mgmt-policy",
+			Statement: []iampol.Statement{{
+				Effect:   iampol.EffectAllow,
+				Action:   []s3actions.Action{s3actions.CreateBucket, s3actions.DeleteBucket},
+				Resource: []string{arnPrefix + "*"},
+			}},
+		}
+		lo.Must0(mgmtBackend.CreatePolicy(ctx, bucketMgmtPolicy))
+
 		lo.Must(mgmtBackend.CreateUser(ctx, "reader"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "reader", PolicyID: "read-only-policy"}))
 
@@ -129,6 +153,19 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 
 		lo.Must(mgmtBackend.CreateUser(ctx, "wildcard-middle-user"))
 		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "wildcard-middle-user", PolicyID: "wildcard-middle-policy"}))
+
+		lo.Must(mgmtBackend.CreateUser(ctx, "list-buckets-user"))
+		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "list-buckets-user", PolicyID: "list-buckets-policy"}))
+
+		lo.Must(mgmtBackend.CreateUser(ctx, "bucket-mgmt-user"))
+		lo.Must0(mgmtBackend.CreateBinding(ctx, &core.PolicyBinding{UserName: "bucket-mgmt-user", PolicyID: "bucket-mgmt-policy"}))
+
+		// Create buckets for DeleteBucket tests.
+		tempBucketForAdminDelete = app.BucketName() + "-temp-admin-delete"
+		lo.Must(adminS3Client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: lo.ToPtr(tempBucketForAdminDelete)}))
+
+		mgmtDeleteBucket = app.BucketName() + "-mgmt-delete"
+		lo.Must(adminS3Client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: lo.ToPtr(mgmtDeleteBucket)}))
 	})
 
 	AfterAll(func(ctx context.Context) {
@@ -186,6 +223,21 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})
+			case s3actions.ListBuckets:
+				_, err = s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
+			case s3actions.CreateBucket:
+				bucketName := objectKeyOrEmpty
+				_, err = s3Client.CreateBucket(ctx, &s3.CreateBucketInput{Bucket: lo.ToPtr(bucketName)})
+			case s3actions.DeleteBucket:
+				bucketName := objectKeyOrEmpty
+				switch bucketName {
+				case "temp-admin-delete":
+					bucketName = tempBucketForAdminDelete
+				case "mgmt-delete":
+					bucketName = mgmtDeleteBucket
+				}
+
+				_, err = s3Client.DeleteBucket(ctx, &s3.DeleteBucketInput{Bucket: lo.ToPtr(bucketName)})
 			default:
 				Fail("unsupported action in authorization table test")
 			}
@@ -228,5 +280,18 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 		Entry("reader cannot delete objects batch", "reader", s3actions.DeleteObjects, "public/file1.txt", false),
 		Entry("reader can get object tagging", "reader", s3actions.GetObjectTagging, "shared/file3.txt", true),
 		Entry("writer cannot get object tagging", "writer", s3actions.GetObjectTagging, "shared/file3.txt", false),
+		Entry("admin can list buckets", "admin", s3actions.ListBuckets, "", true),
+		Entry("list-buckets-user can list buckets", "list-buckets-user", s3actions.ListBuckets, "", true),
+		Entry("no-permissions-user cannot list buckets", "no-permissions-user", s3actions.ListBuckets, "", false),
+		Entry("reader cannot list buckets", "reader", s3actions.ListBuckets, "", false),
+		Entry("admin can create bucket", "admin", s3actions.CreateBucket, "admin-auth-new-bucket", true),
+		Entry("bucket-mgmt-user can create bucket", "bucket-mgmt-user", s3actions.CreateBucket, "mgmt-auth-new-bucket", true),
+		Entry("reader cannot create bucket", "reader", s3actions.CreateBucket, "reader-auth-bucket", false),
+		Entry("no-permissions-user cannot create bucket", "no-permissions-user", s3actions.CreateBucket, "noperm-auth-bucket", false),
+		Entry("admin can delete bucket", "admin", s3actions.DeleteBucket, "temp-admin-delete", true),
+		Entry("admin delete non-existent bucket returns 404", "admin", s3actions.DeleteBucket, "non-existent-bucket", false),
+		Entry("bucket-mgmt-user can delete bucket", "bucket-mgmt-user", s3actions.DeleteBucket, "mgmt-delete", true),
+		Entry("reader cannot delete bucket", "reader", s3actions.DeleteBucket, "any-bucket", false),
+		Entry("no-permissions-user cannot delete bucket", "no-permissions-user", s3actions.DeleteBucket, "any-bucket", false),
 	)
 })

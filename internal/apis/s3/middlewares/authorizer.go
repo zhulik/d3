@@ -22,28 +22,33 @@ func (a *Authorizer) Middleware() echo.MiddlewareFunc {
 				return core.ErrUnauthorized
 			}
 
-			bucket := apiCtx.Bucket.Name()
+			var bucketName string
+			if apiCtx.Bucket != nil {
+				bucketName = apiCtx.Bucket.Name()
+			} else {
+				bucketName = c.Param("bucket")
+			}
 
 			// Decide whether this is a bucket-level or object-level operation.
 			var resource string
 
 			switch apiCtx.Action { //nolint:exhaustive
+			case s3actions.ListBuckets:
+				// Account-level operation – resource is wildcard.
+				resource = "*"
 			case s3actions.CreateBucket,
 				s3actions.HeadBucket,
 				s3actions.DeleteBucket,
 				s3actions.GetBucketLocation,
 				s3actions.ListObjectsV2:
 				// Bucket-level operations.
-				resource = bucket
-			case s3actions.ListBuckets:
-				// Account-level operation – currently allowed without IAM checks.
-				return next(c)
+				resource = bucketName
 			default:
 				// Object-level operations. Some (like DeleteObjects) may not have a specific key.
 				if apiCtx.Object == nil {
-					resource = bucket
+					resource = bucketName
 				} else {
-					resource = bucket + "/" + apiCtx.Object.Key()
+					resource = bucketName + "/" + apiCtx.Object.Key()
 				}
 			}
 
