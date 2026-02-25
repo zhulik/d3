@@ -67,7 +67,7 @@ var _ = Describe("Buckets API", Label("conformance"), Label("api-buckets"), Orde
 			Expect(*headBucketOutput.BucketRegion).To(Equal("local"))
 		})
 
-		XIt("resturns a bucket using Minio SDK", func(ctx context.Context) {
+		It("resturns a bucket using Minio SDK", func(ctx context.Context) {
 			headBucketOutput, err := minioClient.BucketExists(ctx, bucketName)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(headBucketOutput).To(BeTrue())

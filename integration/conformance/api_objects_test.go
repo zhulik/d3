@@ -147,14 +147,15 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				Expect(listObjectsOutput.Contents[2].Key).To(Equal(lo.ToPtr("hello.txt")))
 			})
 
-			XIt("lists all objects with Minio SDK", func(ctx context.Context) {
+			It("lists all objects with Minio SDK", func(ctx context.Context) {
 				objectsChan := minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{})
 				objects := lo.ChannelToSlice(objectsChan)
 
 				// Expect(err).NotTo(HaveOccurred())
-				Expect(objects).To(HaveLen(2))
+				Expect(objects).To(HaveLen(3))
 				Expect(objects[0].Key).To(Equal("dir/hello.txt"))
-				Expect(objects[1].Key).To(Equal("hello.txt"))
+				Expect(objects[1].Key).To(Equal("hello-minio.txt"))
+				Expect(objects[2].Key).To(Equal("hello.txt"))
 			})
 		})
 
@@ -314,7 +315,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				Expect(*getObjectOutput.TagCount).To(Equal(int32(1)))
 			})
 
-			XIt("returns object uploaded with Minio SDK and verifies content matches", func(ctx context.Context) {
+			It("returns object uploaded with Minio SDK and verifies content matches", func(ctx context.Context) {
 				getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 					Bucket: &bucketName,
 					Key:    &objectKeyMinio,
