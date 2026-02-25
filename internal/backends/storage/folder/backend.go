@@ -63,9 +63,12 @@ func (b *Backend) ListBuckets(_ context.Context) ([]core.Bucket, error) {
 }
 
 func (b *Backend) CreateBucket(_ context.Context, name string) error {
-	path := b.config.bucketPath(name)
+	path, err := b.config.bucketPath(name)
+	if err != nil {
+		return err
+	}
 
-	err := os.Mkdir(path, 0755)
+	err = os.Mkdir(path, 0755)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return core.ErrBucketAlreadyExists
@@ -78,9 +81,12 @@ func (b *Backend) CreateBucket(_ context.Context, name string) error {
 }
 
 func (b *Backend) DeleteBucket(_ context.Context, name string) error {
-	path := b.config.bucketPath(name)
+	path, err := b.config.bucketPath(name)
+	if err != nil {
+		return err
+	}
 
-	err := os.Remove(path)
+	err = os.Remove(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return core.ErrBucketNotFound
@@ -100,7 +106,10 @@ func (b *Backend) DeleteBucket(_ context.Context, name string) error {
 }
 
 func (b *Backend) HeadBucket(_ context.Context, name string) (core.Bucket, error) {
-	path := b.config.bucketPath(name)
+	path, err := b.config.bucketPath(name)
+	if err != nil {
+		return nil, err
+	}
 
 	info, err := os.Stat(path)
 	if err != nil {

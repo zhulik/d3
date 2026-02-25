@@ -39,20 +39,21 @@ func (a APIObjects) Init(_ context.Context) error {
 	bucketFinder := a.BucketFinder.Middleware()
 	objectFinder := a.ObjectFinder.Middleware()
 	authorizer := a.Echo.Authorizer.Middleware()
-
 	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
 	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
 
-	objects := a.Echo.Group("/:bucket/*")
+	objects := a.Echo.Group("/:bucket/*", middlewares.ObjectKeyValidator)
 	objects.HEAD("", a.HeadObject, middlewares.SetAction(s3actions.HeadObject), bucketFinder, objectFinder, authorizer)
 	objects.PUT("", NewQueryParamsRouter().
 		SetFallbackHandler(a.PutObject, s3actions.PutObject, bucketFinder, authorizer).
-		AddRoute("uploadId", a.UploadPart, s3actions.UploadPart, bucketFinder, authorizer).
+		AddRoute("uploadId", a.UploadPart, s3actions.UploadPart,
+			bucketFinder, middlewares.UploadIDValidator, authorizer).
 		Handle)
 
 	objects.POST("", NewQueryParamsRouter().
 		AddRoute("uploads", a.CreateMultipartUpload, s3actions.CreateMultipartUpload, bucketFinder, authorizer).
-		AddRoute("uploadId", a.CompleteMultipartUpload, s3actions.CompleteMultipartUpload, bucketFinder, authorizer).
+		AddRoute("uploadId", a.CompleteMultipartUpload, s3actions.CompleteMultipartUpload,
+			bucketFinder, middlewares.UploadIDValidator, authorizer).
 		Handle)
 
 	objects.GET("",
@@ -64,7 +65,8 @@ func (a APIObjects) Init(_ context.Context) error {
 
 	objects.DELETE("", NewQueryParamsRouter().
 		SetFallbackHandler(a.DeleteObject, s3actions.DeleteObject, bucketFinder, authorizer).
-		AddRoute("uploadId", a.AbortMultipartUpload, s3actions.AbortMultipartUpload, bucketFinder, authorizer).
+		AddRoute("uploadId", a.AbortMultipartUpload, s3actions.AbortMultipartUpload,
+			bucketFinder, middlewares.UploadIDValidator, authorizer).
 		Handle)
 
 	a.Echo.POST("/:bucket",
@@ -264,6 +266,13 @@ func (a APIObjects) DeleteObjects(c *echo.Context) error {
 	keys := lo.Map(deleteReq.Objects, func(obj deleteObjectXML, _ int) string {
 		return obj.Key
 	})
+
+	for _, key := range keys {
+		if err := core.ValidateObjectKey(key); err != nil {
+			return err
+		}
+	}
+
 	quiet := deleteReq.Quiet != nil && *deleteReq.Quiet
 
 	results, err := bucket.DeleteObjects(c.Request().Context(), quiet, keys...)

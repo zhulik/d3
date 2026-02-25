@@ -49,7 +49,10 @@ func (b *Bucket) HeadObject(_ context.Context, key string) (core.Object, error) 
 }
 
 func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObjectInput) error { //nolint:funlen
-	path := b.config.objectPath(b.name, key)
+	path, err := b.config.objectPath(b.name, key)
+	if err != nil {
+		return err
+	}
 
 	_, cancel, err := b.Locker.Lock(ctx, path)
 	if err != nil {
@@ -203,7 +206,11 @@ func (b *Bucket) CreateMultipartUpload(_ context.Context, _ string, metadata cor
 }
 
 func (b *Bucket) UploadPart(ctx context.Context, _ string, uploadID string, partNumber int, body io.Reader) error { //nolint:lll
-	uploadPath := b.config.multipartUploadPath(uploadID)
+	uploadPath, err := b.config.multipartUploadPath(uploadID)
+	if err != nil {
+		return err
+	}
+
 	path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", partNumber))
 
 	_, cancel, err := b.Locker.Lock(ctx, path)
@@ -236,17 +243,17 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return a.PartNumber - b.PartNumber
 	})
 
-	// validate that all parts are present
-	for _, part := range parts {
-		uploadPath := b.config.multipartUploadPath(uploadID)
+	uploadPath, err := b.config.multipartUploadPath(uploadID)
+	if err != nil {
+		return err
+	}
 
+	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
 		if _, err := os.Stat(path); err != nil {
 			return err
 		}
 	}
-
-	uploadPath := b.config.multipartUploadPath(uploadID)
 
 	blobFile, err := os.Create(filepath.Join(uploadPath, blobFilename))
 	if err != nil {
@@ -303,7 +310,12 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return err
 	}
 
-	err = os.Rename(uploadPath, b.config.objectPath(b.name, key))
+	objPath, err := b.config.objectPath(b.name, key)
+	if err != nil {
+		return err
+	}
+
+	err = os.Rename(uploadPath, objPath)
 	if err != nil {
 		return err
 	}
@@ -312,7 +324,10 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 }
 
 func (b *Bucket) AbortMultipartUpload(_ context.Context, _ string, uploadID string) error {
-	uploadPath := b.config.multipartUploadPath(uploadID)
+	uploadPath, err := b.config.multipartUploadPath(uploadID)
+	if err != nil {
+		return err
+	}
 
 	return os.RemoveAll(uploadPath)
 }
@@ -330,7 +345,7 @@ func (b *Bucket) getObject(key string) (*Object, error) {
 	return object, nil
 }
 
-func (b *Bucket) rootPath() string {
+func (b *Bucket) rootPath() (string, error) {
 	return b.config.bucketPath(b.name)
 }
 

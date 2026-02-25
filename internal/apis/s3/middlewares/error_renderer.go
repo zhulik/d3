@@ -27,6 +27,11 @@ func ErrorRenderer() echo.MiddlewareFunc {
 				return echo.NewHTTPError(http.StatusConflict, err.Error())
 			case errors.Is(err, core.ErrBucketNotEmpty):
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+			case errors.Is(err, core.ErrInvalidBucketName) ||
+				errors.Is(err, core.ErrInvalidObjectKey) ||
+				errors.Is(err, core.ErrInvalidUploadID) ||
+				errors.Is(err, core.ErrPathTraversal):
+				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			case errors.Is(err, core.ErrUnauthorized):
 				return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
 			case errors.Is(err, iampol.ErrInvalidPolicy):

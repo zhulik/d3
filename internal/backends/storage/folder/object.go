@@ -36,7 +36,10 @@ func (o *Object) Size() int64 {
 }
 
 func ObjectFromPath(bucket *Bucket, key string) (*Object, error) {
-	path := bucket.config.objectPath(bucket.name, key)
+	path, err := bucket.config.objectPath(bucket.name, key)
+	if err != nil {
+		return nil, err
+	}
 
 	isObject, err := IsObjectPath(path)
 	if err != nil {
@@ -114,7 +117,13 @@ func (o *Object) Delete() error {
 		return err
 	}
 
-	root := filepath.Clean(o.bucket.rootPath())
+	root, err := o.bucket.rootPath()
+	if err != nil {
+		return err
+	}
+
+	root = filepath.Clean(root)
+
 	for parent := filepath.Clean(filepath.Dir(o.path)); parent != root; parent = filepath.Clean(filepath.Dir(parent)) {
 		entries, err := os.ReadDir(parent)
 		if err != nil || len(entries) != 0 {

@@ -15,6 +15,10 @@ func (b *BucketFinder) Middleware() echo.MiddlewareFunc {
 		return func(c *echo.Context) error {
 			bucketName := c.Param("bucket")
 
+			if err := core.ValidateBucketName(bucketName); err != nil {
+				return err
+			}
+
 			bucket, err := b.Backend.HeadBucket(c.Request().Context(), bucketName)
 			if err != nil {
 				return err

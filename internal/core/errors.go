@@ -2,7 +2,6 @@ package core
 
 import "errors"
 
-// TODO: move to core.
 var (
 	ErrBucketAlreadyExists = errors.New("bucket already exists")
 	ErrBucketNotFound      = errors.New("bucket not found")
@@ -30,4 +29,9 @@ var (
 	ErrBindingInvalid       = errors.New("invalid binding")
 
 	ErrUnauthorized = errors.New("unauthorized")
+
+	ErrInvalidBucketName = errors.New("invalid bucket name")
+	ErrInvalidObjectKey  = errors.New("invalid object key")
+	ErrInvalidUploadID   = errors.New("invalid upload ID")
+	ErrPathTraversal     = errors.New("path traversal detected")
 )
