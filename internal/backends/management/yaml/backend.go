@@ -44,7 +44,7 @@ type Backend struct {
 	writer *atomicwriter.AtomicWriter
 }
 
-func (b *Backend) Init(ctx context.Context) error { //nolint:funlen
+func (b *Backend) Init(ctx context.Context) error {
 	// Lock the backend to prevent concurrent initialization
 	ctx, cancel, err := b.Locker.Lock(ctx, "yaml-management-backend-init")
 	if err != nil {
@@ -66,17 +66,18 @@ func (b *Backend) Init(ctx context.Context) error { //nolint:funlen
 		return err
 	}
 
+	adminUser, err := b.resolveAdminUser()
+	if err != nil {
+		return err
+	}
+
+	b.adminUser = adminUser
+
 	_, err = os.Stat(managementConfigPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			accessKeyID, secretAccessKey := credentials.GenerateCredentials()
-
 			cfg := ManagementConfig{
-				Version: ConfigVersion,
-				AdminUser: core.User{
-					AccessKeyID:     accessKeyID,
-					SecretAccessKey: secretAccessKey,
-				},
+				Version:  ConfigVersion,
 				Policies: map[string]*iampol.IAMPolicy{},
 				Bindings: []*core.PolicyBinding{},
 				Users:    map[string]*core.User{},
@@ -86,9 +87,6 @@ func (b *Backend) Init(ctx context.Context) error { //nolint:funlen
 			if err != nil {
 				return err
 			}
-
-			b.Logger.Info("YAML management backend initialized with admin credentials",
-				"AWS_ACCESS_KEY_ID", accessKeyID, "AWS_SECRET_ACCESS_KEY", secretAccessKey)
 
 			return b.reload(ctx)
 		}
@@ -378,6 +376,35 @@ func (b *Backend) Run(ctx context.Context) error {
 	}
 }
 
+func (b *Backend) resolveAdminUser() (*core.User, error) {
+	if b.Config.AdminCredentialsPath != "" {
+		creds, err := yaml.UnmarshalFromFile[AdminCredentialsConfig](b.Config.AdminCredentialsPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read admin credentials from %s: %w",
+				b.Config.AdminCredentialsPath, err)
+		}
+
+		if err := core.ValidateAdminUser(&creds.AdminUser); err != nil {
+			return nil, err
+		}
+
+		adminUser := &creds.AdminUser
+		adminUser.Name = "admin"
+
+		return adminUser, nil
+	}
+
+	accessKeyID, secretAccessKey := credentials.GenerateCredentials()
+	b.Logger.Info("Using temporary admin credentials (not persisted)",
+		"AWS_ACCESS_KEY_ID", accessKeyID, "AWS_SECRET_ACCESS_KEY", secretAccessKey)
+
+	return &core.User{
+		Name:            "admin",
+		AccessKeyID:     accessKeyID,
+		SecretAccessKey: secretAccessKey,
+	}, nil
+}
+
 func (b *Backend) readWriteConfig(ctx context.Context, op func(ManagementConfig) (ManagementConfig, error)) error {
 	err := b.writer.ReadWrite(ctx, b.Config.ManagementBackendYAMLPath,
 		func(_ context.Context, content []byte) ([]byte, error) {
@@ -449,8 +476,6 @@ func (b *Backend) reload(ctx context.Context) error {
 	b.bindingsByUser = map[string][]*core.PolicyBinding{}
 	b.bindingsByPolicy = map[string][]*core.PolicyBinding{}
 	b.lastUpdated = info.ModTime()
-	b.adminUser = &managementConfig.AdminUser
-	b.adminUser.Name = "admin"
 
 	for userName, user := range managementConfig.Users {
 		// Ensure stored user has Name set

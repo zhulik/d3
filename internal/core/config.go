@@ -30,6 +30,10 @@ type Config struct {
 	// ManagementBackendTmpPath specifies where to store temporary files for management backend operations.
 	// It should be on the same disk as the main storage to ensure atomicity. Only relevand for the YAML backend.
 	ManagementBackendTmpPath string `env:"MANAGEMENT_BACKEND_TMP_PATH" envDefault:"./d3_data/tmp"`
+	// AdminCredentialsPath optionally specifies a path to a YAML file with admin credentials.
+	// When set, admin credentials are read from this file and validated.
+	// When not set, temporary admin credentials are generated on each run and not persisted.
+	AdminCredentialsPath string `env:"D3_ADMIN_CREDENTIALS_PATH" envDefault:""`
 
 	RedisAddress string `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
 

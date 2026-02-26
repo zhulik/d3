@@ -4,6 +4,7 @@ version: '3'
 
 env:
   ENVIRONMENT: development
+  D3_ADMIN_CREDENTIALS_PATH: admin-credentials.dev.yaml
 
 includes:
   test: tasks/test.yml

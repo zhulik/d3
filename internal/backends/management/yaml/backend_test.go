@@ -63,8 +63,8 @@ var _ = Describe("YAML Backend", func() {
 	})
 
 	Describe("Init", func() {
-		Context("when config file does not exist", func() {
-			It("should create the config file with admin user", func(ctx context.Context) {
+		Context("when config file does not exist and no admin credentials path", func() {
+			It("creates the config file with ephemeral admin (not persisted)", func(ctx context.Context) {
 				err := backend.Init(ctx)
 				Expect(err).NotTo(HaveOccurred())
 
@@ -72,14 +72,64 @@ var _ = Describe("YAML Backend", func() {
 				_, err = os.Stat(configPath)
 				Expect(err).NotTo(HaveOccurred())
 
-				// Load and verify
+				// Load and verify - admin credentials should not be in file (ephemeral mode)
 				config, err := yamlPkg.UnmarshalFromFile[yaml.ManagementConfig](configPath)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(config.Version).To(Equal(1))
-				Expect(config.AdminUser.AccessKeyID).NotTo(BeEmpty())
-				Expect(config.AdminUser.SecretAccessKey).NotTo(BeEmpty())
 				Expect(config.Users).To(BeEmpty())
 				Expect(config.Policies).To(BeEmpty())
+
+				// Admin user should be available via API
+				adminUser, err := backend.GetUserByName(ctx, "admin")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(adminUser.AccessKeyID).NotTo(BeEmpty())
+				Expect(adminUser.SecretAccessKey).NotTo(BeEmpty())
+			})
+		})
+
+		Context("when config file does not exist and admin credentials path is set", func() {
+			var credentialsPath string
+
+			BeforeEach(func() {
+				credentialsPath = filepath.Join(tempDir, "admin-credentials.yaml")
+				credentialsYAML := `admin_user:
+  access_key_id: AKIAIOSFODNN7EXAMPLE
+  secret_access_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+`
+				lo.Must0(os.WriteFile(credentialsPath, []byte(credentialsYAML), 0600))
+				cfg.AdminCredentialsPath = credentialsPath
+			})
+
+			It("uses admin credentials from credentials file", func(ctx context.Context) {
+				err := backend.Init(ctx)
+				Expect(err).NotTo(HaveOccurred())
+
+				config, err := yamlPkg.UnmarshalFromFile[yaml.ManagementConfig](configPath)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(config.Version).To(Equal(1))
+
+				adminUser, err := backend.GetUserByName(ctx, "admin")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(adminUser.AccessKeyID).To(Equal("AKIAIOSFODNN7EXAMPLE"))
+				Expect(adminUser.SecretAccessKey).To(Equal("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"))
+			})
+		})
+
+		Context("when admin credentials path is set but file has invalid credentials", func() {
+			BeforeEach(func() {
+				credentialsPath := filepath.Join(tempDir, "invalid-credentials.yaml")
+				invalidYAML := `admin_user:
+  access_key_id: short
+  secret_access_key: also-short
+`
+				lo.Must0(os.WriteFile(credentialsPath, []byte(invalidYAML), 0600))
+				cfg.AdminCredentialsPath = credentialsPath
+			})
+
+			It("returns validation error", func(ctx context.Context) {
+				err := backend.Init(ctx)
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("invalid admin credentials")))
 			})
 		})
 

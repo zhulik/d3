@@ -17,6 +17,8 @@ var (
 
 	ErrInvalidConfig = errors.New("invalid config")
 
+	ErrInvalidAdminCredentials = errors.New("invalid admin credentials")
+
 	ErrConfigVersionMismatch = errors.New("config version mismatch")
 
 	ErrObjectMetadataNotReadable = errors.New("object metadata not readable")

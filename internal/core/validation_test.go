@@ -107,3 +107,42 @@ var _ = Describe("ValidateUploadID", func() {
 		Entry("contains spaces", "00000000 0000 0000 0000 000000000000"),
 	)
 })
+
+var _ = Describe("ValidateAdminUser", func() {
+	When("user is valid", func() {
+		It("succeeds with AWS-style credentials", func() {
+			user := &core.User{
+				AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
+				SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			}
+			Expect(core.ValidateAdminUser(user)).To(Succeed())
+		})
+	})
+
+	When("user is invalid", func() {
+		DescribeTable("validation failures",
+			func(user *core.User, expectedSubstring string) {
+				err := core.ValidateAdminUser(user)
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring(expectedSubstring)))
+			},
+			Entry("nil user", nil, "admin user is nil"),
+			Entry("empty access key", &core.User{
+				AccessKeyID:     "",
+				SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			}, "access_key_id is empty"),
+			Entry("empty secret key", &core.User{
+				AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
+				SecretAccessKey: "",
+			}, "secret_access_key is empty"),
+			Entry("wrong access key length", &core.User{
+				AccessKeyID:     "short",
+				SecretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+			}, "access_key_id must be 20 characters"),
+			Entry("wrong secret key length", &core.User{
+				AccessKeyID:     "AKIAIOSFODNN7EXAMPLE",
+				SecretAccessKey: "short",
+			}, "secret_access_key must be 40 characters"),
+		)
+	})
+})
