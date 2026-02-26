@@ -85,7 +85,9 @@ func (a *Authorizer) IsAllowed(
 }
 
 func (a *Authorizer) statementMatches(stmt iampol.Statement, action s3actions.Action, resourceSuffix string) bool {
-	if !lo.Contains(stmt.Action, action) || action == s3actions.All {
+	// Policy statement's s3:* (All) matches any requested action; otherwise require explicit match
+	actionMatches := lo.Contains(stmt.Action, s3actions.All) || lo.Contains(stmt.Action, action)
+	if !actionMatches {
 		return false
 	}
 
