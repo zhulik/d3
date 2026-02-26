@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo/v5/middleware"
 	"github.com/zhulik/d3/internal/apictx"
 	"github.com/zhulik/d3/internal/apis/s3/middlewares"
+	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/s3actions"
 )
 
@@ -27,6 +28,7 @@ func (e *Echo) Init(_ context.Context) error {
 
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(
+		middleware.BodyLimit(core.SizeLimit5Gb),
 		apictx.Middleware(),
 		middlewares.Logger(),
 		middleware.Recover(),

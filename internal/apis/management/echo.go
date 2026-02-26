@@ -9,6 +9,7 @@ import (
 	"github.com/zhulik/d3/internal/apictx"
 	managementMiddleares "github.com/zhulik/d3/internal/apis/management/middlewares"
 	"github.com/zhulik/d3/internal/apis/s3/middlewares"
+	"github.com/zhulik/d3/internal/core"
 )
 
 type Echo struct {
@@ -24,6 +25,7 @@ func (e *Echo) Init(_ context.Context) error {
 
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(
+		middleware.BodyLimit(core.SizeLimit1Mb),
 		apictx.Middleware(),
 		middlewares.Logger(),
 		middleware.Recover(),
