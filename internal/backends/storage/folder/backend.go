@@ -59,7 +59,7 @@ func (b *Backend) ListBuckets(_ context.Context) ([]core.Bucket, error) {
 		return nil, err
 	}
 
-	return xiter.ErrMap(entries, b.dirEntryToBucket)
+	return xiter.ErrFilterMap(entries, b.dirEntryToBucket)
 }
 
 func (b *Backend) CreateBucket(_ context.Context, name string) error {
@@ -111,7 +111,11 @@ func (b *Backend) HeadBucket(_ context.Context, name string) (core.Bucket, error
 		return nil, err
 	}
 
-	info, err := os.Stat(path)
+	if err := rejectSymlink(path); err != nil {
+		return nil, err
+	}
+
+	info, err := os.Lstat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, core.ErrBucketNotFound
@@ -128,10 +132,14 @@ func (b *Backend) HeadBucket(_ context.Context, name string) (core.Bucket, error
 	}, nil
 }
 
-func (b *Backend) dirEntryToBucket(entry os.DirEntry) (core.Bucket, error) {
+func (b *Backend) dirEntryToBucket(entry os.DirEntry) (core.Bucket, bool, error) {
+	if entry.Type()&os.ModeSymlink != 0 {
+		return nil, false, nil
+	}
+
 	info, err := entry.Info()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	return &Bucket{
@@ -139,7 +147,7 @@ func (b *Backend) dirEntryToBucket(entry os.DirEntry) (core.Bucket, error) {
 		creationDate: info.ModTime(), // TODO: use the actual creation date
 		config:       b.config,
 		Locker:       b.Locker,
-	}, nil
+	}, true, nil
 }
 
 func (b *Backend) prepareFileStructure(ctx context.Context) error {

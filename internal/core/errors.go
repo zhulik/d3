@@ -36,4 +36,5 @@ var (
 	ErrInvalidObjectKey  = errors.New("invalid object key")
 	ErrInvalidUploadID   = errors.New("invalid upload ID")
 	ErrPathTraversal     = errors.New("path traversal detected")
+	ErrSymlinkNotAllowed = errors.New("symlinks are not allowed")
 )

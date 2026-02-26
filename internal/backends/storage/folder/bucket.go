@@ -60,8 +60,12 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 	}
 	defer cancel()
 
+	if err := rejectSymlinkInPath(path); err != nil {
+		return err
+	}
+
 	// TODO: this behavior should depend on the passed details
-	if _, err := os.Stat(path); err == nil {
+	if _, err := os.Lstat(path); err == nil {
 		return core.ErrObjectAlreadyExists
 	}
 
@@ -104,7 +108,12 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	parentDir := filepath.Dir(path)
+	if err := rejectSymlinkInPath(parentDir); err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
 		return err
 	}
 
@@ -219,8 +228,12 @@ func (b *Bucket) UploadPart(ctx context.Context, _ string, uploadID string, part
 	}
 	defer cancel()
 
+	if err := rejectSymlinkInPath(uploadPath); err != nil {
+		return err
+	}
+
 	// TODO: this behavior should depend on the passed details
-	if _, err := os.Stat(path); err == nil {
+	if _, err := os.Lstat(path); err == nil {
 		return core.ErrObjectAlreadyExists
 	}
 
@@ -248,9 +261,13 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return err
 	}
 
+	if err := rejectSymlinkInPath(uploadPath); err != nil {
+		return err
+	}
+
 	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
-		if _, err := os.Stat(path); err != nil {
+		if _, err := os.Lstat(path); err != nil {
 			return err
 		}
 	}
@@ -264,7 +281,7 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
 
-		partFile, err := os.Open(path)
+		partFile, err := openFileNoFollow(path)
 		if err != nil {
 			return err
 		}
@@ -315,6 +332,10 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return err
 	}
 
+	if err := rejectSymlinkInPath(filepath.Dir(objPath)); err != nil {
+		return err
+	}
+
 	err = os.Rename(uploadPath, objPath)
 	if err != nil {
 		return err
@@ -326,6 +347,10 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 func (b *Bucket) AbortMultipartUpload(_ context.Context, _ string, uploadID string) error {
 	uploadPath, err := b.config.multipartUploadPath(uploadID)
 	if err != nil {
+		return err
+	}
+
+	if err := rejectSymlink(uploadPath); err != nil {
 		return err
 	}
 

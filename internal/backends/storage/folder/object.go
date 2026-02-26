@@ -52,9 +52,17 @@ func ObjectFromPath(bucket *Bucket, key string) (*Object, error) {
 
 	metadataPath := filepath.Join(path, metadataYamlFilename)
 
-	info, err := os.Stat(metadataPath)
+	if err := rejectSymlinkInPath(path); err != nil {
+		return nil, err
+	}
+
+	info, err := os.Lstat(metadataPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil, core.ErrSymlinkNotAllowed
 	}
 
 	if info.Mode().Perm()&(0400) == 0 {
@@ -70,7 +78,9 @@ func ObjectFromPath(bucket *Bucket, key string) (*Object, error) {
 
 func (o *Object) Read(p []byte) (int, error) {
 	if o.ReadSeekCloser == nil {
-		rc, err := os.Open(filepath.Join(o.path, blobFilename))
+		blobPath := filepath.Join(o.path, blobFilename)
+
+		rc, err := openFileNoFollow(blobPath)
 		if err != nil {
 			return 0, err
 		}
@@ -83,7 +93,9 @@ func (o *Object) Read(p []byte) (int, error) {
 
 func (o *Object) Seek(offset int64, whence int) (int64, error) {
 	if o.ReadSeekCloser == nil {
-		rc, err := os.Open(filepath.Join(o.path, blobFilename))
+		blobPath := filepath.Join(o.path, blobFilename)
+
+		rc, err := openFileNoFollow(blobPath)
 		if err != nil {
 			return 0, err
 		}
@@ -112,6 +124,10 @@ func (o *Object) Metadata() *core.ObjectMetadata {
 }
 
 func (o *Object) Delete() error {
+	if err := rejectSymlink(o.path); err != nil {
+		return err
+	}
+
 	err := os.Rename(o.path, o.bucket.config.newBinPath())
 	if err != nil {
 		return err
@@ -137,13 +153,17 @@ func (o *Object) Delete() error {
 }
 
 func IsObjectPath(path string) (bool, error) {
-	fi, err := os.Stat(path)
+	fi, err := os.Lstat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, core.ErrObjectNotFound
 		}
 
 		return false, err
+	}
+
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return false, core.ErrSymlinkNotAllowed
 	}
 
 	if !fi.IsDir() {
@@ -172,13 +192,17 @@ func IsObjectPath(path string) (bool, error) {
 }
 
 func existsAndIsFile(path string) (bool, error) {
-	fi, err := os.Stat(path)
+	fi, err := os.Lstat(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
 		}
 
 		return false, err
+	}
+
+	if fi.Mode()&os.ModeSymlink != 0 {
+		return false, core.ErrSymlinkNotAllowed
 	}
 
 	return !fi.IsDir(), nil
