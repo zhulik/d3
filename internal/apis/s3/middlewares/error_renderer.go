@@ -7,13 +7,27 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/iampol"
+	"github.com/zhulik/d3/pkg/sigv4"
 )
+
+func isSigV4AuthError(err error) bool {
+	return errors.Is(err, sigv4.ErrSignatureDoesNotMatch) ||
+		errors.Is(err, sigv4.ErrInvalidAccessKeyID) ||
+		errors.Is(err, sigv4.ErrInvalidDigest) ||
+		errors.Is(err, sigv4.ErrMissingDateHeader) ||
+		errors.Is(err, sigv4.ErrExpiredPresignRequest) ||
+		errors.Is(err, sigv4.ErrMalformedPresignedDate) ||
+		errors.Is(err, sigv4.ErrCredMalformed) ||
+		errors.Is(err, sigv4.ErrRequestNotReadyYet)
+}
 
 func ErrorRenderer() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			err := next(c)
 			switch {
+			case isSigV4AuthError(err):
+				return echo.NewHTTPError(http.StatusForbidden, err.Error())
 			case errors.Is(err, core.ErrBucketNotFound):
 				return echo.NewHTTPError(http.StatusNotFound, err.Error())
 			case errors.Is(err, core.ErrObjectNotFound) ||

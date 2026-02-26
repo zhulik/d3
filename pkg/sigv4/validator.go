@@ -26,7 +26,7 @@ var (
 	ErrInvalidDigest          = errors.New("invalid digest")
 	ErrExpiredPresignRequest  = errors.New("expired presign request")
 	ErrMalformedPresignedDate = errors.New("malformed presigned date")
-	ErrAccessDenied           = errors.New("access denied")
+	ErrRequestNotSigned       = errors.New("request not signed")
 	ErrSignatureDoesNotMatch  = errors.New("signature does not match")
 	ErrCredMalformed          = errors.New("credential malformed")
 	ErrRequestNotReadyYet     = errors.New("request not ready yet")
@@ -120,7 +120,7 @@ func extractAuthHeaderParameters(u *url.URL, header http.Header) (*AuthHeaderPar
 			return nil, err
 		}
 	} else {
-		return nil, ErrAccessDenied
+		return nil, ErrRequestNotSigned
 	}
 
 	if err := headerParams.Validate(); err != nil {

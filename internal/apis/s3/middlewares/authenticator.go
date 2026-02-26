@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/labstack/echo/v5"
@@ -20,10 +21,14 @@ func (a *Authenticator) Middleware() echo.MiddlewareFunc {
 		return func(c *echo.Context) error {
 			authParams, err := sigv4.Validate(c.Request().Context(), c.Request(), a.getAccessKeySecret)
 			if err != nil {
+				if errors.Is(err, sigv4.ErrRequestNotSigned) {
+					// Allow anonymous access, actual authorization is handled by the authorizer
+					return next(c)
+				}
+
 				a.Logger.Error("failed to validate credentials", "error", err)
 
-				// We allow anonymous access to the API, the authorization mechanism will handle it
-				return next(c)
+				return err
 			}
 
 			if authParams != nil {
