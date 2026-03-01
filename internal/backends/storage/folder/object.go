@@ -128,7 +128,7 @@ func (o *Object) Delete() error {
 		return err
 	}
 
-	err := os.Rename(o.path, o.bucket.config.newBinPath())
+	err := renameNoFollow(o.path, o.bucket.config.newBinPath())
 	if err != nil {
 		return err
 	}

@@ -71,13 +71,12 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 
 	uploadPath := b.config.newUploadPath()
 
-	err = os.MkdirAll(uploadPath, 0755)
-	if err != nil {
+	if err := mkdirAllNoFollow(uploadPath, 0755); err != nil {
 		return err
 	}
 	defer os.RemoveAll(uploadPath)
 
-	uploadFile, err := os.Create(filepath.Join(uploadPath, blobFilename))
+	uploadFile, err := createFileNoFollow(filepath.Join(uploadPath, blobFilename), 0644)
 	if err != nil {
 		return err
 	}
@@ -109,15 +108,11 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 	}
 
 	parentDir := filepath.Dir(path)
-	if err := rejectSymlinkInPath(parentDir); err != nil {
+	if err := mkdirAllNoFollow(parentDir, 0755); err != nil {
 		return err
 	}
 
-	if err := os.MkdirAll(parentDir, 0755); err != nil {
-		return err
-	}
-
-	err = os.Rename(uploadPath, path)
+	err = renameNoFollow(uploadPath, path)
 	if err != nil {
 		return err
 	}
@@ -201,13 +196,11 @@ func (b *Bucket) DeleteObjects(ctx context.Context, quiet bool, keys ...string) 
 func (b *Bucket) CreateMultipartUpload(_ context.Context, _ string, metadata core.ObjectMetadata) (string, error) { //nolint:lll
 	id, uploadPath := b.config.newMultipartUploadPath()
 
-	err := os.MkdirAll(uploadPath, 0755)
-	if err != nil {
+	if err := mkdirAllNoFollow(uploadPath, 0755); err != nil {
 		return "", err
 	}
 
-	err = yaml.MarshalToFile(metadata, filepath.Join(uploadPath, metadataYamlFilename))
-	if err != nil {
+	if err := yaml.MarshalToFile(metadata, filepath.Join(uploadPath, metadataYamlFilename)); err != nil {
 		return "", err
 	}
 
@@ -237,7 +230,7 @@ func (b *Bucket) UploadPart(ctx context.Context, _ string, uploadID string, part
 		return core.ErrObjectAlreadyExists
 	}
 
-	uploadFile, err := os.Create(path)
+	uploadFile, err := createFileNoFollow(path, 0644)
 	if err != nil {
 		return err
 	}
@@ -272,7 +265,7 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		}
 	}
 
-	blobFile, err := os.Create(filepath.Join(uploadPath, blobFilename))
+	blobFile, err := createFileNoFollow(filepath.Join(uploadPath, blobFilename), 0644)
 	if err != nil {
 		return err
 	}
@@ -332,11 +325,11 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return err
 	}
 
-	if err := rejectSymlinkInPath(filepath.Dir(objPath)); err != nil {
+	if err := mkdirAllNoFollow(filepath.Dir(objPath), 0755); err != nil {
 		return err
 	}
 
-	err = os.Rename(uploadPath, objPath)
+	err = renameNoFollow(uploadPath, objPath)
 	if err != nil {
 		return err
 	}
