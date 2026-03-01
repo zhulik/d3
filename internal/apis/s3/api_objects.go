@@ -254,7 +254,7 @@ func (a APIObjects) DeleteObjects(c *echo.Context) error {
 	bucket := apictx.FromContext(c.Request().Context()).Bucket
 
 	var deleteReq deleteRequestXML
-	if err := xml.NewDecoder(c.Request().Body).Decode(&deleteReq); err != nil {
+	if err := xml.NewDecoder(io.LimitReader(c.Request().Body, core.SizeLimit1Mb)).Decode(&deleteReq); err != nil {
 		return err
 	}
 
@@ -365,7 +365,7 @@ func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
 	uploadID := c.QueryParam("uploadId")
 
 	var req completeMultipartUploadRequestXML
-	if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+	if err := xml.NewDecoder(io.LimitReader(c.Request().Body, core.SizeLimit1Mb)).Decode(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid XML body")
 	}
 
