@@ -269,9 +269,16 @@ policies:
 			})
 
 			Context("with empty name", func() {
-				It("should return invalid user error", func(ctx context.Context) {
+				It("returns invalid user error", func(ctx context.Context) {
 					_, err := backend.CreateUser(ctx, "")
 					Expect(err).To(MatchError(core.ErrUserInvalid))
+				})
+			})
+
+			Context("with reserved username admin", func() {
+				It("returns username reserved error", func(ctx context.Context) {
+					_, err := backend.CreateUser(ctx, "admin")
+					Expect(err).To(MatchError(core.ErrUserNameReserved))
 				})
 			})
 

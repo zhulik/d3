@@ -151,6 +151,10 @@ func (b *Backend) CreateUser(ctx context.Context, username string) (*core.User, 
 		return nil, core.ErrUserInvalid
 	}
 
+	if username == "admin" {
+		return nil, core.ErrUserNameReserved
+	}
+
 	accessKeyID, secretAccessKey := credentials.GenerateCredentials()
 	newUser := &core.User{
 		Name:            username,

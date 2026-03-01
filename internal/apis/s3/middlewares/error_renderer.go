@@ -47,7 +47,9 @@ func ErrorRenderer() echo.MiddlewareFunc {
 				errors.Is(err, core.ErrInvalidMaxKeys) ||
 				errors.Is(err, core.ErrInvalidPartNumber) ||
 				errors.Is(err, core.ErrPathTraversal) ||
-				errors.Is(err, core.ErrSymlinkNotAllowed):
+				errors.Is(err, core.ErrSymlinkNotAllowed) ||
+				errors.Is(err, core.ErrUserInvalid) ||
+				errors.Is(err, core.ErrUserNameReserved):
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			case errors.Is(err, core.ErrUnauthorized):
 				return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
