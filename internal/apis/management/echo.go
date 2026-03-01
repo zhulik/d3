@@ -30,7 +30,6 @@ func (e *Echo) Init(_ context.Context) error {
 		middlewares.Logger(),
 		middleware.Recover(),
 		middlewares.ErrorRenderer(),
-		apictx.Middleware(),
 		e.Authenticator.Middleware(),
 		e.Authorizer.Middleware(),
 	)
