@@ -45,10 +45,19 @@ func (a *Authorizer) Middleware() echo.MiddlewareFunc {
 				resource = bucketName
 			default:
 				// Object-level operations. Some (like DeleteObjects) may not have a specific key.
-				if apiCtx.Object == nil {
-					resource = bucketName
-				} else {
+				switch {
+				case apiCtx.Object != nil:
 					resource = bucketName + "/" + apiCtx.Object.Key()
+				case apiCtx.Action == s3actions.DeleteObject:
+					// DeleteObject does not use objectFinder (object may not exist; S3 returns 204 for non-existent keys).
+					// Authorize against the key from the URL to enforce prefix-based policies.
+					if key := c.Param("*"); key != "" {
+						resource = bucketName + "/" + key
+					} else {
+						resource = bucketName
+					}
+				default:
+					resource = bucketName
 				}
 			}
 
