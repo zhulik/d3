@@ -271,22 +271,40 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 	}
 	defer blobFile.Close()
 
+	partReadersClosers := make([]io.ReadCloser, 0, len(parts))
+	closeAll := func() {
+		for _, r := range partReadersClosers {
+			r.Close()
+		}
+	}
+
 	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
 
 		partFile, err := openFileNoFollow(path)
 		if err != nil {
-			return err
-		}
-
-		_, _, err = smartio.Copy(ctx, blobFile, partFile)
-		if err != nil {
-			partFile.Close()
+			closeAll()
 
 			return err
 		}
 
-		partFile.Close()
+		partReadersClosers = append(partReadersClosers, partFile)
+	}
+
+	defer closeAll()
+
+	partReaders := lo.Map(partReadersClosers, func(r io.ReadCloser, _ int) io.Reader {
+		return r
+	})
+
+	actualSize, sha256sum, err := smartio.CopyAll(ctx, blobFile, partReaders...)
+	if err != nil {
+		return err
+	}
+
+	rawSha256, err := hex.DecodeString(sha256sum)
+	if err != nil {
+		return err
 	}
 
 	files, err := os.ReadDir(uploadPath)
@@ -303,17 +321,14 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		}
 	}
 
-	blobFileStat, err := blobFile.Stat()
-	if err != nil {
-		return err
-	}
-
 	metadata, err := yaml.UnmarshalFromFile[core.ObjectMetadata](filepath.Join(uploadPath, metadataYamlFilename))
 	if err != nil {
 		return err
 	}
 
-	metadata.Size = blobFileStat.Size()
+	metadata.Size = actualSize
+	metadata.SHA256 = sha256sum
+	metadata.SHA256Base64 = base64.StdEncoding.EncodeToString(rawSha256)
 
 	err = yaml.MarshalToFile(metadata, filepath.Join(uploadPath, metadataYamlFilename))
 	if err != nil {

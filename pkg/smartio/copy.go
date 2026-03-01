@@ -47,17 +47,24 @@ func copyContext(ctx context.Context, dst io.Writer, src io.Reader, buf []byte) 
 	}
 }
 
-// Copy copies the contents of src to dst and returns the number of bytes written and
-// the SHA256 checksum of the contents.
+// CopyAll copies data from multiple readers into dst and returns the number of bytes written,
+// the SHA256 checksum of the concatenated contents, and any error.
 // It respects context cancellation and returns ctx.Err() when the context is done.
-func Copy(ctx context.Context, dst io.Writer, src io.Reader) (int64, string, error) {
+func CopyAll(ctx context.Context, dst io.Writer, src ...io.Reader) (int64, string, error) {
 	hasher := sha256.New()
 	multiWriter := io.MultiWriter(dst, hasher)
 
-	written, err := copyContext(ctx, multiWriter, src, nil)
+	written, err := copyContext(ctx, multiWriter, io.MultiReader(src...), nil)
 	if err != nil {
 		return 0, "", err
 	}
 
 	return written, hex.EncodeToString(hasher.Sum(nil)), nil
+}
+
+// Copy copies the contents of src to dst and returns the number of bytes written and
+// the SHA256 checksum of the contents.
+// It respects context cancellation and returns ctx.Err() when the context is done.
+func Copy(ctx context.Context, dst io.Writer, src io.Reader) (int64, string, error) {
+	return CopyAll(ctx, dst, src)
 }

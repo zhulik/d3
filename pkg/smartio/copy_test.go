@@ -22,6 +22,34 @@ func (infiniteReader) Read(p []byte) (int, error) {
 	return len(p), nil
 }
 
+var _ = Describe("CopyAll", func() {
+	When("multiple readers are provided", func() {
+		It("concatenates and copies content, computing combined SHA256", func(ctx context.Context) {
+			r1 := strings.NewReader("hello ")
+			r2 := strings.NewReader("world")
+			writer := bytes.NewBuffer(nil)
+
+			n, sha256sum, err := smartio.CopyAll(ctx, writer, r1, r2)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(int64(11)))
+			Expect(sha256sum).To(Equal("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"))
+			Expect(writer.String()).To(Equal("hello world"))
+		})
+	})
+
+	When("no readers are provided", func() {
+		It("writes nothing and returns empty hash", func(ctx context.Context) {
+			writer := bytes.NewBuffer(nil)
+
+			n, sha256sum, err := smartio.CopyAll(ctx, writer)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(int64(0)))
+			Expect(sha256sum).To(Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+			Expect(writer.Len()).To(Equal(0))
+		})
+	})
+})
+
 var _ = Describe("Copy", func() {
 	When("reader has finite content", func() {
 		It("copies the contents of the reader to the writer", func(ctx context.Context) {
