@@ -36,6 +36,14 @@ func ValidateObjectKey(key string) error {
 	return nil
 }
 
+func ValidatePartNumber(partNumber int) error {
+	if partNumber < 1 || partNumber > MaxPartNumber {
+		return fmt.Errorf("%w: %d", ErrInvalidPartNumber, partNumber)
+	}
+
+	return nil
+}
+
 func ValidateUploadID(uploadID string) error {
 	if err := uuid.Validate(uploadID); err != nil {
 		return fmt.Errorf("%w: %q", ErrInvalidUploadID, uploadID)

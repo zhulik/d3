@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -105,6 +106,28 @@ var _ = Describe("ValidateUploadID", func() {
 		Entry("path traversal attempt", "../../../etc/passwd"),
 		Entry("too short", "abcd"),
 		Entry("contains spaces", "00000000 0000 0000 0000 000000000000"),
+	)
+})
+
+var _ = Describe("ValidatePartNumber", func() {
+	DescribeTable("valid part numbers",
+		func(partNumber int) {
+			Expect(core.ValidatePartNumber(partNumber)).To(Succeed())
+		},
+		Entry("minimum (1)", 1),
+		Entry("typical", 5),
+		Entry("maximum (10000)", core.MaxPartNumber),
+	)
+
+	DescribeTable("invalid part numbers",
+		func(partNumber int) {
+			err := core.ValidatePartNumber(partNumber)
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, core.ErrInvalidPartNumber)).To(BeTrue())
+		},
+		Entry("zero", 0),
+		Entry("negative", -1),
+		Entry("above maximum", core.MaxPartNumber+1),
 	)
 })
 

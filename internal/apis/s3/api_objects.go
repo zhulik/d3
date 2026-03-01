@@ -195,6 +195,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 		if err != nil {
 			return core.ErrInvalidMaxKeys
 		}
+
 		if maxKeysInt < 1 || maxKeysInt > core.MaxKeys {
 			return core.ErrInvalidMaxKeys
 		}
@@ -348,7 +349,11 @@ func (a APIObjects) UploadPart(c *echo.Context) error {
 
 	partNumberInt, err := strconv.Atoi(partNumber)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid part number")
+		return core.ErrInvalidPartNumber
+	}
+
+	if err := core.ValidatePartNumber(partNumberInt); err != nil {
+		return err
 	}
 
 	err = bucket.UploadPart(c.Request().Context(), key, uploadID, partNumberInt, c.Request().Body)
@@ -379,6 +384,12 @@ func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
 			ETag:       part.ETag,
 		}
 	})
+
+	for _, part := range parts {
+		if err := core.ValidatePartNumber(part.PartNumber); err != nil {
+			return err
+		}
+	}
 
 	err := bucket.CompleteMultipartUpload(c.Request().Context(), key, uploadID, parts)
 	if err != nil {
