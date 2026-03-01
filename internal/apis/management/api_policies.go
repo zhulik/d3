@@ -2,6 +2,7 @@ package management
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v5"
@@ -39,9 +40,13 @@ func (a APIPolicies) ListPolicies(c *echo.Context) error {
 
 // CreatePolicy creates a policy.
 func (a APIPolicies) CreatePolicy(c *echo.Context) error {
-	raw, _, err := smartio.ReadAllAndHash(c.Request().Body)
+	raw, calculatedHash, err := smartio.ReadAllAndHash(c.Request().Body)
 	if err != nil {
 		return err
+	}
+
+	if calculatedHash != c.Request().Header.Get("X-Amz-Content-Sha256") {
+		return fmt.Errorf("%w: body checksum mismatch", core.ErrUnauthorized)
 	}
 
 	policy, err := iampol.Parse(raw)
@@ -61,9 +66,13 @@ func (a APIPolicies) CreatePolicy(c *echo.Context) error {
 func (a APIPolicies) UpdatePolicy(c *echo.Context) error {
 	policyID := c.Param("policyID")
 
-	raw, _, err := smartio.ReadAllAndHash(c.Request().Body)
+	raw, calculatedHash, err := smartio.ReadAllAndHash(c.Request().Body)
 	if err != nil {
 		return err
+	}
+
+	if calculatedHash != c.Request().Header.Get("X-Amz-Content-Sha256") {
+		return fmt.Errorf("%w: body checksum mismatch", core.ErrUnauthorized)
 	}
 
 	policy, err := iampol.Parse(raw)
