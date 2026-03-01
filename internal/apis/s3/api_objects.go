@@ -112,7 +112,8 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 	}
 
 	err = bucket.PutObject(c.Request().Context(), key, core.PutObjectInput{
-		Reader: reader,
+		Reader:      reader,
+		IfNoneMatch: c.Request().Header.Get("If-None-Match") == "*",
 		Metadata: core.ObjectMetadata{
 			ContentType: c.Request().Header.Get("Content-Type"),
 			SHA256:      sha256,

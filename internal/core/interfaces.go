@@ -22,8 +22,9 @@ type ObjectMetadata struct {
 }
 
 type PutObjectInput struct {
-	Reader   io.Reader
-	Metadata ObjectMetadata
+	Reader      io.Reader
+	Metadata    ObjectMetadata
+	IfNoneMatch bool
 }
 
 type ListObjectsV2Input struct {

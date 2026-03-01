@@ -64,9 +64,19 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 		return err
 	}
 
-	// TODO: this behavior should depend on the passed details
 	if _, err := os.Lstat(path); err == nil {
-		return core.ErrObjectAlreadyExists
+		if input.IfNoneMatch {
+			return core.ErrPreconditionFailed
+		}
+
+		existing, err := ObjectFromPath(b, key)
+		if err != nil {
+			return err
+		}
+
+		if err := existing.Delete(); err != nil {
+			return err
+		}
 	}
 
 	uploadPath := b.config.newUploadPath()

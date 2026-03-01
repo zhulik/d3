@@ -2,6 +2,7 @@ package conformance_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -70,13 +71,77 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 
 		When("object already exists", func() {
-			It("returns an error", func(ctx context.Context) {
+			overwriteKey := "overwrite-test.txt"
+
+			AfterAll(func(ctx context.Context) {
+				lo.Must(s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: &bucketName,
+					Key:    &overwriteKey,
+				}))
+			})
+
+			It("overwrites the object", func(ctx context.Context) {
 				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 					Bucket: &bucketName,
-					Key:    objectKeyAWS,
-					Body:   strings.NewReader(objectData),
+					Key:    &overwriteKey,
+					Body:   strings.NewReader("original data"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				newData := "overwritten data"
+				_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket: &bucketName,
+					Key:    &overwriteKey,
+					Body:   strings.NewReader(newData),
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				result, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+					Bucket: &bucketName,
+					Key:    &overwriteKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				defer result.Body.Close()
+
+				body, err := io.ReadAll(result.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(body)).To(Equal(newData))
+			})
+		})
+
+		When("If-None-Match is *", func() {
+			ifNoneMatchKey := "if-none-match-new.txt"
+
+			AfterAll(func(ctx context.Context) {
+				lo.Must(s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: &bucketName,
+					Key:    &ifNoneMatchKey,
+				}))
+			})
+
+			It("creates a new object", func(ctx context.Context) {
+				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket:      &bucketName,
+					Key:         &ifNoneMatchKey,
+					Body:        strings.NewReader(objectData),
+					IfNoneMatch: lo.ToPtr("*"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("returns precondition failed when object exists", func(ctx context.Context) {
+				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket:      &bucketName,
+					Key:         objectKeyAWS,
+					Body:        strings.NewReader(objectData),
+					IfNoneMatch: lo.ToPtr("*"),
 				})
 				Expect(err).To(HaveOccurred())
+
+				var httpErr interface{ HTTPStatusCode() int }
+				Expect(errors.As(err, &httpErr)).To(BeTrue())
+				Expect(httpErr.HTTPStatusCode()).To(Equal(412))
 			})
 		})
 
