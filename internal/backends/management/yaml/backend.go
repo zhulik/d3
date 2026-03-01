@@ -398,7 +398,7 @@ func (b *Backend) resolveAdminUser() (*core.User, error) {
 		return adminUser, nil
 	}
 
-	if b.Config.IsDevelopmentEnvironment() {
+	if b.Config.ShouldCreateTemporaryAdminCredentials() {
 		accessKeyID, secretAccessKey := credentials.GenerateCredentials()
 
 		b.Logger.Info("Using temporary admin credentials (not persisted)",

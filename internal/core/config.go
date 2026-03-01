@@ -64,6 +64,6 @@ func (c *Config) Init(_ context.Context) error {
 	return nil
 }
 
-func (c *Config) IsDevelopmentEnvironment() bool {
-	return c.Environment == "development"
+func (c *Config) ShouldCreateTemporaryAdminCredentials() bool {
+	return c.Environment == "development" || c.Environment == "test"
 }

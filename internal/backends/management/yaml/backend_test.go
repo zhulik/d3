@@ -36,6 +36,7 @@ var _ = Describe("YAML Backend", func() {
 		cfg = &core.Config{
 			ManagementBackendYAMLPath: configPath,
 			ManagementBackendTmpPath:  tmpPath,
+			Environment:               "test",
 		}
 
 		lo.Must0(os.MkdirAll(tmpPath, 0755))
