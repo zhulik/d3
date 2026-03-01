@@ -426,6 +426,62 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 	})
 
+	Describe("CopyObject", Ordered, func() {
+		copySourceKey := "copy-source.txt"
+		copyDestKey := "copy-dest.txt"
+
+		BeforeAll(func(ctx context.Context) {
+			_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+				Bucket:      &bucketName,
+				Key:         &copySourceKey,
+				Body:        strings.NewReader(objectData),
+				ContentType: lo.ToPtr("text/plain"),
+				Metadata:    objectMetadata,
+				Tagging:     lo.ToPtr("bar=baz"),
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		AfterAll(func(ctx context.Context) {
+			lo.Must(s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+				Bucket: &bucketName,
+				Key:    &copyDestKey,
+			}))
+		})
+
+		When("source object exists", func() {
+			It("copies the object", func(ctx context.Context) {
+				_, err := s3Client.CopyObject(ctx, &s3.CopyObjectInput{
+					Bucket:     &bucketName,
+					CopySource: lo.ToPtr(bucketName + "/" + copySourceKey),
+					Key:        &copyDestKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("copy survives source deletion", func(ctx context.Context) {
+				_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: &bucketName,
+					Key:    &copySourceKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				result, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+					Bucket: &bucketName,
+					Key:    &copyDestKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				defer result.Body.Close()
+
+				body, err := io.ReadAll(result.Body)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(body)).To(Equal(objectData))
+				Expect(*result.ContentType).To(Equal("text/plain"))
+			})
+		})
+	})
+
 	Describe("DeleteObject", func() {
 		When("object exists", func() {
 			It("deletes object", func(ctx context.Context) {

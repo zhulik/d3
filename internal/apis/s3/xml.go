@@ -111,3 +111,9 @@ type completeMultipartUploadResultXML struct {
 	Key      string   `xml:"Key"`
 	ETag     string   `xml:"ETag"`
 }
+
+type copyObjectResultXML struct {
+	XMLName      xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CopyObjectResult"`
+	ETag         string   `xml:"ETag"`
+	LastModified string   `xml:"LastModified"`
+}

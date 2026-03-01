@@ -27,6 +27,27 @@ type PutObjectInput struct {
 	IfNoneMatch bool
 }
 
+type CopyDirective string
+
+const (
+	CopyDirectiveCopy    CopyDirective = "COPY"
+	CopyDirectiveReplace CopyDirective = "REPLACE"
+)
+
+type CopyObjectInput struct {
+	Source            Object
+	MetadataDirective CopyDirective
+	TaggingDirective  CopyDirective
+	ReplacementTags   map[string]string
+	ReplacementMeta   map[string]string
+	ContentType       string
+	IfNoneMatch       bool
+}
+
+type CopyObjectResult struct {
+	Metadata ObjectMetadata
+}
+
 type ListObjectsV2Input struct {
 	Prefix            string
 	MaxKeys           int
@@ -72,6 +93,7 @@ type Bucket interface { //nolint:interfacebloat
 
 	HeadObject(ctx context.Context, key string) (Object, error)
 	PutObject(ctx context.Context, key string, input PutObjectInput) error
+	CopyObject(ctx context.Context, dstKey string, input CopyObjectInput) (*CopyObjectResult, error)
 	GetObject(ctx context.Context, key string) (Object, error)
 	ListObjectsV2(ctx context.Context, input ListObjectsV2Input) (*ListV2Result, error)
 	DeleteObjects(ctx context.Context, quiet bool, keys ...string) ([]DeleteResult, error)
