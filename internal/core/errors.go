@@ -16,7 +16,8 @@ var (
 	ErrUserInvalid       = errors.New("invalid user")
 	ErrUserNameReserved  = errors.New("username \"admin\" is reserved")
 
-	ErrInvalidConfig = errors.New("invalid config")
+	ErrInvalidConfig          = errors.New("invalid config")
+	ErrAdminCredentialsNotSet = errors.New("admin credentials not set")
 
 	ErrInvalidAdminCredentials = errors.New("invalid admin credentials")
 

@@ -63,3 +63,7 @@ func (c *Config) Init(_ context.Context) error {
 
 	return nil
 }
+
+func (c *Config) IsDevelopmentEnvironment() bool {
+	return c.Environment == "development"
+}

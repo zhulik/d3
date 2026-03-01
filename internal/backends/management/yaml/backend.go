@@ -398,15 +398,20 @@ func (b *Backend) resolveAdminUser() (*core.User, error) {
 		return adminUser, nil
 	}
 
-	accessKeyID, secretAccessKey := credentials.GenerateCredentials()
-	b.Logger.Info("Using temporary admin credentials (not persisted)",
-		"AWS_ACCESS_KEY_ID", accessKeyID, "AWS_SECRET_ACCESS_KEY", secretAccessKey)
+	if b.Config.IsDevelopmentEnvironment() {
+		accessKeyID, secretAccessKey := credentials.GenerateCredentials()
 
-	return &core.User{
-		Name:            "admin",
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
-	}, nil
+		b.Logger.Info("Using temporary admin credentials (not persisted)",
+			"AWS_ACCESS_KEY_ID", accessKeyID, "AWS_SECRET_ACCESS_KEY", secretAccessKey)
+
+		return &core.User{
+			Name:            "admin",
+			AccessKeyID:     accessKeyID,
+			SecretAccessKey: secretAccessKey,
+		}, nil
+	}
+
+	return nil, core.ErrAdminCredentialsNotSet
 }
 
 func (b *Backend) readWriteConfig(ctx context.Context, op func(ManagementConfig) (ManagementConfig, error)) error {
