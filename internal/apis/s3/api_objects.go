@@ -193,7 +193,10 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	if maxKeys != "" {
 		maxKeysInt, err = strconv.Atoi(maxKeys)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, "invalid max-keys")
+			return core.ErrInvalidMaxKeys
+		}
+		if maxKeysInt < 1 || maxKeysInt > core.MaxKeys {
+			return core.ErrInvalidMaxKeys
 		}
 	}
 

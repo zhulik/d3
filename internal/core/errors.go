@@ -35,6 +35,7 @@ var (
 	ErrInvalidBucketName = errors.New("invalid bucket name")
 	ErrInvalidObjectKey  = errors.New("invalid object key")
 	ErrInvalidUploadID   = errors.New("invalid upload ID")
+	ErrInvalidMaxKeys    = errors.New("max-keys must be between 1 and 1000")
 	ErrPathTraversal     = errors.New("path traversal detected")
 	ErrSymlinkNotAllowed = errors.New("symlinks are not allowed")
 )

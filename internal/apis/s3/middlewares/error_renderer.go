@@ -44,6 +44,7 @@ func ErrorRenderer() echo.MiddlewareFunc {
 			case errors.Is(err, core.ErrInvalidBucketName) ||
 				errors.Is(err, core.ErrInvalidObjectKey) ||
 				errors.Is(err, core.ErrInvalidUploadID) ||
+				errors.Is(err, core.ErrInvalidMaxKeys) ||
 				errors.Is(err, core.ErrPathTraversal) ||
 				errors.Is(err, core.ErrSymlinkNotAllowed):
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
