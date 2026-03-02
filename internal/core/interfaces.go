@@ -101,8 +101,8 @@ type Bucket interface { //nolint:interfacebloat
 	DeleteObjects(ctx context.Context, quiet bool, keys ...string) ([]DeleteResult, error)
 
 	CreateMultipartUpload(ctx context.Context, key string, metadata ObjectMetadata) (string, error)
-	UploadPart(ctx context.Context, key string, uploadID string, partNumber int, body io.Reader) error
-	CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []CompletePart) error
+	UploadPart(ctx context.Context, key string, uploadID string, partNumber int, body io.Reader) (string, error)
+	CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []CompletePart) (*ObjectMetadata, error)
 	AbortMultipartUpload(ctx context.Context, key string, uploadID string) error
 }
 

@@ -333,149 +333,167 @@ func (b *Bucket) CreateMultipartUpload(_ context.Context, _ string, metadata cor
 	return id, nil
 }
 
-func (b *Bucket) UploadPart(ctx context.Context, _ string, uploadID string, partNumber int, body io.Reader) error { //nolint:lll
+func (b *Bucket) UploadPart(ctx context.Context, _ string, uploadID string, partNumber int, body io.Reader) (string, error) { //nolint:lll
 	uploadPath, err := b.config.multipartUploadPath(uploadID)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", partNumber))
 
 	_, cancel, err := b.Locker.Lock(ctx, path)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer cancel()
 
 	if err := rejectSymlinkInPath(uploadPath); err != nil {
-		return err
+		return "", err
 	}
 
 	// TODO: this behavior should depend on the passed details
 	if _, err := os.Lstat(path); err == nil {
-		return core.ErrObjectAlreadyExists
+		return "", core.ErrObjectAlreadyExists
 	}
 
 	uploadFile, err := createFileNoFollow(path, 0644)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer uploadFile.Close()
 
-	_, _, err = smartio.Copy(ctx, uploadFile, body)
+	_, checksum, err := smartio.Copy(ctx, uploadFile, body)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	return checksum, nil
 }
 
-func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []core.CompletePart) error { //nolint:lll,funlen
+func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, uploadID string, parts []core.CompletePart) (*core.ObjectMetadata, error) { //nolint:lll,funlen
 	slices.SortFunc(parts, func(a, b core.CompletePart) int {
 		return a.PartNumber - b.PartNumber
 	})
 
 	uploadPath, err := b.config.multipartUploadPath(uploadID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := rejectSymlinkInPath(uploadPath); err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
 		if _, err := os.Lstat(path); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	blobFile, err := createFileNoFollow(filepath.Join(uploadPath, blobFilename), 0644)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer blobFile.Close()
-
-	partReadersClosers := make([]io.ReadCloser, 0, len(parts))
-	closeAll := func() {
-		for _, r := range partReadersClosers {
-			r.Close()
-		}
-	}
 
 	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
 
 		partFile, err := openFileNoFollow(path)
 		if err != nil {
-			closeAll()
-
-			return err
+			return nil, err
 		}
 
-		partReadersClosers = append(partReadersClosers, partFile)
-	}
+		_, checksum, err := smartio.Copy(ctx, blobFile, partFile)
+		if err != nil {
+			partFile.Close()
 
-	defer closeAll()
+			return nil, err
+		}
 
-	partReaders := lo.Map(partReadersClosers, func(r io.ReadCloser, _ int) io.Reader {
-		return r
-	})
+		normalizedETag := strings.Trim(part.ETag, "\"")
+		if normalizedETag != "" && normalizedETag != checksum {
+			partFile.Close()
 
-	actualSize, sha256sum, err := smartio.CopyAll(ctx, blobFile, partReaders...)
-	if err != nil {
-		return err
-	}
+			return nil, fmt.Errorf("%w: part %d ETag mismatch", core.ErrObjectChecksumMismatch, part.PartNumber)
+		}
 
-	rawSha256, err := hex.DecodeString(sha256sum)
-	if err != nil {
-		return err
+		partFile.Close()
 	}
 
 	files, err := os.ReadDir(uploadPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), "part-") {
 			err := os.Remove(filepath.Join(uploadPath, file.Name()))
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
-	metadata, err := yaml.UnmarshalFromFile[core.ObjectMetadata](filepath.Join(uploadPath, metadataYamlFilename))
+	blobFileStat, err := blobFile.Stat()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	metadata.Size = actualSize
+	metadata, err := yaml.UnmarshalFromFile[core.ObjectMetadata](filepath.Join(uploadPath, metadataYamlFilename))
+	if err != nil {
+		return nil, err
+	}
+
+	metadata.Size = blobFileStat.Size()
+
+	blobPath := filepath.Join(uploadPath, blobFilename)
+
+	blobReader, err := openFileNoFollow(blobPath)
+	if err != nil {
+		return nil, err
+	}
+	defer blobReader.Close()
+
+	_, sha256sum, err := smartio.Copy(ctx, io.Discard, blobReader)
+	if err != nil {
+		return nil, err
+	}
+
+	rawSha256, err := hex.DecodeString(sha256sum)
+	if err != nil {
+		return nil, err
+	}
+
 	metadata.SHA256 = sha256sum
 	metadata.SHA256Base64 = base64.StdEncoding.EncodeToString(rawSha256)
+	metadata.LastModified = time.Now()
 
 	err = yaml.MarshalToFile(metadata, filepath.Join(uploadPath, metadataYamlFilename))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	objPath, err := b.config.objectPath(b.name, key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := mkdirAllNoFollow(filepath.Dir(objPath), 0755); err != nil {
-		return err
+	parentDir := filepath.Dir(objPath)
+	if err := rejectSymlinkInPath(parentDir); err != nil {
+		return nil, err
 	}
 
-	err = renameNoFollow(uploadPath, objPath)
-	if err != nil {
-		return err
+	if err := mkdirAllNoFollow(parentDir, 0755); err != nil {
+		return nil, err
 	}
 
-	return nil
+	if err := renameNoFollow(uploadPath, objPath); err != nil {
+		return nil, err
+	}
+
+	return &metadata, nil
 }
 
 func (b *Bucket) AbortMultipartUpload(_ context.Context, _ string, uploadID string) error {

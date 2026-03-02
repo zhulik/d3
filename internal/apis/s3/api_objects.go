@@ -446,10 +446,12 @@ func (a APIObjects) UploadPart(c *echo.Context) error {
 		return err
 	}
 
-	err = bucket.UploadPart(c.Request().Context(), key, uploadID, partNumberInt, c.Request().Body)
+	etag, err := bucket.UploadPart(c.Request().Context(), key, uploadID, partNumberInt, c.Request().Body)
 	if err != nil {
 		return err
 	}
+
+	c.Response().Header().Set("ETag", etag)
 
 	return c.NoContent(http.StatusOK)
 }
@@ -481,7 +483,7 @@ func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
 		}
 	}
 
-	err := bucket.CompleteMultipartUpload(c.Request().Context(), key, uploadID, parts)
+	metadata, err := bucket.CompleteMultipartUpload(c.Request().Context(), key, uploadID, parts)
 	if err != nil {
 		return err
 	}
@@ -489,6 +491,11 @@ func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
 	response := completeMultipartUploadResultXML{
 		Bucket: bucket.Name(),
 		Key:    key,
+	}
+
+	if metadata != nil {
+		response.ETag = metadata.SHA256
+		c.Response().Header().Set("ETag", metadata.SHA256)
 	}
 
 	return c.XML(http.StatusOK, response)

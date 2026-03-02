@@ -41,7 +41,8 @@ func ErrorRenderer() echo.MiddlewareFunc {
 				errors.Is(err, core.ErrPolicyAlreadyExists) ||
 				errors.Is(err, core.ErrUserAlreadyExists):
 				return echo.NewHTTPError(http.StatusConflict, err.Error())
-			case errors.Is(err, core.ErrBucketNotEmpty):
+			case errors.Is(err, core.ErrBucketNotEmpty) ||
+				errors.Is(err, core.ErrObjectChecksumMismatch):
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			case errors.Is(err, core.ErrInvalidBucketName) ||
 				errors.Is(err, core.ErrInvalidObjectKey) ||

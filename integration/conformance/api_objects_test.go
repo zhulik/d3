@@ -737,7 +737,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 	})
 
 	Describe("Multiplart Upload full cycle", func() {
-		var uploadID *string
+		var (
+			uploadID  *string
+			partETags []*string
+		)
 
 		Describe("CreateMultipartUpload", func() {
 			It("creates multipart upload", func(ctx context.Context) {
@@ -748,13 +751,14 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				Expect(err).NotTo(HaveOccurred())
 				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
 				uploadID = createMultipartUploadOutput.UploadId
+				partETags = make([]*string, 11)
 			})
 		})
 
 		Describe("UploadPart", func() {
 			for i := 1; i <= 10; i++ {
 				It(fmt.Sprintf("uploads part %d", i), func(ctx context.Context) {
-					_, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
+					output, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
 						Bucket:     &bucketName,
 						Key:        objectKeyAWS,
 						PartNumber: lo.ToPtr(int32(i)),
@@ -762,32 +766,48 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Body:       strings.NewReader(fmt.Sprintf("hello %d\n", i)),
 					})
 					Expect(err).NotTo(HaveOccurred())
+					Expect(output.ETag).NotTo(BeNil())
+					Expect(*output.ETag).NotTo(BeEmpty())
+
+					partETags[i] = output.ETag
 				})
 			}
 		})
 
 		Describe("CompleteMultipartUpload", func() {
 			It("completes multipart upload", func(ctx context.Context) {
-				_, err := s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+				Expect(partETags[1]).NotTo(BeNil())
+
+				completeOutput, err := s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
 					Bucket:   &bucketName,
 					Key:      objectKeyAWS,
 					UploadId: uploadID,
 					MultipartUpload: &types.CompletedMultipartUpload{
 						Parts: []types.CompletedPart{
-							{PartNumber: lo.ToPtr(int32(1))},
-							{PartNumber: lo.ToPtr(int32(2))},
-							{PartNumber: lo.ToPtr(int32(3))},
-							{PartNumber: lo.ToPtr(int32(4))},
-							{PartNumber: lo.ToPtr(int32(5))},
-							{PartNumber: lo.ToPtr(int32(6))},
-							{PartNumber: lo.ToPtr(int32(7))},
-							{PartNumber: lo.ToPtr(int32(8))},
-							{PartNumber: lo.ToPtr(int32(9))},
-							{PartNumber: lo.ToPtr(int32(10))},
+							{PartNumber: lo.ToPtr(int32(1)), ETag: partETags[1]},
+							{PartNumber: lo.ToPtr(int32(2)), ETag: partETags[2]},
+							{PartNumber: lo.ToPtr(int32(3)), ETag: partETags[3]},
+							{PartNumber: lo.ToPtr(int32(4)), ETag: partETags[4]},
+							{PartNumber: lo.ToPtr(int32(5)), ETag: partETags[5]},
+							{PartNumber: lo.ToPtr(int32(6)), ETag: partETags[6]},
+							{PartNumber: lo.ToPtr(int32(7)), ETag: partETags[7]},
+							{PartNumber: lo.ToPtr(int32(8)), ETag: partETags[8]},
+							{PartNumber: lo.ToPtr(int32(9)), ETag: partETags[9]},
+							{PartNumber: lo.ToPtr(int32(10)), ETag: partETags[10]},
 						},
 					},
 				})
 				Expect(err).NotTo(HaveOccurred())
+
+				Expect(completeOutput.ETag).NotTo(BeNil())
+				Expect(*completeOutput.ETag).NotTo(BeEmpty())
+
+				headOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: &bucketName,
+					Key:    objectKeyAWS,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(headOutput.ETag).To(Equal(completeOutput.ETag))
 			})
 		})
 
