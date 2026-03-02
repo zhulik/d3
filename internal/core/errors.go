@@ -42,4 +42,5 @@ var (
 	ErrInvalidPartNumber = errors.New("part number must be between 1 and 10000")
 	ErrPathTraversal     = errors.New("path traversal detected")
 	ErrSymlinkNotAllowed = errors.New("symlinks are not allowed")
+	ErrInvalidTag        = errors.New("invalid tag")
 )

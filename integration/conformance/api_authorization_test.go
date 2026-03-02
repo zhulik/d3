@@ -57,7 +57,7 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 			ID: "write-only-policy",
 			Statement: []iampol.Statement{{
 				Effect:   iampol.EffectAllow,
-				Action:   []s3actions.Action{s3actions.PutObject, s3actions.DeleteObject, s3actions.DeleteObjects},
+				Action:   []s3actions.Action{s3actions.PutObject, s3actions.DeleteObject, s3actions.DeleteObjects, s3actions.PutObjectTagging, s3actions.DeleteObjectTagging},
 				Resource: []string{arnPrefix + app.BucketName(), arnPrefix + app.BucketName() + "/*"},
 			}},
 		}
@@ -223,6 +223,21 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 					Bucket: lo.ToPtr(app.BucketName()),
 					Key:    lo.ToPtr(key),
 				})
+			case s3actions.PutObjectTagging:
+				key := objectKeyOrEmpty
+				_, err = s3Client.PutObjectTagging(ctx, &s3.PutObjectTaggingInput{
+					Bucket: lo.ToPtr(app.BucketName()),
+					Key:    lo.ToPtr(key),
+					Tagging: &types.Tagging{
+						TagSet: []types.Tag{{Key: lo.ToPtr("k"), Value: lo.ToPtr("v")}},
+					},
+				})
+			case s3actions.DeleteObjectTagging:
+				key := objectKeyOrEmpty
+				_, err = s3Client.DeleteObjectTagging(ctx, &s3.DeleteObjectTaggingInput{
+					Bucket: lo.ToPtr(app.BucketName()),
+					Key:    lo.ToPtr(key),
+				})
 			case s3actions.ListBuckets:
 				_, err = s3Client.ListBuckets(ctx, &s3.ListBucketsInput{})
 			case s3actions.CreateBucket:
@@ -280,6 +295,10 @@ var _ = Describe("Authorization", Label("conformance"), Label("authorization"), 
 		Entry("reader cannot delete objects batch", "reader", s3actions.DeleteObjects, "public/file1.txt", false),
 		Entry("reader can get object tagging", "reader", s3actions.GetObjectTagging, "shared/file3.txt", true),
 		Entry("writer cannot get object tagging", "writer", s3actions.GetObjectTagging, "shared/file3.txt", false),
+		Entry("reader cannot put object tagging", "reader", s3actions.PutObjectTagging, "shared/file3.txt", false),
+		Entry("writer can put object tagging", "writer", s3actions.PutObjectTagging, "shared/file3.txt", true),
+		Entry("reader cannot delete object tagging", "reader", s3actions.DeleteObjectTagging, "shared/file3.txt", false),
+		Entry("writer can delete object tagging", "writer", s3actions.DeleteObjectTagging, "shared/file3.txt", true),
 		Entry("admin can list buckets", "admin", s3actions.ListBuckets, "", true),
 		Entry("list-buckets-user can list buckets", "list-buckets-user", s3actions.ListBuckets, "", true),
 		Entry("no-permissions-user cannot list buckets", "no-permissions-user", s3actions.ListBuckets, "", false),

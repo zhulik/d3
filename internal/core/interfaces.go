@@ -105,6 +105,9 @@ type Bucket interface { //nolint:interfacebloat
 	CompleteMultipartUpload(ctx context.Context, key string,
 		uploadID string, parts []CompletePart) (*ObjectMetadata, error)
 	AbortMultipartUpload(ctx context.Context, key string, uploadID string) error
+
+	PutObjectTagging(ctx context.Context, key string, tags map[string]string) error
+	DeleteObjectTagging(ctx context.Context, key string) error
 }
 
 type Object interface {

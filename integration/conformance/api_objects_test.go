@@ -70,6 +70,23 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			})
 		})
 
+		When("more than 10 tags are provided", func() {
+			It("returns 400 InvalidTag", func(ctx context.Context) {
+				tagPairs := make([]string, 11)
+				for i := range 11 {
+					tagPairs[i] = fmt.Sprintf("key%d=val%d", i, i)
+				}
+
+				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket:  &bucketName,
+					Key:     lo.ToPtr("too-many-tags.txt"),
+					Body:    strings.NewReader("x"),
+					Tagging: lo.ToPtr(strings.Join(tagPairs, "&")),
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
 		When("object already exists", func() {
 			overwriteKey := "overwrite-test.txt"
 
@@ -512,6 +529,120 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		When("object does not exist", func() {
 			It("returnserror", func(ctx context.Context) {
 				_, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
+					Bucket: &bucketName,
+					Key:    lo.ToPtr("does-not-exist.txt"),
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("PutObjectTagging", func() {
+		putTaggingKey := "put-tagging-target.txt"
+
+		BeforeAll(func(ctx context.Context) {
+			_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+				Bucket: &bucketName,
+				Key:    &putTaggingKey,
+				Body:   strings.NewReader("content"),
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("object exists", func() {
+			It("sets tags and GetObjectTagging returns them", func(ctx context.Context) {
+				_, err := s3Client.PutObjectTagging(ctx, &s3.PutObjectTaggingInput{
+					Bucket: &bucketName,
+					Key:    &putTaggingKey,
+					Tagging: &types.Tagging{
+						TagSet: []types.Tag{
+							{Key: lo.ToPtr("env"), Value: lo.ToPtr("test")},
+							{Key: lo.ToPtr("team"), Value: lo.ToPtr("backend")},
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
+					Bucket: &bucketName,
+					Key:    &putTaggingKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.TagSet).To(HaveLen(2))
+
+				tagMap := make(map[string]string)
+				for _, t := range output.TagSet {
+					tagMap[lo.FromPtr(t.Key)] = lo.FromPtr(t.Value)
+				}
+
+				Expect(tagMap).To(HaveKeyWithValue("env", "test"))
+				Expect(tagMap).To(HaveKeyWithValue("team", "backend"))
+			})
+		})
+
+		When("object does not exist", func() {
+			It("returns error", func(ctx context.Context) {
+				_, err := s3Client.PutObjectTagging(ctx, &s3.PutObjectTaggingInput{
+					Bucket: &bucketName,
+					Key:    lo.ToPtr("does-not-exist.txt"),
+					Tagging: &types.Tagging{
+						TagSet: []types.Tag{{Key: lo.ToPtr("k"), Value: lo.ToPtr("v")}},
+					},
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("more than 10 tags are provided", func() {
+			It("returns 400 InvalidTag", func(ctx context.Context) {
+				tagSet := make([]types.Tag, 11)
+				for i := range 11 {
+					tagSet[i] = types.Tag{Key: lo.ToPtr(fmt.Sprintf("k%d", i)), Value: lo.ToPtr(fmt.Sprintf("v%d", i))}
+				}
+
+				_, err := s3Client.PutObjectTagging(ctx, &s3.PutObjectTaggingInput{
+					Bucket:  &bucketName,
+					Key:     &putTaggingKey,
+					Tagging: &types.Tagging{TagSet: tagSet},
+				})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
+	Describe("DeleteObjectTagging", func() {
+		deleteTaggingKey := "delete-tagging-target.txt"
+
+		BeforeAll(func(ctx context.Context) {
+			_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+				Bucket:  &bucketName,
+				Key:     &deleteTaggingKey,
+				Body:    strings.NewReader("content"),
+				Tagging: lo.ToPtr("a=b"),
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		When("object exists with tags", func() {
+			It("removes all tags", func(ctx context.Context) {
+				_, err := s3Client.DeleteObjectTagging(ctx, &s3.DeleteObjectTaggingInput{
+					Bucket: &bucketName,
+					Key:    &deleteTaggingKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				output, err := s3Client.GetObjectTagging(ctx, &s3.GetObjectTaggingInput{
+					Bucket: &bucketName,
+					Key:    &deleteTaggingKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.TagSet).To(BeEmpty())
+			})
+		})
+
+		When("object does not exist", func() {
+			It("returns error", func(ctx context.Context) {
+				_, err := s3Client.DeleteObjectTagging(ctx, &s3.DeleteObjectTaggingInput{
 					Bucket: &bucketName,
 					Key:    lo.ToPtr("does-not-exist.txt"),
 				})

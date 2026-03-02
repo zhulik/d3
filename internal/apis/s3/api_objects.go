@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/labstack/echo/v5"
@@ -25,7 +26,11 @@ import (
 )
 
 const (
-	StreamingHMACSHA256 = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
+	StreamingHMACSHA256   = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
+	maxObjectTagCount     = 10
+	maxObjectTagKeyLength = 128  // Unicode characters per S3
+	maxObjectTagValLength = 256  // Unicode characters per S3
+	taggingRequestBodyMax = 1024 // 1 KB for PutObjectTagging XML
 )
 
 type APIObjects struct {
@@ -46,6 +51,7 @@ func (a APIObjects) Init(_ context.Context) error {
 	objects.HEAD("", a.HeadObject, middlewares.SetAction(s3actions.HeadObject), bucketFinder, objectFinder, authorizer)
 	objects.PUT("", NewQueryParamsRouter().
 		SetFallbackHandler(a.PutObject, s3actions.PutObject, bucketFinder, authorizer).
+		AddRoute("tagging", a.PutObjectTagging, s3actions.PutObjectTagging, bucketFinder, objectFinder, authorizer).
 		AddRoute("uploadId", a.UploadPart, s3actions.UploadPart,
 			bucketFinder, middlewares.UploadIDValidator, authorizer).
 		Handle)
@@ -65,6 +71,7 @@ func (a APIObjects) Init(_ context.Context) error {
 
 	objects.DELETE("", NewQueryParamsRouter().
 		SetFallbackHandler(a.DeleteObject, s3actions.DeleteObject, bucketFinder, authorizer).
+		AddRoute("tagging", a.DeleteObjectTagging, s3actions.DeleteObjectTagging, bucketFinder, objectFinder, authorizer).
 		AddRoute("uploadId", a.AbortMultipartUpload, s3actions.AbortMultipartUpload,
 			bucketFinder, middlewares.UploadIDValidator, authorizer).
 		Handle)
@@ -97,6 +104,10 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 
 	tags, err := parseTags(c.Request().Header.Get("X-Amz-Tagging"))
 	if err != nil {
+		return err
+	}
+
+	if err := ValidateTags(tags); err != nil {
 		return err
 	}
 
@@ -202,6 +213,10 @@ func (a APIObjects) CopyObject(c *echo.Context, rawCopySource string) error { //
 		if err != nil {
 			return err
 		}
+
+		if err := ValidateTags(input.ReplacementTags); err != nil {
+			return err
+		}
 	}
 
 	result, err := dstBucket.CopyObject(ctx, dstKey, input)
@@ -233,6 +248,43 @@ func (a APIObjects) GetObjectTagging(c *echo.Context) error {
 	}
 
 	return c.XML(http.StatusOK, tagging)
+}
+
+func (a APIObjects) PutObjectTagging(c *echo.Context) error {
+	apiCtx := apictx.FromContext(c.Request().Context())
+	bucket := apiCtx.Bucket
+	key := c.Param("*")
+
+	var req taggingXML
+	if err := xml.NewDecoder(io.LimitReader(c.Request().Body, taggingRequestBodyMax)).Decode(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid XML body")
+	}
+
+	tags := make(map[string]string, len(req.TagSet.Tags))
+	for _, t := range req.TagSet.Tags {
+		tags[t.Key] = t.Value
+	}
+
+	if err := ValidateTags(tags); err != nil {
+		return err
+	}
+
+	if err := bucket.PutObjectTagging(c.Request().Context(), key, tags); err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+func (a APIObjects) DeleteObjectTagging(c *echo.Context) error {
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
+	key := c.Param("*")
+
+	if err := bucket.DeleteObjectTagging(c.Request().Context(), key); err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }
 
 func (a APIObjects) GetObject(c *echo.Context) error {
@@ -415,6 +467,10 @@ func (a APIObjects) CreateMultipartUpload(c *echo.Context) error {
 		return err
 	}
 
+	if err := ValidateTags(tags); err != nil {
+		return err
+	}
+
 	uploadID, err := bucket.CreateMultipartUpload(c.Request().Context(), key, core.ObjectMetadata{
 		ContentType:  c.Request().Header.Get("Content-Type"),
 		Tags:         tags,
@@ -545,6 +601,28 @@ func parseTags(header string) (map[string]string, error) {
 	}
 
 	return tags, nil
+}
+
+func ValidateTags(tags map[string]string) error {
+	if len(tags) == 0 {
+		return nil
+	}
+
+	if len(tags) > maxObjectTagCount {
+		return fmt.Errorf("%w: maximum %d tags allowed", core.ErrInvalidTag, maxObjectTagCount)
+	}
+
+	for k, v := range tags {
+		if utf8.RuneCountInString(k) > maxObjectTagKeyLength {
+			return fmt.Errorf("%w: tag key exceeds %d characters", core.ErrInvalidTag, maxObjectTagKeyLength)
+		}
+
+		if utf8.RuneCountInString(v) > maxObjectTagValLength {
+			return fmt.Errorf("%w: tag value exceeds %d characters", core.ErrInvalidTag, maxObjectTagValLength)
+		}
+	}
+
+	return nil
 }
 
 func parseMeta(c *echo.Context) map[string]string {

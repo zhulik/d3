@@ -22,6 +22,8 @@ const (
 	CompleteMultipartUpload Action = "s3:CompleteMultipartUpload"
 	AbortMultipartUpload    Action = "s3:AbortMultipartUpload"
 	GetObjectTagging        Action = "s3:GetObjectTagging"
+	PutObjectTagging        Action = "s3:PutObjectTagging"
+	DeleteObjectTagging     Action = "s3:DeleteObjectTagging"
 )
 
 var (
@@ -43,5 +45,7 @@ var (
 		CompleteMultipartUpload,
 		AbortMultipartUpload,
 		GetObjectTagging,
+		PutObjectTagging,
+		DeleteObjectTagging,
 	}
 )

@@ -588,6 +588,80 @@ func (b *Bucket) AbortMultipartUpload(_ context.Context, key string, uploadID st
 	return os.RemoveAll(uploadPath)
 }
 
+func (b *Bucket) PutObjectTagging(ctx context.Context, key string, tags map[string]string) error {
+	path, err := b.config.objectPath(b.name, key)
+	if err != nil {
+		return err
+	}
+
+	_, cancel, err := b.Locker.Lock(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	if err := rejectSymlinkInPath(path); err != nil {
+		return err
+	}
+
+	ok, err := IsObjectPath(path)
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return core.ErrObjectNotFound
+	}
+
+	metadataPath := filepath.Join(path, metadataYamlFilename)
+
+	metadata, err := yaml.UnmarshalFromFile[core.ObjectMetadata](metadataPath)
+	if err != nil {
+		return err
+	}
+
+	metadata.Tags = tags
+
+	return yaml.MarshalToFile(metadata, metadataPath)
+}
+
+func (b *Bucket) DeleteObjectTagging(ctx context.Context, key string) error {
+	path, err := b.config.objectPath(b.name, key)
+	if err != nil {
+		return err
+	}
+
+	_, cancel, err := b.Locker.Lock(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer cancel()
+
+	if err := rejectSymlinkInPath(path); err != nil {
+		return err
+	}
+
+	ok, err := IsObjectPath(path)
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return core.ErrObjectNotFound
+	}
+
+	metadataPath := filepath.Join(path, metadataYamlFilename)
+
+	metadata, err := yaml.UnmarshalFromFile[core.ObjectMetadata](metadataPath)
+	if err != nil {
+		return err
+	}
+
+	metadata.Tags = nil
+
+	return yaml.MarshalToFile(metadata, metadataPath)
+}
+
 func (b *Bucket) getObject(key string) (*Object, error) {
 	object, err := ObjectFromPath(b, key)
 	if err != nil {
