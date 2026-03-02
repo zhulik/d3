@@ -357,6 +357,7 @@ func loadMultipartUploadKey(uploadPath string) (string, error) {
 
 func loadPartMetadata(uploadPath string, partNumber int) (partMetadata, error) {
 	metaPath := filepath.Join(uploadPath, fmt.Sprintf("part-%d.yaml", partNumber))
+
 	partMeta, err := yaml.UnmarshalFromFile[partMetadata](metaPath)
 	if err != nil {
 		return partMetadata{}, err
@@ -391,13 +392,9 @@ func (b *Bucket) UploadPart(ctx context.Context, key string, uploadID string, pa
 		return "", err
 	}
 
-	storedKey, err := loadMultipartUploadKey(uploadPath)
+	err = validateKey(uploadPath, key)
 	if err != nil {
 		return "", err
-	}
-
-	if storedKey != key {
-		return "", fmt.Errorf("%w: key mismatch", core.ErrInvalidUploadID)
 	}
 
 	path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", partNumber))
@@ -429,6 +426,7 @@ func (b *Bucket) UploadPart(ctx context.Context, key string, uploadID string, pa
 	}
 
 	partMeta := partMetadata{ETag: checksum}
+
 	metaPath := filepath.Join(uploadPath, fmt.Sprintf("part-%d.yaml", partNumber))
 	if err := yaml.MarshalToFile(partMeta, metaPath); err != nil {
 		return "", err
@@ -447,13 +445,9 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return nil, err
 	}
 
-	storedKey, err := loadMultipartUploadKey(uploadPath)
+	err = validateKey(uploadPath, key)
 	if err != nil {
 		return nil, err
-	}
-
-	if storedKey != key {
-		return nil, fmt.Errorf("%w: key mismatch", core.ErrInvalidUploadID)
 	}
 
 	if err := rejectSymlinkInPath(uploadPath); err != nil {
@@ -477,32 +471,32 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 	}
 	defer blobFile.Close()
 
-	partFiles := make([]io.Reader, 0, len(parts))
-	partFileClosers := make([]io.Closer, 0, len(parts))
+	partFiles := make([]io.ReadCloser, 0, len(parts))
+
+	closeAll := func() {
+		for _, closer := range partFiles {
+			closer.Close()
+		}
+	}
 
 	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
 
 		partFile, err := openFileNoFollow(path)
 		if err != nil {
-			for _, closer := range partFileClosers {
-				closer.Close() //nolint:errcheck
-			}
+			closeAll()
 
 			return nil, err
 		}
 
 		partFiles = append(partFiles, partFile)
-		partFileClosers = append(partFileClosers, partFile)
 	}
 
-	defer func() {
-		for _, closer := range partFileClosers {
-			closer.Close() //nolint:errcheck
-		}
-	}()
+	defer closeAll()
 
-	_, _, err = smartio.CopyAll(ctx, blobFile, partFiles...)
+	readers := lo.Map(partFiles, func(file io.ReadCloser, _ int) io.Reader { return file })
+
+	_, sha256sum, err := smartio.CopyAll(ctx, blobFile, readers...)
 	if err != nil {
 		return nil, err
 	}
@@ -540,11 +534,6 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return nil, err
 	}
 	defer blobReader.Close()
-
-	_, sha256sum, err := smartio.Copy(ctx, io.Discard, blobReader)
-	if err != nil {
-		return nil, err
-	}
 
 	rawSha256, err := hex.DecodeString(sha256sum)
 	if err != nil {
@@ -587,13 +576,9 @@ func (b *Bucket) AbortMultipartUpload(_ context.Context, key string, uploadID st
 		return err
 	}
 
-	storedKey, err := loadMultipartUploadKey(uploadPath)
+	err = validateKey(uploadPath, key)
 	if err != nil {
 		return err
-	}
-
-	if storedKey != key {
-		return fmt.Errorf("%w: key mismatch", core.ErrInvalidUploadID)
 	}
 
 	if err := rejectSymlink(uploadPath); err != nil {
@@ -618,6 +603,19 @@ func (b *Bucket) getObject(key string) (*Object, error) {
 
 func (b *Bucket) rootPath() (string, error) {
 	return b.config.bucketPath(b.name)
+}
+
+func validateKey(uploadPath string, key string) error {
+	storedKey, err := loadMultipartUploadKey(uploadPath)
+	if err != nil {
+		return err
+	}
+
+	if storedKey != key {
+		return fmt.Errorf("%w: key mismatch", core.ErrInvalidUploadID)
+	}
+
+	return nil
 }
 
 func objectMetadata(input core.PutObjectInput, sha256 string) (core.ObjectMetadata, error) {

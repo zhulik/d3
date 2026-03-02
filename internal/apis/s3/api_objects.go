@@ -305,6 +305,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	xmlResponse := listObjectsV2Result{
 		Contents: lo.Map(objects.Objects, func(object core.Object, _ int) *types.Object {
 			metadata := object.Metadata()
+
 			return &types.Object{
 				Key:          lo.ToPtr(object.Key()),
 				LastModified: lo.ToPtr(object.LastModified()),
