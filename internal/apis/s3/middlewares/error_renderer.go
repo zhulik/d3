@@ -34,6 +34,8 @@ func ErrorRenderer() echo.MiddlewareFunc {
 				errors.Is(err, core.ErrPolicyNotFound) ||
 				errors.Is(err, core.ErrUserNotFound):
 				return echo.NewHTTPError(http.StatusNotFound, err.Error())
+			case errors.Is(err, core.ErrPreconditionFailed):
+				return echo.NewHTTPError(http.StatusPreconditionFailed, err.Error())
 			case errors.Is(err, core.ErrBucketAlreadyExists) ||
 				errors.Is(err, core.ErrObjectAlreadyExists) ||
 				errors.Is(err, core.ErrPolicyAlreadyExists) ||

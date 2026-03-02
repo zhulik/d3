@@ -64,9 +64,19 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 		return err
 	}
 
-	// TODO: this behavior should depend on the passed details
 	if _, err := os.Lstat(path); err == nil {
-		return core.ErrObjectAlreadyExists
+		if input.IfNoneMatch {
+			return core.ErrPreconditionFailed
+		}
+
+		existing, err := ObjectFromPath(b, key)
+		if err != nil {
+			return err
+		}
+
+		if err := existing.Delete(); err != nil {
+			return err
+		}
 	}
 
 	uploadPath := b.config.newUploadPath()
@@ -118,6 +128,95 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 	}
 
 	return nil
+}
+
+func (b *Bucket) CopyObject(ctx context.Context, dstKey string, input core.CopyObjectInput) (*core.CopyObjectResult, error) { //nolint:funlen,lll
+	dstPath, err := b.config.objectPath(b.name, dstKey)
+	if err != nil {
+		return nil, err
+	}
+
+	_, cancel, err := b.Locker.Lock(ctx, dstPath)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+
+	if err := rejectSymlinkInPath(dstPath); err != nil {
+		return nil, err
+	}
+
+	if _, err := os.Lstat(dstPath); err == nil {
+		if input.IfNoneMatch {
+			return nil, core.ErrPreconditionFailed
+		}
+
+		existing, err := ObjectFromPath(b, dstKey)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := existing.Delete(); err != nil {
+			return nil, err
+		}
+	}
+
+	uploadPath := b.config.newUploadPath()
+
+	if err := os.MkdirAll(uploadPath, 0755); err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(uploadPath)
+
+	srcObj := input.Source.(*Object) //nolint:forcetypeassert
+
+	blobDst := filepath.Join(uploadPath, blobFilename)
+
+	if err := os.Link(filepath.Join(srcObj.path, blobFilename), blobDst); err != nil {
+		return nil, err
+	}
+
+	srcMeta := input.Source.Metadata()
+
+	metadata := core.ObjectMetadata{
+		SHA256:       srcMeta.SHA256,
+		SHA256Base64: srcMeta.SHA256Base64,
+		Size:         srcMeta.Size,
+		LastModified: time.Now(),
+	}
+
+	if input.MetadataDirective == core.CopyDirectiveReplace {
+		metadata.ContentType = input.ContentType
+		metadata.Meta = input.ReplacementMeta
+	} else {
+		metadata.ContentType = srcMeta.ContentType
+		metadata.Meta = srcMeta.Meta
+	}
+
+	if input.TaggingDirective == core.CopyDirectiveReplace {
+		metadata.Tags = input.ReplacementTags
+	} else {
+		metadata.Tags = srcMeta.Tags
+	}
+
+	if err := yaml.MarshalToFile(metadata, filepath.Join(uploadPath, metadataYamlFilename)); err != nil {
+		return nil, err
+	}
+
+	parentDir := filepath.Dir(dstPath)
+	if err := rejectSymlinkInPath(parentDir); err != nil {
+		return nil, err
+	}
+
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		return nil, err
+	}
+
+	if err := os.Rename(uploadPath, dstPath); err != nil {
+		return nil, err
+	}
+
+	return &core.CopyObjectResult{Metadata: metadata}, nil
 }
 
 func (b *Bucket) GetObject(_ context.Context, key string) (core.Object, error) {

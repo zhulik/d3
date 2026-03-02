@@ -87,6 +87,10 @@ func (a APIObjects) HeadObject(c *echo.Context) error {
 }
 
 func (a APIObjects) PutObject(c *echo.Context) error {
+	if copySource := c.Request().Header.Get("X-Amz-Copy-Source"); copySource != "" {
+		return a.CopyObject(c, copySource)
+	}
+
 	apiCtx := apictx.FromContext(c.Request().Context())
 	bucket := apiCtx.Bucket
 	key := c.Param("*")
@@ -112,7 +116,8 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 	}
 
 	err = bucket.PutObject(c.Request().Context(), key, core.PutObjectInput{
-		Reader: reader,
+		Reader:      reader,
+		IfNoneMatch: c.Request().Header.Get("If-None-Match") == "*",
 		Metadata: core.ObjectMetadata{
 			ContentType: c.Request().Header.Get("Content-Type"),
 			SHA256:      sha256,
@@ -126,6 +131,88 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusOK)
+}
+
+func (a APIObjects) CopyObject(c *echo.Context, rawCopySource string) error { //nolint:funlen
+	ctx := c.Request().Context()
+	apiCtx := apictx.FromContext(ctx)
+	dstBucket := apiCtx.Bucket
+	dstKey := c.Param("*")
+
+	copySource, err := url.QueryUnescape(rawCopySource)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid x-amz-copy-source")
+	}
+
+	copySource = strings.TrimPrefix(copySource, "/")
+
+	srcBucketName, srcKey, ok := strings.Cut(copySource, "/")
+	if !ok || srcBucketName == "" || srcKey == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid x-amz-copy-source")
+	}
+
+	if err := core.ValidateObjectKey(srcKey); err != nil {
+		return err
+	}
+
+	srcBucket, err := a.Backend.HeadBucket(ctx, srcBucketName)
+	if err != nil {
+		return err
+	}
+
+	allowed, err := a.Echo.Authorizer.Authorizer.IsAllowed(ctx, apiCtx.User, s3actions.GetObject, srcBucketName+"/"+srcKey)
+	if err != nil {
+		return err
+	}
+
+	if !allowed {
+		return core.ErrUnauthorized
+	}
+
+	source, err := srcBucket.GetObject(ctx, srcKey)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	metadataDirective := core.CopyDirective(c.Request().Header.Get("X-Amz-Metadata-Directive"))
+	if metadataDirective == "" {
+		metadataDirective = core.CopyDirectiveCopy
+	}
+
+	taggingDirective := core.CopyDirective(c.Request().Header.Get("X-Amz-Tagging-Directive"))
+	if taggingDirective == "" {
+		taggingDirective = core.CopyDirectiveCopy
+	}
+
+	input := core.CopyObjectInput{
+		Source:            source,
+		MetadataDirective: metadataDirective,
+		TaggingDirective:  taggingDirective,
+		IfNoneMatch:       c.Request().Header.Get("If-None-Match") == "*",
+	}
+
+	if metadataDirective == core.CopyDirectiveReplace {
+		input.ContentType = c.Request().Header.Get("Content-Type")
+		input.ReplacementMeta = parseMeta(c)
+	}
+
+	if taggingDirective == core.CopyDirectiveReplace {
+		input.ReplacementTags, err = parseTags(c.Request().Header.Get("X-Amz-Tagging"))
+		if err != nil {
+			return err
+		}
+	}
+
+	result, err := dstBucket.CopyObject(ctx, dstKey, input)
+	if err != nil {
+		return err
+	}
+
+	return c.XML(http.StatusOK, copyObjectResultXML{
+		ETag:         result.Metadata.SHA256,
+		LastModified: result.Metadata.LastModified.Format("2006-01-02T15:04:05.000Z"),
+	})
 }
 
 func (a APIObjects) GetObjectTagging(c *echo.Context) error {
