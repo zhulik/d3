@@ -223,9 +223,11 @@ func (b *Bucket) GetObject(_ context.Context, key string) (core.Object, error) {
 	return b.getObject(key)
 }
 
-func (b *Bucket) ListObjectsV2(ctx context.Context, input core.ListObjectsV2Input) (*core.ListV2Result, error) {
+func (b *Bucket) ListObjectsV2(ctx context.Context, input core.ListObjectsV2Input) (*core.ListV2Result, error) { //nolint:funlen,lll
 	objects := []core.Object{}
-
+	commonPrefixes := []string{}
+	seenPrefixes := map[string]bool{}
+	count := 0
 	isTruncated := false
 
 	var continuationToken *string
@@ -241,17 +243,42 @@ func (b *Bucket) ListObjectsV2(ctx context.Context, input core.ListObjectsV2Inpu
 		nextKey = lo.ToPtr(string(decodedKey))
 	}
 
-	err := WalkBucket(ctx, b, input.Prefix, nextKey, func(_ context.Context, object core.Object) error {
-		if len(objects) >= input.MaxKeys {
-			// there is at least one more object after the last one, so we consider the list truncated
-			isTruncated = true
+	var skipPrefix string
 
-			continuationToken = lo.ToPtr(base64.StdEncoding.EncodeToString([]byte(object.Key())))
+	err := WalkBucket(ctx, b, input.Prefix, nextKey, func(_ context.Context, object core.Object) error {
+		key := object.Key()
+
+		if skipPrefix != "" && strings.HasPrefix(key, skipPrefix) {
+			return nil
+		}
+
+		skipPrefix = ""
+
+		if count >= input.MaxKeys {
+			isTruncated = true
+			continuationToken = lo.ToPtr(base64.StdEncoding.EncodeToString([]byte(key)))
 
 			return StopWalk
 		}
 
+		if input.Delimiter != "" {
+			rest := strings.TrimPrefix(key, input.Prefix)
+			if idx := strings.Index(rest, input.Delimiter); idx >= 0 {
+				cp := input.Prefix + rest[:idx+len(input.Delimiter)]
+				if !seenPrefixes[cp] {
+					seenPrefixes[cp] = true
+					commonPrefixes = append(commonPrefixes, cp)
+					count++
+				}
+
+				skipPrefix = cp
+
+				return nil
+			}
+		}
+
 		objects = append(objects, object)
+		count++
 
 		return nil
 	})
@@ -261,6 +288,7 @@ func (b *Bucket) ListObjectsV2(ctx context.Context, input core.ListObjectsV2Inpu
 
 	return &core.ListV2Result{
 		Objects:           objects,
+		CommonPrefixes:    commonPrefixes,
 		ContinuationToken: continuationToken,
 		IsTruncated:       isTruncated,
 	}, nil
