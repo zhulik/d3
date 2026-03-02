@@ -213,10 +213,9 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			})
 
 			It("lists all objects with Minio SDK", func(ctx context.Context) {
-				objectsChan := minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{})
+				objectsChan := minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{Recursive: true})
 				objects := lo.ChannelToSlice(objectsChan)
 
-				// Expect(err).NotTo(HaveOccurred())
 				Expect(objects).To(HaveLen(3))
 				Expect(objects[0].Key).To(Equal("dir/hello.txt"))
 				Expect(objects[1].Key).To(Equal("hello-minio.txt"))
@@ -305,6 +304,166 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					}
 
 					Expect(allKeys).To(Equal(paginateKeys))
+				})
+			})
+		})
+
+		Context("delimiter", func() {
+			delimKeys := []string{
+				"delim/sub/another.txt",
+				"delim/sub/nested.txt",
+				"delim/sub2/deep/file.txt",
+				"delim/top.txt",
+			}
+
+			BeforeAll(func(ctx context.Context) {
+				lo.ForEach(delimKeys, func(key string, _ int) {
+					lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
+						Bucket: &bucketName,
+						Key:    lo.ToPtr(key),
+						Body:   strings.NewReader("data"),
+					}))
+				})
+			})
+
+			When("delimiter is / at root level", func() {
+				It("returns root objects in Contents and directory prefixes in CommonPrefixes", func(ctx context.Context) {
+					output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket:    &bucketName,
+						Delimiter: lo.ToPtr("/"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					keys := lo.Map(output.Contents, func(o types.Object, _ int) string { return *o.Key })
+					Expect(keys).To(ContainElements("hello-minio.txt", "hello.txt"))
+
+					prefixes := lo.Map(output.CommonPrefixes, func(p types.CommonPrefix, _ int) string { return *p.Prefix })
+					Expect(prefixes).To(ContainElements("delim/", "dir/", "paginate/"))
+
+					Expect(*output.KeyCount).To(Equal(int32(len(output.Contents) + len(output.CommonPrefixes))))
+				})
+			})
+
+			When("delimiter is / with prefix", func() {
+				It("returns direct objects and sub-directory prefixes under the prefix", func(ctx context.Context) {
+					output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket:    &bucketName,
+						Prefix:    lo.ToPtr("delim/"),
+						Delimiter: lo.ToPtr("/"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					keys := lo.Map(output.Contents, func(o types.Object, _ int) string { return *o.Key })
+					Expect(keys).To(Equal([]string{"delim/top.txt"}))
+
+					prefixes := lo.Map(output.CommonPrefixes, func(p types.CommonPrefix, _ int) string { return *p.Prefix })
+					Expect(prefixes).To(Equal([]string{"delim/sub/", "delim/sub2/"}))
+
+					Expect(*output.KeyCount).To(Equal(int32(3)))
+				})
+			})
+
+			When("delimiter is / with nested prefix", func() {
+				It("returns objects directly under nested prefix with no further common prefixes", func(ctx context.Context) {
+					output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket:    &bucketName,
+						Prefix:    lo.ToPtr("delim/sub/"),
+						Delimiter: lo.ToPtr("/"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					keys := lo.Map(output.Contents, func(o types.Object, _ int) string { return *o.Key })
+					Expect(keys).To(Equal([]string{"delim/sub/another.txt", "delim/sub/nested.txt"}))
+					Expect(output.CommonPrefixes).To(BeEmpty())
+				})
+			})
+
+			When("delimiter is / with prefix that has nested subdirectories", func() {
+				It("returns the intermediate common prefix", func(ctx context.Context) {
+					output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket:    &bucketName,
+						Prefix:    lo.ToPtr("delim/sub2/"),
+						Delimiter: lo.ToPtr("/"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					Expect(output.Contents).To(BeEmpty())
+
+					prefixes := lo.Map(output.CommonPrefixes, func(p types.CommonPrefix, _ int) string { return *p.Prefix })
+					Expect(prefixes).To(Equal([]string{"delim/sub2/deep/"}))
+				})
+			})
+
+			When("no delimiter is specified", func() {
+				It("returns all objects flat with no common prefixes", func(ctx context.Context) {
+					output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket: &bucketName,
+						Prefix: lo.ToPtr("delim/"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					keys := lo.Map(output.Contents, func(o types.Object, _ int) string { return *o.Key })
+					Expect(keys).To(Equal([]string{
+						"delim/sub/another.txt",
+						"delim/sub/nested.txt",
+						"delim/sub2/deep/file.txt",
+						"delim/top.txt",
+					}))
+					Expect(output.CommonPrefixes).To(BeEmpty())
+				})
+			})
+
+			When("delimiter with max-keys limits combined count", func() {
+				It("counts both contents and common prefixes toward max-keys", func(ctx context.Context) {
+					output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+						Bucket:    &bucketName,
+						Prefix:    lo.ToPtr("delim/"),
+						Delimiter: lo.ToPtr("/"),
+						MaxKeys:   lo.ToPtr(int32(2)),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					total := len(output.Contents) + len(output.CommonPrefixes)
+					Expect(total).To(Equal(2))
+					Expect(*output.IsTruncated).To(BeTrue())
+				})
+			})
+
+			When("paginating with delimiter", func() {
+				It("returns all entries across pages", func(ctx context.Context) {
+					var (
+						allKeys           []string
+						allPrefixes       []string
+						continuationToken *string
+					)
+
+					for {
+						output, err := s3Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+							Bucket:            &bucketName,
+							Prefix:            lo.ToPtr("delim/"),
+							Delimiter:         lo.ToPtr("/"),
+							MaxKeys:           lo.ToPtr(int32(1)),
+							ContinuationToken: continuationToken,
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						for _, obj := range output.Contents {
+							allKeys = append(allKeys, *obj.Key)
+						}
+
+						for _, p := range output.CommonPrefixes {
+							allPrefixes = append(allPrefixes, *p.Prefix)
+						}
+
+						if output.IsTruncated == nil || !*output.IsTruncated {
+							break
+						}
+
+						continuationToken = output.NextContinuationToken
+					}
+
+					Expect(allKeys).To(Equal([]string{"delim/top.txt"}))
+					Expect(allPrefixes).To(Equal([]string{"delim/sub/", "delim/sub2/"}))
 				})
 			})
 		})
@@ -478,6 +637,37 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(body)).To(Equal(objectData))
 				Expect(*result.ContentType).To(Equal("text/plain"))
+			})
+		})
+
+		When("copying object onto itself", func() {
+			It("updates metadata without losing the object", func(ctx context.Context) {
+				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket:      &bucketName,
+					Key:         &copySourceKey,
+					Body:        strings.NewReader(objectData),
+					ContentType: lo.ToPtr("text/plain"),
+					Metadata:    objectMetadata,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = s3Client.CopyObject(ctx, &s3.CopyObjectInput{
+					Bucket:            &bucketName,
+					CopySource:        lo.ToPtr(bucketName + "/" + copySourceKey),
+					Key:               &copySourceKey,
+					MetadataDirective: types.MetadataDirectiveReplace,
+					Metadata: map[string]string{
+						"foo": "baz",
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				head, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: &bucketName,
+					Key:    &copySourceKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(head.Metadata).To(HaveKeyWithValue("foo", "baz"))
 			})
 		})
 	})

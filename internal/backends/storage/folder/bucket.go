@@ -136,6 +136,18 @@ func (b *Bucket) CopyObject(ctx context.Context, dstKey string, input core.CopyO
 		return nil, err
 	}
 
+	var dstExists bool
+
+	if _, err := os.Lstat(dstPath); err == nil {
+		if input.IfNoneMatch {
+			return nil, core.ErrPreconditionFailed
+		}
+
+		dstExists = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+
 	_, cancel, err := b.Locker.Lock(ctx, dstPath)
 	if err != nil {
 		return nil, err
@@ -144,21 +156,6 @@ func (b *Bucket) CopyObject(ctx context.Context, dstKey string, input core.CopyO
 
 	if err := rejectSymlinkInPath(dstPath); err != nil {
 		return nil, err
-	}
-
-	if _, err := os.Lstat(dstPath); err == nil {
-		if input.IfNoneMatch {
-			return nil, core.ErrPreconditionFailed
-		}
-
-		existing, err := ObjectFromPath(b, dstKey)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := existing.Delete(); err != nil {
-			return nil, err
-		}
 	}
 
 	uploadPath := b.config.newUploadPath()
@@ -206,6 +203,17 @@ func (b *Bucket) CopyObject(ctx context.Context, dstKey string, input core.CopyO
 	parentDir := filepath.Dir(dstPath)
 	if err := rejectSymlinkInPath(parentDir); err != nil {
 		return nil, err
+	}
+
+	if dstExists {
+		existing, err := ObjectFromPath(b, dstKey)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := existing.Delete(); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := os.MkdirAll(parentDir, 0755); err != nil {
