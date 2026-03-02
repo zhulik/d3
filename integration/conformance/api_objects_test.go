@@ -859,8 +859,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		testKey := lo.ToPtr("invalid-etag-test.txt")
 
 		When("part etag is completely wrong", func() {
-			var uploadID *string
-			var partETags []*string
+			var (
+				uploadID  *string
+				partETags []*string
+			)
 
 			BeforeEach(func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
@@ -881,6 +883,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Body:       strings.NewReader(fmt.Sprintf("part %d data", i)),
 					})
 					Expect(err).NotTo(HaveOccurred())
+
 					partETags[i] = output.ETag
 				}
 			})
@@ -918,8 +921,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 
 		When("part etag is from a different part number", func() {
-			var uploadID *string
-			var partETags []*string
+			var (
+				uploadID  *string
+				partETags []*string
+			)
 
 			BeforeEach(func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
@@ -940,6 +945,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Body:       strings.NewReader(fmt.Sprintf("part %d data", i)),
 					})
 					Expect(err).NotTo(HaveOccurred())
+
 					partETags[i] = output.ETag
 				}
 			})
@@ -976,8 +982,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 
 		When("part etag is empty string", func() {
-			var uploadID *string
-			var partETags []*string
+			var (
+				uploadID  *string
+				partETags []*string
+			)
 
 			BeforeEach(func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
@@ -998,6 +1006,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Body:       strings.NewReader(fmt.Sprintf("part %d data", i)),
 					})
 					Expect(err).NotTo(HaveOccurred())
+
 					partETags[i] = output.ETag
 				}
 			})
@@ -1035,8 +1044,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 
 		When("first part has invalid etag", func() {
-			var uploadID *string
-			var partETags []*string
+			var (
+				uploadID  *string
+				partETags []*string
+			)
 
 			BeforeEach(func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
@@ -1057,6 +1068,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Body:       strings.NewReader(fmt.Sprintf("part %d data", i)),
 					})
 					Expect(err).NotTo(HaveOccurred())
+
 					partETags[i] = output.ETag
 				}
 			})
@@ -1094,8 +1106,10 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 
 		When("last part has invalid etag", func() {
-			var uploadID *string
-			var partETags []*string
+			var (
+				uploadID  *string
+				partETags []*string
+			)
 
 			BeforeEach(func(ctx context.Context) {
 				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
@@ -1116,6 +1130,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Body:       strings.NewReader(fmt.Sprintf("part %d data", i)),
 					})
 					Expect(err).NotTo(HaveOccurred())
+
 					partETags[i] = output.ETag
 				}
 			})
@@ -1149,6 +1164,195 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				var httpErr interface{ HTTPStatusCode() int }
 				Expect(errors.As(err, &httpErr)).To(BeTrue())
 				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+			})
+		})
+	})
+
+	Describe("Multipart Upload key validation", func() {
+		When("UploadPart is called with mismatched key", func() {
+			var uploadID *string
+
+			BeforeEach(func(ctx context.Context) {
+				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: &bucketName,
+					Key:    lo.ToPtr("file1.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
+				uploadID = createMultipartUploadOutput.UploadId
+			})
+
+			AfterEach(func(ctx context.Context) {
+				if uploadID != nil {
+					lo.Must(s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+						Bucket:   &bucketName,
+						Key:      lo.ToPtr("file1.txt"),
+						UploadId: uploadID,
+					}))
+				}
+			})
+
+			It("returns an error", func(ctx context.Context) {
+				_, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
+					Bucket:     &bucketName,
+					Key:        lo.ToPtr("file2.txt"), // Different key
+					PartNumber: lo.ToPtr(int32(1)),
+					UploadId:   uploadID,
+					Body:       strings.NewReader("part 1 data"),
+				})
+				Expect(err).To(HaveOccurred())
+
+				var httpErr interface{ HTTPStatusCode() int }
+				Expect(errors.As(err, &httpErr)).To(BeTrue())
+				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+			})
+		})
+
+		When("CompleteMultipartUpload is called with mismatched key", func() {
+			var (
+				uploadID  *string
+				partETags []*string
+			)
+
+			BeforeEach(func(ctx context.Context) {
+				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: &bucketName,
+					Key:    lo.ToPtr("file1.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
+				uploadID = createMultipartUploadOutput.UploadId
+				partETags = make([]*string, 2)
+
+				// Upload parts with correct key
+				output, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
+					Bucket:     &bucketName,
+					Key:        lo.ToPtr("file1.txt"),
+					PartNumber: lo.ToPtr(int32(1)),
+					UploadId:   uploadID,
+					Body:       strings.NewReader("part 1 data"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				partETags[1] = output.ETag
+			})
+
+			AfterEach(func(ctx context.Context) {
+				if uploadID != nil {
+					lo.Must(s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+						Bucket:   &bucketName,
+						Key:      lo.ToPtr("file1.txt"),
+						UploadId: uploadID,
+					}))
+				}
+			})
+
+			It("returns an error", func(ctx context.Context) {
+				_, err := s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+					Bucket:   &bucketName,
+					Key:      lo.ToPtr("file2.txt"), // Different key
+					UploadId: uploadID,
+					MultipartUpload: &types.CompletedMultipartUpload{
+						Parts: []types.CompletedPart{
+							{PartNumber: lo.ToPtr(int32(1)), ETag: partETags[1]},
+						},
+					},
+				})
+				Expect(err).To(HaveOccurred())
+
+				var httpErr interface{ HTTPStatusCode() int }
+				Expect(errors.As(err, &httpErr)).To(BeTrue())
+				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+			})
+		})
+
+		When("AbortMultipartUpload is called with mismatched key", func() {
+			var uploadID *string
+
+			BeforeEach(func(ctx context.Context) {
+				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: &bucketName,
+					Key:    lo.ToPtr("file1.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
+				uploadID = createMultipartUploadOutput.UploadId
+			})
+
+			It("returns an error", func(ctx context.Context) {
+				_, err := s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+					Bucket:   &bucketName,
+					Key:      lo.ToPtr("file2.txt"), // Different key
+					UploadId: uploadID,
+				})
+				Expect(err).To(HaveOccurred())
+
+				var httpErr interface{ HTTPStatusCode() int }
+				Expect(errors.As(err, &httpErr)).To(BeTrue())
+				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+
+				// Clean up with correct key
+				lo.Must(s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+					Bucket:   &bucketName,
+					Key:      lo.ToPtr("file1.txt"),
+					UploadId: uploadID,
+				}))
+			})
+		})
+
+		When("all operations use matching keys", func() {
+			var (
+				uploadID  *string
+				partETags []*string
+			)
+
+			It("completes successfully", func(ctx context.Context) {
+				// Create multipart upload
+				createMultipartUploadOutput, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: &bucketName,
+					Key:    lo.ToPtr("file1.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(createMultipartUploadOutput.UploadId).NotTo(BeNil())
+				uploadID = createMultipartUploadOutput.UploadId
+				partETags = make([]*string, 3)
+
+				// Upload parts with matching key
+				for i := 1; i <= 2; i++ {
+					output, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
+						Bucket:     &bucketName,
+						Key:        lo.ToPtr("file1.txt"),
+						PartNumber: lo.ToPtr(int32(i)),
+						UploadId:   uploadID,
+						Body:       strings.NewReader(fmt.Sprintf("part %d data", i)),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					partETags[i] = output.ETag
+				}
+
+				// Complete with matching key
+				completeOutput, err := s3Client.CompleteMultipartUpload(ctx, &s3.CompleteMultipartUploadInput{
+					Bucket:   &bucketName,
+					Key:      lo.ToPtr("file1.txt"),
+					UploadId: uploadID,
+					MultipartUpload: &types.CompletedMultipartUpload{
+						Parts: []types.CompletedPart{
+							{PartNumber: lo.ToPtr(int32(1)), ETag: partETags[1]},
+							{PartNumber: lo.ToPtr(int32(2)), ETag: partETags[2]},
+						},
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(completeOutput.ETag).NotTo(BeNil())
+
+				// Verify object exists at correct location
+				headOutput, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: &bucketName,
+					Key:    lo.ToPtr("file1.txt"),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(headOutput.ETag).To(Equal(completeOutput.ETag))
 			})
 		})
 	})

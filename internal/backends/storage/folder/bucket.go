@@ -28,6 +28,10 @@ type Bucket struct {
 	Locker core.Locker
 }
 
+type uploadMetadata struct {
+	Key string `yaml:"key"`
+}
+
 func (b *Bucket) Name() string {
 	return b.name
 }
@@ -319,7 +323,7 @@ func (b *Bucket) DeleteObjects(ctx context.Context, quiet bool, keys ...string) 
 	return results, nil
 }
 
-func (b *Bucket) CreateMultipartUpload(_ context.Context, _ string, metadata core.ObjectMetadata) (string, error) { //nolint:lll
+func (b *Bucket) CreateMultipartUpload(_ context.Context, key string, metadata core.ObjectMetadata) (string, error) { //nolint:lll
 	id, uploadPath := b.config.newMultipartUploadPath()
 
 	if err := mkdirAllNoFollow(uploadPath, 0755); err != nil {
@@ -330,13 +334,36 @@ func (b *Bucket) CreateMultipartUpload(_ context.Context, _ string, metadata cor
 		return "", err
 	}
 
+	uploadMeta := uploadMetadata{Key: key}
+	if err := yaml.MarshalToFile(uploadMeta, filepath.Join(uploadPath, uploadYamlFilename)); err != nil {
+		return "", err
+	}
+
 	return id, nil
 }
 
-func (b *Bucket) UploadPart(ctx context.Context, _ string, uploadID string, partNumber int, body io.Reader) (string, error) { //nolint:lll
+func loadMultipartUploadKey(uploadPath string) (string, error) {
+	uploadMeta, err := yaml.UnmarshalFromFile[uploadMetadata](filepath.Join(uploadPath, uploadYamlFilename))
+	if err != nil {
+		return "", fmt.Errorf("%w: %w", core.ErrInvalidUploadID, err)
+	}
+
+	return uploadMeta.Key, nil
+}
+
+func (b *Bucket) UploadPart(ctx context.Context, key string, uploadID string, partNumber int, body io.Reader) (string, error) { //nolint:lll
 	uploadPath, err := b.config.multipartUploadPath(uploadID)
 	if err != nil {
 		return "", err
+	}
+
+	storedKey, err := loadMultipartUploadKey(uploadPath)
+	if err != nil {
+		return "", err
+	}
+
+	if storedKey != key {
+		return "", fmt.Errorf("%w: key mismatch", core.ErrInvalidUploadID)
 	}
 
 	path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", partNumber))
@@ -378,6 +405,15 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 	uploadPath, err := b.config.multipartUploadPath(uploadID)
 	if err != nil {
 		return nil, err
+	}
+
+	storedKey, err := loadMultipartUploadKey(uploadPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if storedKey != key {
+		return nil, fmt.Errorf("%w: key mismatch", core.ErrInvalidUploadID)
 	}
 
 	if err := rejectSymlinkInPath(uploadPath); err != nil {
@@ -496,10 +532,19 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 	return &metadata, nil
 }
 
-func (b *Bucket) AbortMultipartUpload(_ context.Context, _ string, uploadID string) error {
+func (b *Bucket) AbortMultipartUpload(_ context.Context, key string, uploadID string) error {
 	uploadPath, err := b.config.multipartUploadPath(uploadID)
 	if err != nil {
 		return err
+	}
+
+	storedKey, err := loadMultipartUploadKey(uploadPath)
+	if err != nil {
+		return err
+	}
+
+	if storedKey != key {
+		return fmt.Errorf("%w: key mismatch", core.ErrInvalidUploadID)
 	}
 
 	if err := rejectSymlink(uploadPath); err != nil {

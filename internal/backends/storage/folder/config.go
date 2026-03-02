@@ -15,6 +15,7 @@ const (
 	TmpFolder            = "tmp"
 	uploadsFolder        = "uploads"
 	metadataYamlFilename = "metadata.yaml"
+	uploadYamlFilename   = "upload.yaml"
 	blobFilename         = "blob"
 	binFolder            = "bin"
 )
