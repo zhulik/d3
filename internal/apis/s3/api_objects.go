@@ -481,6 +481,10 @@ func (a APIObjects) CompleteMultipartUpload(c *echo.Context) error {
 		if err := core.ValidatePartNumber(part.PartNumber); err != nil {
 			return err
 		}
+
+		if strings.Trim(part.ETag, "\"") == "" {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid part ETag")
+		}
 	}
 
 	metadata, err := bucket.CompleteMultipartUpload(c.Request().Context(), key, uploadID, parts)
