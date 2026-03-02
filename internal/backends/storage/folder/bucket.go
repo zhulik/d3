@@ -32,6 +32,10 @@ type uploadMetadata struct {
 	Key string `yaml:"key"`
 }
 
+type partMetadata struct {
+	ETag string `yaml:"etag"`
+}
+
 func (b *Bucket) Name() string {
 	return b.name
 }
@@ -351,6 +355,36 @@ func loadMultipartUploadKey(uploadPath string) (string, error) {
 	return uploadMeta.Key, nil
 }
 
+func loadPartMetadata(uploadPath string, partNumber int) (partMetadata, error) {
+	metaPath := filepath.Join(uploadPath, fmt.Sprintf("part-%d.yaml", partNumber))
+	partMeta, err := yaml.UnmarshalFromFile[partMetadata](metaPath)
+	if err != nil {
+		return partMetadata{}, err
+	}
+
+	return partMeta, nil
+}
+
+func validateAllPartETags(uploadPath string, parts []core.CompletePart) error {
+	for _, part := range parts {
+		partMeta, err := loadPartMetadata(uploadPath, part.PartNumber)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return fmt.Errorf("%w: part %d metadata not found", core.ErrObjectNotFound, part.PartNumber)
+			}
+
+			return err
+		}
+
+		normalizedETag := strings.Trim(part.ETag, "\"")
+		if normalizedETag != "" && normalizedETag != partMeta.ETag {
+			return fmt.Errorf("%w: part %d ETag mismatch", core.ErrObjectChecksumMismatch, part.PartNumber)
+		}
+	}
+
+	return nil
+}
+
 func (b *Bucket) UploadPart(ctx context.Context, key string, uploadID string, partNumber int, body io.Reader) (string, error) { //nolint:lll
 	uploadPath, err := b.config.multipartUploadPath(uploadID)
 	if err != nil {
@@ -394,6 +428,12 @@ func (b *Bucket) UploadPart(ctx context.Context, key string, uploadID string, pa
 		return "", err
 	}
 
+	partMeta := partMetadata{ETag: checksum}
+	metaPath := filepath.Join(uploadPath, fmt.Sprintf("part-%d.yaml", partNumber))
+	if err := yaml.MarshalToFile(partMeta, metaPath); err != nil {
+		return "", err
+	}
+
 	return checksum, nil
 }
 
@@ -427,35 +467,44 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		}
 	}
 
+	if err := validateAllPartETags(uploadPath, parts); err != nil {
+		return nil, err
+	}
+
 	blobFile, err := createFileNoFollow(filepath.Join(uploadPath, blobFilename), 0644)
 	if err != nil {
 		return nil, err
 	}
 	defer blobFile.Close()
 
+	partFiles := make([]io.Reader, 0, len(parts))
+	partFileClosers := make([]io.Closer, 0, len(parts))
+
 	for _, part := range parts {
 		path := filepath.Join(uploadPath, fmt.Sprintf("part-%d", part.PartNumber))
 
 		partFile, err := openFileNoFollow(path)
 		if err != nil {
-			return nil, err
-		}
-
-		_, checksum, err := smartio.Copy(ctx, blobFile, partFile)
-		if err != nil {
-			partFile.Close()
+			for _, closer := range partFileClosers {
+				closer.Close() //nolint:errcheck
+			}
 
 			return nil, err
 		}
 
-		normalizedETag := strings.Trim(part.ETag, "\"")
-		if normalizedETag != "" && normalizedETag != checksum {
-			partFile.Close()
+		partFiles = append(partFiles, partFile)
+		partFileClosers = append(partFileClosers, partFile)
+	}
 
-			return nil, fmt.Errorf("%w: part %d ETag mismatch", core.ErrObjectChecksumMismatch, part.PartNumber)
+	defer func() {
+		for _, closer := range partFileClosers {
+			closer.Close() //nolint:errcheck
 		}
+	}()
 
-		partFile.Close()
+	_, _, err = smartio.CopyAll(ctx, blobFile, partFiles...)
+	if err != nil {
+		return nil, err
 	}
 
 	files, err := os.ReadDir(uploadPath)
