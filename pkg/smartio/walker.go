@@ -34,7 +34,7 @@ func WalkDir(
 	fn func(path string) error,
 ) error {
 	root = filepath.Clean(root)
-	prefix = filepath.ToSlash(strings.Trim(prefix, "/"))
+	prefix = filepath.ToSlash(strings.TrimLeft(prefix, "/"))
 
 	if startFrom != nil {
 		if err := validateStartFrom(root, prefix, *startFrom); err != nil {

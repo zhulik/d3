@@ -231,7 +231,7 @@ var _ = Describe("WalkDir", func() {
 			Expect(got).To(Equal([]string{emptyRoot}))
 		})
 
-		It("prefix with trailing slash is trimmed and matches same as without", func(ctx context.Context) {
+		It("prefix with trailing slash does not match the directory itself", func(ctx context.Context) {
 			var got []string
 
 			err := smartio.WalkDir(ctx, root, "first/", nil, func(path string) error {
@@ -240,7 +240,7 @@ var _ = Describe("WalkDir", func() {
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(got).To(ContainElement(filepath.Join(root, "first")))
+			Expect(got).NotTo(ContainElement(filepath.Join(root, "first")))
 			Expect(got).To(ContainElement(filepath.Join(root, "first", "second", "third", "file.txt")))
 			Expect(got).NotTo(ContainElement(filepath.Join(root, "foo")))
 		})

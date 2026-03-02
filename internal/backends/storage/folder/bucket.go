@@ -136,18 +136,6 @@ func (b *Bucket) CopyObject(ctx context.Context, dstKey string, input core.CopyO
 		return nil, err
 	}
 
-	var dstExists bool
-
-	if _, err := os.Lstat(dstPath); err == nil {
-		if input.IfNoneMatch {
-			return nil, core.ErrPreconditionFailed
-		}
-
-		dstExists = true
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, err
-	}
-
 	_, cancel, err := b.Locker.Lock(ctx, dstPath)
 	if err != nil {
 		return nil, err
@@ -155,6 +143,14 @@ func (b *Bucket) CopyObject(ctx context.Context, dstKey string, input core.CopyO
 	defer cancel()
 
 	if err := rejectSymlinkInPath(dstPath); err != nil {
+		return nil, err
+	}
+
+	if _, err := os.Lstat(dstPath); err == nil {
+		if input.IfNoneMatch {
+			return nil, core.ErrPreconditionFailed
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
 		return nil, err
 	}
 
@@ -205,12 +201,7 @@ func (b *Bucket) CopyObject(ctx context.Context, dstKey string, input core.CopyO
 		return nil, err
 	}
 
-	if dstExists {
-		existing, err := ObjectFromPath(b, dstKey)
-		if err != nil {
-			return nil, err
-		}
-
+	if existing, _ := ObjectFromPath(b, dstKey); existing != nil {
 		if err := existing.Delete(); err != nil {
 			return nil, err
 		}

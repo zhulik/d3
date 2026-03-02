@@ -50,12 +50,14 @@ type CopyObjectResult struct {
 
 type ListObjectsV2Input struct {
 	Prefix            string
+	Delimiter         string
 	MaxKeys           int
 	ContinuationToken string
 }
 
 type ListV2Result struct {
 	Objects           []Object
+	CommonPrefixes    []string
 	ContinuationToken *string
 	IsTruncated       bool
 }

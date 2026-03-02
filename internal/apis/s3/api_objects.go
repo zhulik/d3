@@ -268,6 +268,7 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	prefix := c.QueryParam("prefix")
+	delimiter := c.QueryParam("delimiter")
 	listType := c.QueryParam("list-type")
 	maxKeys := c.QueryParam("max-keys")
 	continuationToken := c.QueryParam("continuation-token")
@@ -294,6 +295,7 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	objects, err := bucket.ListObjectsV2(c.Request().Context(), core.ListObjectsV2Input{
 		MaxKeys:           maxKeysInt,
 		Prefix:            prefix,
+		Delimiter:         delimiter,
 		ContinuationToken: continuationToken,
 	})
 	if err != nil {
@@ -310,12 +312,14 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 		}),
 		Name:                  bucket.Name(),
 		Prefix:                prefix,
-		Delimiter:             core.Delimiter,
+		Delimiter:             delimiter,
 		MaxKeys:               maxKeysInt,
-		KeyCount:              len(objects.Objects),
+		KeyCount:              len(objects.Objects) + len(objects.CommonPrefixes),
 		NextContinuationToken: objects.ContinuationToken,
 		IsTruncated:           objects.IsTruncated,
-		CommonPrefixes:        []prefixEntry{},
+		CommonPrefixes: lo.Map(objects.CommonPrefixes, func(p string, _ int) prefixEntry {
+			return prefixEntry{Prefix: p}
+		}),
 	}
 
 	return c.XML(http.StatusOK, xmlResponse)
