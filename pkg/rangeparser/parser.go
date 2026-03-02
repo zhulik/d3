@@ -16,6 +16,10 @@ type Range struct {
 	End   int64
 }
 
+func (r *Range) Length() int64 {
+	return r.End - r.Start + 1
+}
+
 func Parse(rangeHeader string, contentLength int64) (*Range, error) {
 	var (
 		r   Range

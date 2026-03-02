@@ -166,15 +166,14 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 			return err
 		}
 
-		metadata.Size = parsedRange.End - parsedRange.Start + 1
-		metadata.SHA256Base64 = ""
 		SetHeaders(c, map[string]string{
-			"Accept-Ranges": "bytes",
-			"Content-Range": fmt.Sprintf("bytes %d-%d/%d", parsedRange.Start, parsedRange.End, metadata.Size),
+			"Content-Length": strconv.FormatInt(parsedRange.Length(), 10),
+			"Accept-Ranges":  "bytes",
+			"Content-Range":  fmt.Sprintf("bytes %d-%d/%d", parsedRange.Start, parsedRange.End, metadata.Size),
 		})
+	} else {
+		setObjectHeaders(c, metadata)
 	}
-
-	setObjectHeaders(c, metadata)
 
 	return c.Stream(http.StatusOK, metadata.ContentType, reader)
 }
