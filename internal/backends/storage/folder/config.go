@@ -12,6 +12,7 @@ import (
 const (
 	configYamlFilename   = "d3.yaml"
 	bucketsFolder        = "buckets"
+	objectsFolder        = "objects"
 	TmpFolder            = "tmp"
 	uploadsFolder        = "uploads"
 	metadataYamlFilename = "metadata.yaml"
@@ -36,9 +37,11 @@ func (c *Config) objectPath(bucket, key string) (string, error) {
 		return "", err
 	}
 
-	path := filepath.Join(c.FolderStorageBackendPath, bucketsFolder, bucket, key)
+	objectsRoot := filepath.Join(bucketRoot, objectsFolder)
 
-	return path, EnsureContained(path, bucketRoot)
+	path := filepath.Join(objectsRoot, key)
+
+	return path, EnsureContained(path, objectsRoot)
 }
 
 func (c *Config) bucketsPath() string {
