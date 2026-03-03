@@ -59,10 +59,6 @@ func (c *Config) bucketUploadsPath(bucket string) (string, error) {
 	return uploadsRoot, EnsureContained(uploadsRoot, bucketRoot)
 }
 
-func (c *Config) uploadsPath() string {
-	return filepath.Join(c.FolderStorageBackendPath, TmpFolder, uploadsFolder)
-}
-
 func (c *Config) binPath() string {
 	return filepath.Join(c.FolderStorageBackendPath, TmpFolder, binFolder)
 }
@@ -75,8 +71,13 @@ func (c *Config) configYamlPath() string {
 	return filepath.Join(c.FolderStorageBackendPath, configYamlFilename)
 }
 
-func (c *Config) newUploadPath() string {
-	return filepath.Join(c.uploadsPath(), uuid.NewString())
+func (c *Config) newUploadPath(bucket string) (string, error) {
+	uploadsRoot, err := c.bucketUploadsPath(bucket)
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(uploadsRoot, uuid.NewString()), nil
 }
 
 func (c *Config) multipartUploadPath(bucket, uploadID string) (string, error) {

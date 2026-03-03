@@ -87,7 +87,10 @@ func (b *Bucket) PutObject(ctx context.Context, key string, input core.PutObject
 		}
 	}
 
-	uploadPath := b.config.newUploadPath()
+	uploadPath, err := b.config.newUploadPath(b.name)
+	if err != nil {
+		return err
+	}
 
 	if err := mkdirAllNoFollow(uploadPath, 0755); err != nil {
 		return err
@@ -162,7 +165,10 @@ func (b *Bucket) CopyObject(ctx context.Context, dstKey string, input core.CopyO
 		return nil, err
 	}
 
-	uploadPath := b.config.newUploadPath()
+	uploadPath, err := b.config.newUploadPath(b.name)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := os.MkdirAll(uploadPath, 0755); err != nil {
 		return nil, err
