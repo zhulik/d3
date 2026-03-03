@@ -48,6 +48,17 @@ func (c *Config) bucketsPath() string {
 	return filepath.Join(c.FolderStorageBackendPath, bucketsFolder)
 }
 
+func (c *Config) bucketUploadsPath(bucket string) (string, error) {
+	bucketRoot, err := c.bucketPath(bucket)
+	if err != nil {
+		return "", err
+	}
+
+	uploadsRoot := filepath.Join(bucketRoot, uploadsFolder)
+
+	return uploadsRoot, EnsureContained(uploadsRoot, bucketRoot)
+}
+
 func (c *Config) uploadsPath() string {
 	return filepath.Join(c.FolderStorageBackendPath, TmpFolder, uploadsFolder)
 }
@@ -68,16 +79,28 @@ func (c *Config) newUploadPath() string {
 	return filepath.Join(c.uploadsPath(), uuid.NewString())
 }
 
-func (c *Config) multipartUploadPath(uploadID string) (string, error) {
-	path := filepath.Join(c.uploadsPath(), "multipart-"+uploadID)
+func (c *Config) multipartUploadPath(bucket, uploadID string) (string, error) {
+	uploadsRoot, err := c.bucketUploadsPath(bucket)
+	if err != nil {
+		return "", err
+	}
 
-	return path, EnsureContained(path, c.uploadsPath())
+	path := filepath.Join(uploadsRoot, "multipart-"+uploadID)
+
+	return path, EnsureContained(path, uploadsRoot)
 }
 
-func (c *Config) newMultipartUploadPath() (string, string) {
+func (c *Config) newMultipartUploadPath(bucket string) (string, string, error) {
+	uploadsRoot, err := c.bucketUploadsPath(bucket)
+	if err != nil {
+		return "", "", err
+	}
+
 	id := uuid.NewString()
 
-	return id, filepath.Join(c.uploadsPath(), "multipart-"+id)
+	path := filepath.Join(uploadsRoot, "multipart-"+id)
+
+	return id, path, EnsureContained(path, uploadsRoot)
 }
 
 func EnsureContained(path, parent string) error {

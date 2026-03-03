@@ -328,7 +328,10 @@ func (b *Bucket) DeleteObjects(ctx context.Context, quiet bool, keys ...string) 
 }
 
 func (b *Bucket) CreateMultipartUpload(_ context.Context, key string, metadata core.ObjectMetadata) (string, error) { //nolint:lll
-	id, uploadPath := b.config.newMultipartUploadPath()
+	id, uploadPath, err := b.config.newMultipartUploadPath(b.name)
+	if err != nil {
+		return "", err
+	}
 
 	if err := mkdirAllNoFollow(uploadPath, 0755); err != nil {
 		return "", err
@@ -387,7 +390,7 @@ func validateAllPartETags(uploadPath string, parts []core.CompletePart) error {
 }
 
 func (b *Bucket) UploadPart(ctx context.Context, key string, uploadID string, partNumber int, body io.Reader) (string, error) { //nolint:lll
-	uploadPath, err := b.config.multipartUploadPath(uploadID)
+	uploadPath, err := b.config.multipartUploadPath(b.name, uploadID)
 	if err != nil {
 		return "", err
 	}
@@ -440,7 +443,7 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return a.PartNumber - b.PartNumber
 	})
 
-	uploadPath, err := b.config.multipartUploadPath(uploadID)
+	uploadPath, err := b.config.multipartUploadPath(b.name, uploadID)
 	if err != nil {
 		return nil, err
 	}
@@ -571,7 +574,7 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 }
 
 func (b *Bucket) AbortMultipartUpload(_ context.Context, key string, uploadID string) error {
-	uploadPath, err := b.config.multipartUploadPath(uploadID)
+	uploadPath, err := b.config.multipartUploadPath(b.name, uploadID)
 	if err != nil {
 		return err
 	}
