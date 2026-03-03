@@ -15,6 +15,8 @@ const (
 	objectsFolder        = "objects"
 	TmpFolder            = "tmp"
 	uploadsFolder        = "uploads"
+	regularUploadsFolder = "regular"
+	multipartFolder      = "multiplart"
 	metadataYamlFilename = "metadata.yaml"
 	uploadYamlFilename   = "upload.yaml"
 	blobFilename         = "blob"
@@ -77,7 +79,7 @@ func (c *Config) newUploadPath(bucket string) (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(uploadsRoot, uuid.NewString()), nil
+	return filepath.Join(uploadsRoot, regularUploadsFolder, uuid.NewString()), nil
 }
 
 func (c *Config) multipartUploadPath(bucket, uploadID string) (string, error) {
@@ -86,7 +88,7 @@ func (c *Config) multipartUploadPath(bucket, uploadID string) (string, error) {
 		return "", err
 	}
 
-	path := filepath.Join(uploadsRoot, "multipart-"+uploadID)
+	path := filepath.Join(uploadsRoot, multipartFolder, "multipart-"+uploadID)
 
 	return path, EnsureContained(path, uploadsRoot)
 }
@@ -99,7 +101,7 @@ func (c *Config) newMultipartUploadPath(bucket string) (string, string, error) {
 
 	id := uuid.NewString()
 
-	path := filepath.Join(uploadsRoot, "multipart-"+id)
+	path := filepath.Join(uploadsRoot, multipartFolder, "multipart-"+id)
 
 	return id, path, EnsureContained(path, uploadsRoot)
 }
