@@ -28,10 +28,6 @@ type Bucket struct {
 	Locker core.Locker
 }
 
-type uploadMetadata struct {
-	Key string `yaml:"key"`
-}
-
 type partMetadata struct {
 	ETag string `yaml:"etag"`
 }
@@ -334,7 +330,7 @@ func (b *Bucket) DeleteObjects(ctx context.Context, quiet bool, keys ...string) 
 }
 
 func (b *Bucket) CreateMultipartUpload(_ context.Context, key string, metadata core.ObjectMetadata) (string, error) { //nolint:lll
-	id, uploadPath, err := b.config.newMultipartUploadPath(b.name)
+	id, uploadPath, err := b.config.newMultipartUploadPath(b.name, key)
 	if err != nil {
 		return "", err
 	}
@@ -347,21 +343,7 @@ func (b *Bucket) CreateMultipartUpload(_ context.Context, key string, metadata c
 		return "", err
 	}
 
-	uploadMeta := uploadMetadata{Key: key}
-	if err := yaml.MarshalToFile(uploadMeta, filepath.Join(uploadPath, uploadYamlFilename)); err != nil {
-		return "", err
-	}
-
 	return id, nil
-}
-
-func loadMultipartUploadKey(uploadPath string) (string, error) {
-	uploadMeta, err := yaml.UnmarshalFromFile[uploadMetadata](filepath.Join(uploadPath, uploadYamlFilename))
-	if err != nil {
-		return "", fmt.Errorf("%w: %w", core.ErrInvalidUploadID, err)
-	}
-
-	return uploadMeta.Key, nil
 }
 
 func loadPartMetadata(uploadPath string, partNumber int) (partMetadata, error) {
@@ -396,12 +378,12 @@ func validateAllPartETags(uploadPath string, parts []core.CompletePart) error {
 }
 
 func (b *Bucket) UploadPart(ctx context.Context, key string, uploadID string, partNumber int, body io.Reader) (string, error) { //nolint:lll
-	uploadPath, err := b.config.multipartUploadPath(b.name, uploadID)
+	uploadPath, err := b.multipartUploadPath(key, uploadID)
 	if err != nil {
 		return "", err
 	}
 
-	err = validateKey(uploadPath, key)
+	err = validateKey(b, uploadPath, key)
 	if err != nil {
 		return "", err
 	}
@@ -449,12 +431,12 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 		return a.PartNumber - b.PartNumber
 	})
 
-	uploadPath, err := b.config.multipartUploadPath(b.name, uploadID)
+	uploadPath, err := b.multipartUploadPath(key, uploadID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = validateKey(uploadPath, key)
+	err = validateKey(b, uploadPath, key)
 	if err != nil {
 		return nil, err
 	}
@@ -580,12 +562,12 @@ func (b *Bucket) CompleteMultipartUpload(ctx context.Context, key string, upload
 }
 
 func (b *Bucket) AbortMultipartUpload(_ context.Context, key string, uploadID string) error {
-	uploadPath, err := b.config.multipartUploadPath(b.name, uploadID)
+	uploadPath, err := b.multipartUploadPath(key, uploadID)
 	if err != nil {
 		return err
 	}
 
-	err = validateKey(uploadPath, key)
+	err = validateKey(b, uploadPath, key)
 	if err != nil {
 		return err
 	}
@@ -688,13 +670,57 @@ func (b *Bucket) rootPath() (string, error) {
 	return b.config.bucketPath(b.name)
 }
 
-func validateKey(uploadPath string, key string) error {
-	storedKey, err := loadMultipartUploadKey(uploadPath)
+func (b *Bucket) multipartUploadPath(key, uploadID string) (string, error) {
+	root, err := b.config.multipartUploadsRoot(b.name)
+	if err != nil {
+		return "", err
+	}
+
+	path := filepath.Join(root, key, uploadID)
+
+	if err := EnsureContained(path, root); err != nil {
+		return "", err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("%w: upload id not found", core.ErrInvalidUploadID)
+		}
+
+		return "", err
+	}
+
+	if !info.IsDir() {
+		return "", fmt.Errorf("%w: upload id not found", core.ErrInvalidUploadID)
+	}
+
+	return path, nil
+}
+
+func validateKey(b *Bucket, uploadPath string, key string) error {
+	root, err := b.config.multipartUploadsRoot(b.name)
 	if err != nil {
 		return err
 	}
 
-	if storedKey != key {
+	rel, err := filepath.Rel(root, uploadPath)
+	if err != nil {
+		return fmt.Errorf("%w: %w", core.ErrInvalidUploadID, err)
+	}
+
+	if rel == "." || rel == "" {
+		return fmt.Errorf("%w: invalid upload path", core.ErrInvalidUploadID)
+	}
+
+	parts := strings.Split(rel, string(filepath.Separator))
+	if len(parts) < 2 {
+		return fmt.Errorf("%w: invalid upload path", core.ErrInvalidUploadID)
+	}
+
+	keyFromPath := filepath.ToSlash(filepath.Join(parts[:len(parts)-1]...))
+
+	if keyFromPath != key {
 		return fmt.Errorf("%w: key mismatch", core.ErrInvalidUploadID)
 	}
 
