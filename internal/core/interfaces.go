@@ -72,6 +72,27 @@ type CompletePart struct {
 	ETag       string
 }
 
+type ListPartsInput struct {
+	UploadID         string
+	MaxParts         int
+	PartNumberMarker int
+}
+
+type PartInfo struct {
+	PartNumber   int
+	ETag         string
+	Size         int64
+	LastModified time.Time
+}
+
+type ListPartsResult struct {
+	Parts                []PartInfo
+	IsTruncated          bool
+	NextPartNumberMarker int
+	MaxParts             int
+	PartNumberMarker     int
+}
+
 type User struct {
 	Name            string `json:"name"              yaml:"name"`
 	AccessKeyID     string `json:"access_key_id"     yaml:"access_key_id"`
@@ -105,6 +126,7 @@ type Bucket interface { //nolint:interfacebloat
 	CompleteMultipartUpload(ctx context.Context, key string,
 		uploadID string, parts []CompletePart) (*ObjectMetadata, error)
 	AbortMultipartUpload(ctx context.Context, key string, uploadID string) error
+	ListParts(ctx context.Context, key string, input ListPartsInput) (*ListPartsResult, error)
 
 	PutObjectTagging(ctx context.Context, key string, tags map[string]string) error
 	DeleteObjectTagging(ctx context.Context, key string) error

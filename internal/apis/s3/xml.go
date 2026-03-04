@@ -117,3 +117,25 @@ type copyObjectResultXML struct {
 	ETag         string   `xml:"ETag"`
 	LastModified string   `xml:"LastModified"`
 }
+
+type listPartXML struct {
+	PartNumber   int    `xml:"PartNumber"`
+	LastModified string `xml:"LastModified"`
+	ETag         string `xml:"ETag"`
+	Size         int64  `xml:"Size"`
+}
+
+type listPartsResultXML struct {
+	XMLName              xml.Name         `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListPartsResult"`
+	Bucket               string           `xml:"Bucket"`
+	Key                  string           `xml:"Key"`
+	UploadID             string           `xml:"UploadId"`
+	PartNumberMarker     int              `xml:"PartNumberMarker,omitempty"`
+	NextPartNumberMarker int              `xml:"NextPartNumberMarker,omitempty"`
+	MaxParts             int              `xml:"MaxParts"`
+	IsTruncated          bool             `xml:"IsTruncated"`
+	Parts                []listPartXML    `xml:"Part,omitempty"`
+	Owner                *types.Owner     `xml:"Owner,omitempty"`
+	Initiator            *types.Initiator `xml:"Initiator,omitempty"`
+	StorageClass         string           `xml:"StorageClass,omitempty"`
+}

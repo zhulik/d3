@@ -66,6 +66,8 @@ func (a APIObjects) Init(_ context.Context) error {
 		NewQueryParamsRouter().
 			SetFallbackHandler(a.GetObject, s3actions.GetObject, bucketFinder, objectFinder, authorizer).
 			AddRoute("tagging", a.GetObjectTagging, s3actions.GetObjectTagging, bucketFinder, objectFinder, authorizer).
+			AddRoute("uploadId", a.ListParts, s3actions.ListParts,
+				bucketFinder, middlewares.UploadIDValidator, authorizer).
 			Handle,
 	)
 
@@ -575,6 +577,102 @@ func (a APIObjects) AbortMultipartUpload(c *echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (a APIObjects) ListParts(c *echo.Context) error {
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
+	apiCtx := apictx.FromContext(c.Request().Context())
+	key := c.Param("*")
+	uploadID := c.QueryParam("uploadId")
+
+	maxParts, partNumberMarker, err := parseListPartsParams(c)
+	if err != nil {
+		return err
+	}
+
+	result, err := bucket.ListParts(c.Request().Context(), key, core.ListPartsInput{
+		UploadID:         uploadID,
+		MaxParts:         maxParts,
+		PartNumberMarker: partNumberMarker,
+	})
+	if err != nil {
+		return err
+	}
+
+	response := listPartsResultFromCore(bucket.Name(), key, uploadID, apiCtx.User, result)
+
+	return c.XML(http.StatusOK, response)
+}
+
+func parseListPartsParams(c *echo.Context) (int, int, error) {
+	maxPartsParam := c.QueryParam("max-parts")
+	partNumberMarkerParam := c.QueryParam("part-number-marker")
+	maxParts := core.MaxParts
+
+	if maxPartsParam != "" {
+		var err error
+
+		maxParts, err = strconv.Atoi(maxPartsParam)
+		if err != nil || maxParts < 1 || maxParts > core.MaxParts {
+			return 0, 0, core.ErrInvalidMaxParts
+		}
+	}
+
+	partNumberMarker := 0
+
+	if partNumberMarkerParam != "" {
+		var err error
+
+		partNumberMarker, err = strconv.Atoi(partNumberMarkerParam)
+		if err != nil {
+			return 0, 0, core.ErrInvalidPartNumber
+		}
+
+		if partNumberMarker > 0 && core.ValidatePartNumber(partNumberMarker) != nil {
+			return 0, 0, core.ErrInvalidPartNumber
+		}
+	}
+
+	return maxParts, partNumberMarker, nil
+}
+
+func listPartsResultFromCore(
+	bucketName, key, uploadID string,
+	user *core.User,
+	result *core.ListPartsResult,
+) listPartsResultXML {
+	partsXML := lo.Map(result.Parts, func(p core.PartInfo, _ int) listPartXML {
+		return listPartXML{
+			PartNumber:   p.PartNumber,
+			LastModified: p.LastModified.UTC().Format("2006-01-02T15:04:05.000Z"),
+			ETag:         "\"" + p.ETag + "\"",
+			Size:         p.Size,
+		}
+	})
+
+	response := listPartsResultXML{
+		Bucket:               bucketName,
+		Key:                  key,
+		UploadID:             uploadID,
+		PartNumberMarker:     result.PartNumberMarker,
+		NextPartNumberMarker: result.NextPartNumberMarker,
+		MaxParts:             result.MaxParts,
+		IsTruncated:          result.IsTruncated,
+		Parts:                partsXML,
+		StorageClass:         "STANDARD",
+	}
+	if user != nil {
+		response.Owner = &types.Owner{
+			DisplayName: &user.Name,
+			ID:          &user.AccessKeyID,
+		}
+		response.Initiator = &types.Initiator{
+			DisplayName: &user.Name,
+			ID:          &user.AccessKeyID,
+		}
+	}
+
+	return response
 }
 
 func parseTags(header string) (map[string]string, error) {

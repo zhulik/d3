@@ -579,6 +579,109 @@ func (b *Bucket) AbortMultipartUpload(_ context.Context, key string, uploadID st
 	return os.RemoveAll(uploadPath)
 }
 
+func (b *Bucket) ListParts(ctx context.Context, key string, input core.ListPartsInput) (*core.ListPartsResult, error) {
+	uploadPath, err := b.multipartUploadPath(key, input.UploadID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateKey(b, uploadPath, key); err != nil {
+		return nil, err
+	}
+
+	if err := rejectSymlinkInPath(uploadPath); err != nil {
+		return nil, err
+	}
+
+	allParts, err := collectPartInfos(ctx, uploadPath)
+	if err != nil {
+		return nil, err
+	}
+
+	maxParts := input.MaxParts
+	if maxParts <= 0 {
+		maxParts = core.MaxParts
+	}
+
+	slices.SortFunc(allParts, func(a, b core.PartInfo) int { return a.PartNumber - b.PartNumber })
+	afterMarker := lo.Filter(allParts, func(p core.PartInfo, _ int) bool {
+		return p.PartNumber > input.PartNumberMarker
+	})
+
+	result := &core.ListPartsResult{
+		MaxParts:         maxParts,
+		PartNumberMarker: input.PartNumberMarker,
+	}
+	if len(afterMarker) <= maxParts {
+		result.Parts = afterMarker
+		result.IsTruncated = false
+		result.NextPartNumberMarker = 0
+	} else {
+		result.Parts = afterMarker[:maxParts]
+		result.IsTruncated = true
+		result.NextPartNumberMarker = result.Parts[len(result.Parts)-1].PartNumber
+	}
+
+	return result, nil
+}
+
+func collectPartInfos(ctx context.Context, uploadPath string) ([]core.PartInfo, error) {
+	entries, err := os.ReadDir(uploadPath)
+	if err != nil {
+		return nil, err
+	}
+
+	allParts := make([]core.PartInfo, 0, len(entries))
+	for _, entry := range entries {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
+		name := entry.Name()
+		if strings.HasSuffix(name, ".yaml") || name == blobFilename || name == metadataYamlFilename {
+			continue
+		}
+
+		if !strings.HasPrefix(name, "part-") {
+			continue
+		}
+
+		var partNumber int
+		if _, err := fmt.Sscanf(strings.TrimPrefix(name, "part-"), "%d", &partNumber); err != nil {
+			continue
+		}
+
+		if core.ValidatePartNumber(partNumber) != nil {
+			continue
+		}
+
+		path := filepath.Join(uploadPath, name)
+
+		info, err := os.Lstat(path)
+		if err != nil {
+			return nil, err
+		}
+
+		if !info.Mode().IsRegular() {
+			continue
+		}
+
+		partMeta, err := loadPartMetadata(uploadPath, partNumber)
+		if err != nil {
+			return nil, err
+		}
+
+		allParts = append(allParts, core.PartInfo{
+			PartNumber:   partNumber,
+			ETag:         partMeta.ETag,
+			Size:         info.Size(),
+			LastModified: info.ModTime(),
+		})
+	}
+
+	return allParts, nil
+}
+
 func (b *Bucket) PutObjectTagging(ctx context.Context, key string, tags map[string]string) error {
 	path, err := b.config.objectPath(b.name, key)
 	if err != nil {

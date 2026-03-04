@@ -986,6 +986,126 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 	})
 
+	Describe("ListParts", func() {
+		listPartsKey := "list-parts-key.txt"
+
+		var uploadID *string
+
+		BeforeAll(func(ctx context.Context) {
+			createOut, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+				Bucket: &bucketName,
+				Key:    &listPartsKey,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(createOut.UploadId).NotTo(BeNil())
+			uploadID = createOut.UploadId
+
+			for i := 1; i <= 5; i++ {
+				_, err := s3Client.UploadPart(ctx, &s3.UploadPartInput{
+					Bucket:     &bucketName,
+					Key:        &listPartsKey,
+					PartNumber: lo.ToPtr(int32(i)),
+					UploadId:   uploadID,
+					Body:       strings.NewReader(fmt.Sprintf("part %d data", i)),
+				})
+				Expect(err).NotTo(HaveOccurred())
+			}
+		})
+
+		AfterAll(func(ctx context.Context) {
+			if uploadID != nil {
+				lo.Must(s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+					Bucket:   &bucketName,
+					Key:      &listPartsKey,
+					UploadId: uploadID,
+				}))
+			}
+		})
+
+		When("multipart upload has parts", func() {
+			It("returns all parts in order with PartNumber, ETag and Size", func(ctx context.Context) {
+				output, err := s3Client.ListParts(ctx, &s3.ListPartsInput{
+					Bucket:   &bucketName,
+					Key:      &listPartsKey,
+					UploadId: uploadID,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.Parts).To(HaveLen(5))
+
+				for i, part := range output.Parts {
+					Expect(part.PartNumber).NotTo(BeNil())
+					Expect(*part.PartNumber).To(Equal(int32(i + 1)))
+					Expect(part.ETag).NotTo(BeNil())
+					Expect(*part.ETag).NotTo(BeEmpty())
+					Expect(part.Size).NotTo(BeNil())
+					Expect(*part.Size).To(Equal(int64(len(fmt.Sprintf("part %d data", i+1)))))
+				}
+
+				Expect(output.IsTruncated).NotTo(BeNil())
+				Expect(*output.IsTruncated).To(BeFalse())
+			})
+		})
+
+		When("max-parts limits the response", func() {
+			It("returns first page and NextPartNumberMarker", func(ctx context.Context) {
+				output, err := s3Client.ListParts(ctx, &s3.ListPartsInput{
+					Bucket:   &bucketName,
+					Key:      &listPartsKey,
+					UploadId: uploadID,
+					MaxParts: lo.ToPtr(int32(2)),
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.Parts).To(HaveLen(2))
+				Expect(output.Parts[0].PartNumber).NotTo(BeNil())
+				Expect(*output.Parts[0].PartNumber).To(Equal(int32(1)))
+				Expect(output.Parts[1].PartNumber).NotTo(BeNil())
+				Expect(*output.Parts[1].PartNumber).To(Equal(int32(2)))
+				Expect(output.IsTruncated).NotTo(BeNil())
+				Expect(*output.IsTruncated).To(BeTrue())
+				Expect(output.NextPartNumberMarker).NotTo(BeNil())
+				Expect(*output.NextPartNumberMarker).To(Equal("2"))
+			})
+
+			It("returns next page when part-number-marker is provided", func(ctx context.Context) {
+				marker := "2"
+				output, err := s3Client.ListParts(ctx, &s3.ListPartsInput{
+					Bucket:           &bucketName,
+					Key:              &listPartsKey,
+					UploadId:         uploadID,
+					MaxParts:         lo.ToPtr(int32(2)),
+					PartNumberMarker: &marker,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.Parts).To(HaveLen(2))
+				Expect(output.Parts[0].PartNumber).NotTo(BeNil())
+				Expect(*output.Parts[0].PartNumber).To(Equal(int32(3)))
+				Expect(output.Parts[1].PartNumber).NotTo(BeNil())
+				Expect(*output.Parts[1].PartNumber).To(Equal(int32(4)))
+				Expect(output.IsTruncated).NotTo(BeNil())
+				Expect(*output.IsTruncated).To(BeTrue())
+				Expect(output.NextPartNumberMarker).NotTo(BeNil())
+				Expect(*output.NextPartNumberMarker).To(Equal("4"))
+			})
+
+			It("returns last page with remaining parts", func(ctx context.Context) {
+				marker := "4"
+				output, err := s3Client.ListParts(ctx, &s3.ListPartsInput{
+					Bucket:           &bucketName,
+					Key:              &listPartsKey,
+					UploadId:         uploadID,
+					MaxParts:         lo.ToPtr(int32(10)),
+					PartNumberMarker: &marker,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.Parts).To(HaveLen(1))
+				Expect(output.Parts[0].PartNumber).NotTo(BeNil())
+				Expect(*output.Parts[0].PartNumber).To(Equal(int32(5)))
+				Expect(output.IsTruncated).NotTo(BeNil())
+				Expect(*output.IsTruncated).To(BeFalse())
+			})
+		})
+	})
+
 	Describe("Multipart Upload with invalid part etags", func() {
 		testKey := lo.ToPtr("invalid-etag-test.txt")
 

@@ -48,6 +48,7 @@ func ErrorRenderer() echo.MiddlewareFunc {
 				errors.Is(err, core.ErrInvalidObjectKey) ||
 				errors.Is(err, core.ErrInvalidUploadID) ||
 				errors.Is(err, core.ErrInvalidMaxKeys) ||
+				errors.Is(err, core.ErrInvalidMaxParts) ||
 				errors.Is(err, core.ErrInvalidPartNumber) ||
 				errors.Is(err, core.ErrInvalidTag) ||
 				errors.Is(err, core.ErrPathTraversal) ||
