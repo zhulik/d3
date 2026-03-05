@@ -139,3 +139,24 @@ type listPartsResultXML struct {
 	Initiator            *types.Initiator `xml:"Initiator,omitempty"`
 	StorageClass         string           `xml:"StorageClass,omitempty"`
 }
+
+type listMultipartUploadEntryXML struct {
+	Key       string `xml:"Key"`
+	UploadID  string `xml:"UploadId"`
+	Initiated string `xml:"Initiated"`
+}
+
+type listMultipartUploadsResultXML struct {
+	XMLName            xml.Name                      `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListMultipartUploadsResult"` //nolint:lll
+	Bucket             string                        `xml:"Bucket"`
+	KeyMarker          string                        `xml:"KeyMarker,omitempty"`
+	UploadIDMarker     string                        `xml:"UploadIdMarker,omitempty"` // AWS uses UploadIdMarker
+	NextKeyMarker      string                        `xml:"NextKeyMarker,omitempty"`
+	NextUploadIDMarker string                        `xml:"NextUploadIdMarker,omitempty"` // AWS uses NextUploadIdMarker
+	Prefix             string                        `xml:"Prefix,omitempty"`
+	Delimiter          string                        `xml:"Delimiter,omitempty"`
+	MaxUploads         int                           `xml:"MaxUploads"`
+	IsTruncated        bool                          `xml:"IsTruncated"`
+	Uploads            []listMultipartUploadEntryXML `xml:"Upload,omitempty"`
+	CommonPrefixes     []prefixEntry                 `xml:"CommonPrefixes,omitempty"`
+}

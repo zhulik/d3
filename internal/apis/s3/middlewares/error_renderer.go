@@ -47,9 +47,7 @@ func ErrorRenderer() echo.MiddlewareFunc {
 			case errors.Is(err, core.ErrInvalidBucketName) ||
 				errors.Is(err, core.ErrInvalidObjectKey) ||
 				errors.Is(err, core.ErrInvalidUploadID) ||
-				errors.Is(err, core.ErrInvalidMaxKeys) ||
-				errors.Is(err, core.ErrInvalidMaxParts) ||
-				errors.Is(err, core.ErrInvalidPartNumber) ||
+				errors.Is(err, core.ErrInvalidLimitParam) ||
 				errors.Is(err, core.ErrInvalidTag) ||
 				errors.Is(err, core.ErrPathTraversal) ||
 				errors.Is(err, core.ErrSymlinkNotAllowed) ||

@@ -40,7 +40,8 @@ func (a *Authorizer) Middleware() echo.MiddlewareFunc {
 				s3actions.HeadBucket,
 				s3actions.DeleteBucket,
 				s3actions.GetBucketLocation,
-				s3actions.ListObjectsV2:
+				s3actions.ListObjectsV2,
+				s3actions.ListMultipartUploads:
 				// Bucket-level operations.
 				resource = bucketName
 			default:

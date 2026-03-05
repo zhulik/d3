@@ -625,6 +625,105 @@ func (b *Bucket) ListParts(ctx context.Context, key string, input core.ListParts
 	return result, nil
 }
 
+func (b *Bucket) ListMultipartUploads(ctx context.Context, input core.ListMultipartUploadsInput) (*core.ListMultipartUploadsResult, error) { //nolint:funlen,lll
+	maxUploads := input.MaxUploads
+	if maxUploads <= 0 {
+		maxUploads = core.MaxUploads
+	}
+
+	if maxUploads > core.MaxUploads {
+		maxUploads = core.MaxUploads
+	}
+
+	uploads := []*IncompleteMultipartUpload{}
+	commonPrefixes := []string{}
+	seenPrefixes := map[string]bool{}
+	count := 0
+	isTruncated := false
+
+	var skipPrefix string
+
+	walkFn := func(_ context.Context, upload *IncompleteMultipartUpload) error {
+		key := upload.Key()
+
+		if skipPrefix != "" && strings.HasPrefix(key, skipPrefix) {
+			return nil
+		}
+
+		skipPrefix = ""
+
+		if count >= maxUploads {
+			isTruncated = true
+
+			return StopWalk
+		}
+
+		if input.Delimiter != "" {
+			rest := strings.TrimPrefix(key, input.Prefix)
+			if idx := strings.Index(rest, input.Delimiter); idx >= 0 {
+				cp := input.Prefix + rest[:idx+len(input.Delimiter)]
+				if !seenPrefixes[cp] {
+					seenPrefixes[cp] = true
+					commonPrefixes = append(commonPrefixes, cp)
+					count++
+				}
+
+				skipPrefix = cp
+
+				return nil
+			}
+		}
+
+		uploads = append(uploads, upload)
+		count++
+
+		return nil
+	}
+
+	err := WalkMultipartUploads(ctx, b, input.Prefix, input.KeyMarker, input.UploadIDMarker, walkFn)
+	if err != nil && !errors.Is(err, filepath.SkipAll) {
+		return nil, err
+	}
+
+	slices.SortFunc(uploads, func(a, b *IncompleteMultipartUpload) int {
+		if a.Key() != b.Key() {
+			return strings.Compare(a.Key(), b.Key())
+		}
+
+		return a.Initiated().Compare(b.Initiated())
+	})
+
+	var (
+		nextKeyMarker      *string
+		nextUploadIDMarker *string
+	)
+
+	if isTruncated && len(uploads) > 0 {
+		last := uploads[len(uploads)-1]
+		nextKeyMarker = lo.ToPtr(last.Key())
+		nextUploadIDMarker = lo.ToPtr(last.UploadID())
+	}
+
+	uploadInfos := lo.Map(uploads, func(u *IncompleteMultipartUpload, _ int) core.MultipartUploadInfo {
+		return core.MultipartUploadInfo{
+			Key:       u.Key(),
+			UploadID:  u.UploadID(),
+			Initiated: u.Initiated(),
+		}
+	})
+
+	return &core.ListMultipartUploadsResult{
+		Uploads:            uploadInfos,
+		CommonPrefixes:     commonPrefixes,
+		NextKeyMarker:      nextKeyMarker,
+		NextUploadIDMarker: nextUploadIDMarker,
+		IsTruncated:        isTruncated,
+		Prefix:             input.Prefix,
+		Delimiter:          input.Delimiter,
+		MaxUploads:         maxUploads,
+	}, nil
+}
+
 func collectPartInfos(ctx context.Context, uploadPath string) ([]core.PartInfo, error) {
 	entries, err := os.ReadDir(uploadPath)
 	if err != nil {

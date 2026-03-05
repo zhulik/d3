@@ -1106,6 +1106,128 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 	})
 
+	Describe("ListMultipartUploads", func() {
+		When("in-progress multipart uploads exist", func() {
+			var (
+				keyA         = "list-mpu-a.txt"
+				keyB         = "list-mpu-b.txt"
+				keyPref      = "list-mpu-prefix/obj.txt"
+				uploadIDA    *string
+				uploadIDB    *string
+				uploadIDPref *string
+			)
+
+			BeforeAll(func(ctx context.Context) {
+				createA, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: &bucketName,
+					Key:    &keyA,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				uploadIDA = createA.UploadId
+
+				createB, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: &bucketName,
+					Key:    &keyB,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				uploadIDB = createB.UploadId
+
+				createPref, err := s3Client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
+					Bucket: &bucketName,
+					Key:    &keyPref,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				uploadIDPref = createPref.UploadId
+			})
+
+			AfterAll(func(ctx context.Context) {
+				for _, pair := range []struct {
+					key string
+					id  *string
+				}{
+					{keyA, uploadIDA}, {keyB, uploadIDB}, {keyPref, uploadIDPref},
+				} {
+					if pair.id != nil {
+						lo.Must(s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
+							Bucket:   &bucketName,
+							Key:      &pair.key,
+							UploadId: pair.id,
+						}))
+					}
+				}
+			})
+
+			It("returns all in-progress uploads", func(ctx context.Context) {
+				output, err := s3Client.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{
+					Bucket: &bucketName,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.Uploads).To(HaveLen(3))
+				keys := lo.Map(output.Uploads, func(u types.MultipartUpload, _ int) string {
+					return lo.FromPtr(u.Key)
+				})
+				Expect(keys).To(ContainElements(keyA, keyB, keyPref))
+			})
+
+			It("filters by prefix", func(ctx context.Context) {
+				prefix := "list-mpu-prefix/"
+				output, err := s3Client.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{
+					Bucket: &bucketName,
+					Prefix: &prefix,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.Uploads).To(HaveLen(1))
+				Expect(output.Uploads[0].Key).NotTo(BeNil())
+				Expect(*output.Uploads[0].Key).To(Equal(keyPref))
+			})
+
+			It("returns common prefixes when delimiter is set", func(ctx context.Context) {
+				delimiter := "/"
+				output, err := s3Client.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{
+					Bucket:    &bucketName,
+					Delimiter: &delimiter,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.CommonPrefixes).To(ContainElement(types.CommonPrefix{Prefix: lo.ToPtr("list-mpu-prefix/")}))
+			})
+
+			It("paginates with max-uploads and next markers", func(ctx context.Context) {
+				maxUploads := int32(1)
+				output, err := s3Client.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{
+					Bucket:     &bucketName,
+					MaxUploads: &maxUploads,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.Uploads).To(HaveLen(1))
+				Expect(output.IsTruncated).NotTo(BeNil())
+				Expect(*output.IsTruncated).To(BeTrue())
+				Expect(output.NextKeyMarker).NotTo(BeNil())
+				Expect(output.NextUploadIdMarker).NotTo(BeNil())
+
+				nextOutput, err := s3Client.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{
+					Bucket:         &bucketName,
+					KeyMarker:      output.NextKeyMarker,
+					UploadIdMarker: output.NextUploadIdMarker,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(nextOutput.Uploads).To(HaveLen(2))
+			})
+		})
+
+		When("bucket has no in-progress uploads", func() {
+			It("succeeds and returns a result", func(ctx context.Context) {
+				output, err := s3Client.ListMultipartUploads(ctx, &s3.ListMultipartUploadsInput{
+					Bucket: &bucketName,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output).NotTo(BeNil())
+			})
+		})
+	})
+
 	Describe("Multipart Upload with invalid part etags", func() {
 		testKey := lo.ToPtr("invalid-etag-test.txt")
 

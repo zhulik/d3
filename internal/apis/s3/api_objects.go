@@ -44,6 +44,7 @@ func (a APIObjects) Init(_ context.Context) error {
 	bucketFinder := a.BucketFinder.Middleware()
 	objectFinder := a.ObjectFinder.Middleware()
 	authorizer := a.Echo.Authorizer.Middleware()
+	a.Echo.AddQueryParamRoute("uploads", a.ListMultipartUploads, s3actions.ListMultipartUploads, bucketFinder, authorizer)
 	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
 	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
 
@@ -327,19 +328,9 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	maxKeys := c.QueryParam("max-keys")
 	continuationToken := c.QueryParam("continuation-token")
 
-	maxKeysInt := core.MaxKeys
-
-	var err error
-
-	if maxKeys != "" {
-		maxKeysInt, err = strconv.Atoi(maxKeys)
-		if err != nil {
-			return core.ErrInvalidMaxKeys
-		}
-
-		if maxKeysInt < 1 || maxKeysInt > core.MaxKeys {
-			return core.ErrInvalidMaxKeys
-		}
+	maxKeysInt, err := validateMaxParam(maxKeys, core.MaxKeys)
+	if err != nil {
+		return err
 	}
 
 	if listType != "2" {
@@ -377,6 +368,60 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 		CommonPrefixes: lo.Map(objects.CommonPrefixes, func(p string, _ int) prefixEntry {
 			return prefixEntry{Prefix: p}
 		}),
+	}
+
+	return c.XML(http.StatusOK, xmlResponse)
+}
+
+func (a APIObjects) ListMultipartUploads(c *echo.Context) error {
+	bucket := apictx.FromContext(c.Request().Context()).Bucket
+	prefix := c.QueryParam("prefix")
+	delimiter := c.QueryParam("delimiter")
+	maxUploadsParam := c.QueryParam("max-uploads")
+	keyMarker := c.QueryParam("key-marker")
+	uploadIDMarker := c.QueryParam("upload-id-marker")
+
+	maxUploads, err := validateMaxParam(maxUploadsParam, core.MaxUploads)
+	if err != nil {
+		return err
+	}
+
+	result, err := bucket.ListMultipartUploads(c.Request().Context(), core.ListMultipartUploadsInput{
+		Prefix:         prefix,
+		Delimiter:      delimiter,
+		MaxUploads:     maxUploads,
+		KeyMarker:      keyMarker,
+		UploadIDMarker: uploadIDMarker,
+	})
+	if err != nil {
+		return err
+	}
+
+	xmlResponse := listMultipartUploadsResultXML{
+		Bucket:         bucket.Name(),
+		KeyMarker:      keyMarker,
+		UploadIDMarker: uploadIDMarker,
+		Prefix:         result.Prefix,
+		Delimiter:      result.Delimiter,
+		MaxUploads:     result.MaxUploads,
+		IsTruncated:    result.IsTruncated,
+		Uploads: lo.Map(result.Uploads, func(u core.MultipartUploadInfo, _ int) listMultipartUploadEntryXML {
+			return listMultipartUploadEntryXML{
+				Key:       u.Key,
+				UploadID:  u.UploadID,
+				Initiated: u.Initiated.UTC().Format("2006-01-02T15:04:05.000Z"),
+			}
+		}),
+		CommonPrefixes: lo.Map(result.CommonPrefixes, func(p string, _ int) prefixEntry {
+			return prefixEntry{Prefix: p}
+		}),
+	}
+	if result.NextKeyMarker != nil {
+		xmlResponse.NextKeyMarker = *result.NextKeyMarker
+	}
+
+	if result.NextUploadIDMarker != nil {
+		xmlResponse.NextUploadIDMarker = *result.NextUploadIDMarker
 	}
 
 	return c.XML(http.StatusOK, xmlResponse)
@@ -604,18 +649,28 @@ func (a APIObjects) ListParts(c *echo.Context) error {
 	return c.XML(http.StatusOK, response)
 }
 
+// validateMaxParam parses a query param as an integer and ensures it is in [1, maxVal].
+// If param is empty, returns maxVal. Otherwise returns error when parse fails or value is out of range.
+func validateMaxParam(param string, maxVal int) (int, error) {
+	if param == "" {
+		return maxVal, nil
+	}
+
+	n, err := strconv.Atoi(param)
+	if err != nil || n < 1 || n > maxVal {
+		return 0, fmt.Errorf("%w: %s must be between 1 and %d", core.ErrInvalidLimitParam, param, maxVal)
+	}
+
+	return n, nil
+}
+
 func parseListPartsParams(c *echo.Context) (int, int, error) {
 	maxPartsParam := c.QueryParam("max-parts")
 	partNumberMarkerParam := c.QueryParam("part-number-marker")
-	maxParts := core.MaxParts
 
-	if maxPartsParam != "" {
-		var err error
-
-		maxParts, err = strconv.Atoi(maxPartsParam)
-		if err != nil || maxParts < 1 || maxParts > core.MaxParts {
-			return 0, 0, core.ErrInvalidMaxParts
-		}
+	maxParts, err := validateMaxParam(maxPartsParam, core.MaxParts)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	partNumberMarker := 0

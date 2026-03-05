@@ -93,6 +93,31 @@ type ListPartsResult struct {
 	PartNumberMarker     int
 }
 
+type MultipartUploadInfo struct {
+	Key       string
+	UploadID  string
+	Initiated time.Time
+}
+
+type ListMultipartUploadsInput struct {
+	Prefix         string
+	Delimiter      string
+	MaxUploads     int
+	KeyMarker      string
+	UploadIDMarker string
+}
+
+type ListMultipartUploadsResult struct {
+	Uploads            []MultipartUploadInfo
+	CommonPrefixes     []string
+	NextKeyMarker      *string
+	NextUploadIDMarker *string
+	IsTruncated        bool
+	Prefix             string
+	Delimiter          string
+	MaxUploads         int
+}
+
 type User struct {
 	Name            string `json:"name"              yaml:"name"`
 	AccessKeyID     string `json:"access_key_id"     yaml:"access_key_id"`
@@ -126,6 +151,7 @@ type Bucket interface { //nolint:interfacebloat
 	CompleteMultipartUpload(ctx context.Context, key string,
 		uploadID string, parts []CompletePart) (*ObjectMetadata, error)
 	AbortMultipartUpload(ctx context.Context, key string, uploadID string) error
+	ListMultipartUploads(ctx context.Context, input ListMultipartUploadsInput) (*ListMultipartUploadsResult, error)
 	ListParts(ctx context.Context, key string, input ListPartsInput) (*ListPartsResult, error)
 
 	PutObjectTagging(ctx context.Context, key string, tags map[string]string) error

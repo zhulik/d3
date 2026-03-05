@@ -3,6 +3,7 @@ package core
 const (
 	MaxKeys       = 1000
 	MaxParts      = 1000  // AWS S3 ListParts default/limit per request
+	MaxUploads    = 1000  // AWS S3 ListMultipartUploads default/limit per request
 	MaxPartNumber = 10000 // AWS S3 limit for multipart upload part numbers
 	Delimiter     = "/"
 
