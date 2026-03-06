@@ -42,3 +42,7 @@ func (e *Echo) Init(_ context.Context) error {
 func (e *Echo) AddQueryParamRoute(path string, handler echo.HandlerFunc, action s3actions.Action, middlewares ...echo.MiddlewareFunc) { //nolint:lll
 	e.rootQueryRouter.AddRoute(path, applyMiddlewares(handler, middlewares...), action)
 }
+
+func (e *Echo) SetRootFallbackHandler(handler echo.HandlerFunc, action s3actions.Action, middlewares ...echo.MiddlewareFunc) { //nolint:lll
+	e.rootQueryRouter.SetFallbackHandler(handler, action, middlewares...)
+}

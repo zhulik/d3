@@ -2,6 +2,7 @@ package s3
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -47,6 +48,8 @@ func (a APIObjects) Init(_ context.Context) error {
 	a.Echo.AddQueryParamRoute("uploads", a.ListMultipartUploads, s3actions.ListMultipartUploads, bucketFinder, authorizer)
 	a.Echo.AddQueryParamRoute("prefix", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
 	a.Echo.AddQueryParamRoute("list-type", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
+	a.Echo.AddQueryParamRoute("marker", a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
+	a.Echo.SetRootFallbackHandler(a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
 
 	objects := a.Echo.Group("/:bucket/*", middlewares.ObjectKeyValidator)
 	objects.HEAD("", a.HeadObject, middlewares.SetAction(s3actions.HeadObject), bucketFinder, objectFinder, authorizer)
@@ -320,6 +323,73 @@ func (a APIObjects) GetObject(c *echo.Context) error {
 	return c.Stream(http.StatusOK, metadata.ContentType, reader)
 }
 
+func mapObjectsToTypes(objects []core.Object) []*types.Object {
+	return lo.Map(objects, func(object core.Object, _ int) *types.Object {
+		metadata := object.Metadata()
+
+		return &types.Object{
+			Key:          lo.ToPtr(object.Key()),
+			LastModified: lo.ToPtr(object.LastModified()),
+			Size:         lo.ToPtr(object.Size()),
+			ETag:         lo.ToPtr(metadata.SHA256),
+		}
+	})
+}
+
+func listObjectsV1Response(
+	ctx context.Context, bucket core.Bucket, prefix, delimiter, marker string, maxKeysInt int,
+) (listBucketResult, error) {
+	v1ContinuationToken := ""
+	requestMaxKeys := maxKeysInt
+
+	if marker != "" {
+		v1ContinuationToken = base64.StdEncoding.EncodeToString([]byte(marker))
+		// Request one extra so that after stripping the marker we still return a full page.
+		requestMaxKeys = maxKeysInt + 1
+	}
+
+	objects, err := bucket.ListObjectsV2(ctx, core.ListObjectsV2Input{
+		MaxKeys:           requestMaxKeys,
+		Prefix:            prefix,
+		Delimiter:         delimiter,
+		ContinuationToken: v1ContinuationToken,
+	})
+	if err != nil {
+		return listBucketResult{}, err
+	}
+
+	// S3 ListObjects v1 marker is exclusive ("start after"); backend continuation token is inclusive ("start from").
+	// When marker was sent, strip the first result if it equals the marker.
+	if marker != "" && len(objects.Objects) > 0 && objects.Objects[0].Key() == marker {
+		objects = &core.ListV2Result{
+			Objects:           objects.Objects[1:],
+			CommonPrefixes:    objects.CommonPrefixes,
+			ContinuationToken: objects.ContinuationToken,
+			IsTruncated:       objects.IsTruncated,
+		}
+	}
+
+	var nextMarker *string
+
+	if delimiter != "" && objects.IsTruncated && objects.ContinuationToken != nil {
+		if decoded, err := base64.StdEncoding.DecodeString(*objects.ContinuationToken); err == nil {
+			nextMarker = lo.ToPtr(string(decoded))
+		}
+	}
+
+	return listBucketResult{
+		Contents:       mapObjectsToTypes(objects.Objects),
+		IsTruncated:    objects.IsTruncated,
+		Marker:         marker,
+		NextMarker:     nextMarker,
+		Name:           bucket.Name(),
+		Prefix:         prefix,
+		Delimiter:      delimiter,
+		MaxKeys:        maxKeysInt,
+		CommonPrefixes: lo.Map(objects.CommonPrefixes, func(p string, _ int) prefixEntry { return prefixEntry{Prefix: p} }),
+	}, nil
+}
+
 func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	bucket := apictx.FromContext(c.Request().Context()).Bucket
 	prefix := c.QueryParam("prefix")
@@ -327,50 +397,46 @@ func (a APIObjects) ListObjectsV2(c *echo.Context) error {
 	listType := c.QueryParam("list-type")
 	maxKeys := c.QueryParam("max-keys")
 	continuationToken := c.QueryParam("continuation-token")
+	marker := c.QueryParam("marker")
 
 	maxKeysInt, err := validateMaxParam(maxKeys, core.MaxKeys)
 	if err != nil {
 		return err
 	}
 
-	if listType != "2" {
-		return echo.NewHTTPError(http.StatusNotImplemented, "only ListObjectsV2 is supported")
+	if listType == "2" {
+		objects, err := bucket.ListObjectsV2(c.Request().Context(), core.ListObjectsV2Input{
+			MaxKeys:           maxKeysInt,
+			Prefix:            prefix,
+			Delimiter:         delimiter,
+			ContinuationToken: continuationToken,
+		})
+		if err != nil {
+			return err
+		}
+
+		return c.XML(http.StatusOK, listObjectsV2Result{
+			Contents:              mapObjectsToTypes(objects.Objects),
+			Name:                  bucket.Name(),
+			Prefix:                prefix,
+			Delimiter:             delimiter,
+			MaxKeys:               maxKeysInt,
+			KeyCount:              len(objects.Objects) + len(objects.CommonPrefixes),
+			NextContinuationToken: objects.ContinuationToken,
+			IsTruncated:           objects.IsTruncated,
+			CommonPrefixes: lo.Map(objects.CommonPrefixes, func(p string, _ int) prefixEntry {
+				return prefixEntry{Prefix: p}
+			}),
+		})
 	}
 
-	objects, err := bucket.ListObjectsV2(c.Request().Context(), core.ListObjectsV2Input{
-		MaxKeys:           maxKeysInt,
-		Prefix:            prefix,
-		Delimiter:         delimiter,
-		ContinuationToken: continuationToken,
-	})
+	resp, err := listObjectsV1Response(
+		c.Request().Context(), bucket, prefix, delimiter, marker, maxKeysInt)
 	if err != nil {
 		return err
 	}
 
-	xmlResponse := listObjectsV2Result{
-		Contents: lo.Map(objects.Objects, func(object core.Object, _ int) *types.Object {
-			metadata := object.Metadata()
-
-			return &types.Object{
-				Key:          lo.ToPtr(object.Key()),
-				LastModified: lo.ToPtr(object.LastModified()),
-				Size:         lo.ToPtr(object.Size()),
-				ETag:         lo.ToPtr(metadata.SHA256),
-			}
-		}),
-		Name:                  bucket.Name(),
-		Prefix:                prefix,
-		Delimiter:             delimiter,
-		MaxKeys:               maxKeysInt,
-		KeyCount:              len(objects.Objects) + len(objects.CommonPrefixes),
-		NextContinuationToken: objects.ContinuationToken,
-		IsTruncated:           objects.IsTruncated,
-		CommonPrefixes: lo.Map(objects.CommonPrefixes, func(p string, _ int) prefixEntry {
-			return prefixEntry{Prefix: p}
-		}),
-	}
-
-	return c.XML(http.StatusOK, xmlResponse)
+	return c.XML(http.StatusOK, resp)
 }
 
 func (a APIObjects) ListMultipartUploads(c *echo.Context) error {

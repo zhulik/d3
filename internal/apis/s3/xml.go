@@ -34,6 +34,19 @@ type listObjectsV2Result struct {
 	CommonPrefixes []prefixEntry `xml:"CommonPrefixes,omitempty"`
 }
 
+type listBucketResult struct {
+	XMLName        xml.Name        `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListBucketResult"`
+	IsTruncated    bool            `xml:"IsTruncated"`
+	Marker         string          `xml:"Marker,omitempty"`
+	NextMarker     *string         `xml:"NextMarker,omitempty"`
+	Contents       []*types.Object `xml:"Contents"`
+	Name           string          `xml:"Name"`
+	Prefix         string          `xml:"Prefix"`
+	Delimiter      string          `xml:"Delimiter,omitempty"`
+	MaxKeys        int             `xml:"MaxKeys"`
+	CommonPrefixes []prefixEntry   `xml:"CommonPrefixes,omitempty"`
+}
+
 type taggingXML struct {
 	XMLName xml.Name  `xml:"Tagging"`
 	TagSet  tagSetXML `xml:"TagSet"`

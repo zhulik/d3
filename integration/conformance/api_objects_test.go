@@ -486,6 +486,143 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 		})
 	})
 
+	Describe("ListObjects", func() {
+		When("prefix is specified", func() {
+			When("there are objects matching the prefix", func() {
+				It("lists objects", func(ctx context.Context) {
+					output, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+						Bucket: &bucketName,
+						Prefix: lo.ToPtr("h"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(output.Contents).To(HaveLen(2))
+					Expect(output.Contents[0].Key).To(Equal(lo.ToPtr("hello-minio.txt")))
+					Expect(output.Contents[1].Key).To(Equal(lo.ToPtr("hello.txt")))
+				})
+			})
+
+			When("there are no objects matching the prefix", func() {
+				It("returns an empty list", func(ctx context.Context) {
+					output, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+						Bucket: &bucketName,
+						Prefix: lo.ToPtr("does-not-exist"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(output.Contents).To(BeEmpty())
+				})
+			})
+		})
+
+		When("prefix is not specified", func() {
+			It("lists all objects", func(ctx context.Context) {
+				output, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+					Bucket: &bucketName,
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(output.Contents).NotTo(BeEmpty())
+				keys := lo.Map(output.Contents, func(o types.Object, _ int) string { return *o.Key })
+				Expect(keys).To(ContainElement("dir/hello.txt"))
+				Expect(keys).To(ContainElement("hello-minio.txt"))
+				Expect(keys).To(ContainElement("hello.txt"))
+			})
+		})
+
+		Context("pagination", func() {
+			const paginatePrefix = "paginate/"
+
+			When("max-keys is specified", func() {
+				It("returns requested number of objects", func(ctx context.Context) {
+					output, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+						Bucket:  &bucketName,
+						Prefix:  lo.ToPtr(paginatePrefix),
+						MaxKeys: lo.ToPtr(int32(2)),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(output.Contents).To(HaveLen(2))
+					Expect(*output.IsTruncated).To(BeTrue())
+					Expect(output.Contents[0].Key).To(Equal(lo.ToPtr("paginate/a")))
+					Expect(output.Contents[1].Key).To(Equal(lo.ToPtr("paginate/b")))
+				})
+			})
+
+			When("marker is provided", func() {
+				It("returns next page of results", func(ctx context.Context) {
+					firstPage, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+						Bucket:  &bucketName,
+						Prefix:  lo.ToPtr(paginatePrefix),
+						MaxKeys: lo.ToPtr(int32(2)),
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(firstPage.IsTruncated).NotTo(BeNil())
+					Expect(*firstPage.IsTruncated).To(BeTrue())
+
+					secondPage, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+						Bucket:  &bucketName,
+						Prefix:  lo.ToPtr(paginatePrefix),
+						MaxKeys: lo.ToPtr(int32(2)),
+						Marker:  firstPage.Contents[1].Key,
+					})
+					Expect(err).NotTo(HaveOccurred())
+					Expect(secondPage.Contents).To(HaveLen(2))
+					Expect(secondPage.Contents[0].Key).To(Equal(lo.ToPtr("paginate/c")))
+					Expect(secondPage.Contents[1].Key).To(Equal(lo.ToPtr("paginate/d")))
+				})
+			})
+
+			When("iterating through all pages", func() {
+				It("returns all objects in order", func(ctx context.Context) {
+					paginateKeys := []string{"paginate/a", "paginate/b", "paginate/c", "paginate/d", "paginate/e"}
+
+					var (
+						allKeys []string
+						marker  *string
+					)
+
+					for {
+						output, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+							Bucket:  &bucketName,
+							Prefix:  lo.ToPtr(paginatePrefix),
+							MaxKeys: lo.ToPtr(int32(2)),
+							Marker:  marker,
+						})
+						Expect(err).NotTo(HaveOccurred())
+
+						for _, obj := range output.Contents {
+							allKeys = append(allKeys, *obj.Key)
+						}
+
+						if output.IsTruncated == nil || !*output.IsTruncated {
+							break
+						}
+
+						marker = output.Contents[len(output.Contents)-1].Key
+					}
+
+					Expect(allKeys).To(Equal(paginateKeys))
+				})
+			})
+		})
+
+		Context("delimiter", func() {
+			When("delimiter is / with prefix", func() {
+				It("returns contents and common prefixes", func(ctx context.Context) {
+					output, err := s3Client.ListObjects(ctx, &s3.ListObjectsInput{
+						Bucket:    &bucketName,
+						Prefix:    lo.ToPtr("delim/"),
+						Delimiter: lo.ToPtr("/"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					keys := lo.Map(output.Contents, func(o types.Object, _ int) string { return *o.Key })
+					Expect(keys).To(Equal([]string{"delim/top.txt"}))
+
+					prefixes := lo.Map(output.CommonPrefixes, func(p types.CommonPrefix, _ int) string { return *p.Prefix })
+					Expect(prefixes).To(Equal([]string{"delim/sub/", "delim/sub2/"}))
+				})
+			})
+		})
+	})
+
 	Describe("HeadObject", func() {
 		When("object exists", func() {
 			It("returns object metadata with AWS SDK", func(ctx context.Context) {
