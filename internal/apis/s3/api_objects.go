@@ -20,6 +20,7 @@ import (
 	"github.com/zhulik/d3/internal/apictx"
 	"github.com/zhulik/d3/internal/apis/s3/middlewares"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/pkg/conditionalheaders"
 	"github.com/zhulik/d3/pkg/rangeparser"
 	"github.com/zhulik/d3/pkg/s3actions"
 	"github.com/zhulik/d3/pkg/sigv4"
@@ -296,9 +297,17 @@ func (a APIObjects) DeleteObjectTagging(c *echo.Context) error {
 func (a APIObjects) GetObject(c *echo.Context) error {
 	object := apictx.FromContext(c.Request().Context()).Object
 
-	var reader io.Reader = object
-
 	metadata := object.Metadata()
+
+	cond := conditionalheaders.Parse(c.Request().Header)
+	switch cond.Check(metadata.SHA256, metadata.LastModified) {
+	case http.StatusNotModified:
+		return c.NoContent(http.StatusNotModified)
+	case http.StatusPreconditionFailed:
+		return core.ErrPreconditionFailed
+	}
+
+	var reader io.Reader = object
 
 	if rangeHeader := c.Request().Header.Get("Range"); rangeHeader != "" {
 		parsedRange, err := rangeparser.Parse(rangeHeader, metadata.Size)

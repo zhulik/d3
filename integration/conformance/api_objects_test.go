@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -849,6 +850,161 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					Key:    lo.ToPtr("does-not-exist.txt"),
 				})
 				Expect(err).To(HaveOccurred())
+			})
+		})
+
+		When("conditional headers", func() {
+			var (
+				objectETag   string
+				lastModified time.Time
+			)
+
+			BeforeAll(func(ctx context.Context) {
+				head, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: &bucketName,
+					Key:    objectKeyAWS,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				objectETag = lo.FromPtr(head.ETag)
+				lastModified = lo.FromPtr(head.LastModified)
+			})
+
+			When("If-Match", func() {
+				It("returns object when ETag matches", func(ctx context.Context) {
+					getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:  &bucketName,
+						Key:     objectKeyAWS,
+						IfMatch: lo.ToPtr(objectETag),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					defer getObjectOutput.Body.Close()
+
+					bodyBytes, err := io.ReadAll(getObjectOutput.Body)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(string(bodyBytes)).To(Equal(objectData))
+				})
+
+				It("returns 412 when ETag does not match", func(ctx context.Context) {
+					_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:  &bucketName,
+						Key:     objectKeyAWS,
+						IfMatch: lo.ToPtr("wrong-etag"),
+					})
+					Expect(err).To(HaveOccurred())
+
+					var httpErr interface{ HTTPStatusCode() int }
+					Expect(errors.As(err, &httpErr)).To(BeTrue())
+					Expect(httpErr.HTTPStatusCode()).To(Equal(412))
+				})
+			})
+
+			When("If-None-Match", func() {
+				It("returns object when ETag does not match", func(ctx context.Context) {
+					getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:      &bucketName,
+						Key:         objectKeyAWS,
+						IfNoneMatch: lo.ToPtr("wrong-etag"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					defer getObjectOutput.Body.Close()
+
+					bodyBytes, err := io.ReadAll(getObjectOutput.Body)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(string(bodyBytes)).To(Equal(objectData))
+				})
+
+				It("returns 304 when ETag matches", func(ctx context.Context) {
+					_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:      &bucketName,
+						Key:         objectKeyAWS,
+						IfNoneMatch: lo.ToPtr(objectETag),
+					})
+					Expect(err).To(HaveOccurred())
+
+					var httpErr interface{ HTTPStatusCode() int }
+					Expect(errors.As(err, &httpErr)).To(BeTrue())
+					Expect(httpErr.HTTPStatusCode()).To(Equal(304))
+				})
+
+				It("returns 304 when If-None-Match is *", func(ctx context.Context) {
+					_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:      &bucketName,
+						Key:         objectKeyAWS,
+						IfNoneMatch: lo.ToPtr("*"),
+					})
+					Expect(err).To(HaveOccurred())
+
+					var httpErr interface{ HTTPStatusCode() int }
+					Expect(errors.As(err, &httpErr)).To(BeTrue())
+					Expect(httpErr.HTTPStatusCode()).To(Equal(304))
+				})
+			})
+
+			When("If-Modified-Since", func() {
+				It("returns object when modified after the given date", func(ctx context.Context) {
+					past := lastModified.Add(-time.Hour)
+					getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:          &bucketName,
+						Key:             objectKeyAWS,
+						IfModifiedSince: lo.ToPtr(past),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					defer getObjectOutput.Body.Close()
+
+					bodyBytes, err := io.ReadAll(getObjectOutput.Body)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(string(bodyBytes)).To(Equal(objectData))
+				})
+
+				It("returns 304 when not modified since the given date", func(ctx context.Context) {
+					future := lastModified.Add(time.Hour)
+					_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:          &bucketName,
+						Key:             objectKeyAWS,
+						IfModifiedSince: lo.ToPtr(future),
+					})
+					Expect(err).To(HaveOccurred())
+
+					var httpErr interface{ HTTPStatusCode() int }
+					Expect(errors.As(err, &httpErr)).To(BeTrue())
+					Expect(httpErr.HTTPStatusCode()).To(Equal(304))
+				})
+			})
+
+			When("If-Unmodified-Since", func() {
+				It("returns object when not modified since the given date", func(ctx context.Context) {
+					future := lastModified.Add(time.Hour)
+					getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:            &bucketName,
+						Key:               objectKeyAWS,
+						IfUnmodifiedSince: lo.ToPtr(future),
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					defer getObjectOutput.Body.Close()
+
+					bodyBytes, err := io.ReadAll(getObjectOutput.Body)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(string(bodyBytes)).To(Equal(objectData))
+				})
+
+				It("returns 412 when modified since the given date", func(ctx context.Context) {
+					past := lastModified.Add(-time.Hour)
+					_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
+						Bucket:            &bucketName,
+						Key:               objectKeyAWS,
+						IfUnmodifiedSince: lo.ToPtr(past),
+					})
+					Expect(err).To(HaveOccurred())
+
+					var httpErr interface{ HTTPStatusCode() int }
+					Expect(errors.As(err, &httpErr)).To(BeTrue())
+					Expect(httpErr.HTTPStatusCode()).To(Equal(412))
+				})
 			})
 		})
 	})
