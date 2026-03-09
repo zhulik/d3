@@ -133,9 +133,16 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 		reader = sigv4.NewChunkedReader(reader, signer)
 	}
 
+	cond := conditionalheaders.Parse(c.Request().Header)
+
+	ifNoneMatch, condErr := putObjectConditional(c.Request().Context(), bucket, key, cond)
+	if condErr != nil {
+		return condErr
+	}
+
 	err = bucket.PutObject(c.Request().Context(), key, core.PutObjectInput{
 		Reader:      reader,
-		IfNoneMatch: c.Request().Header.Get("If-None-Match") == "*",
+		IfNoneMatch: ifNoneMatch,
 		Metadata: core.ObjectMetadata{
 			ContentType: c.Request().Header.Get("Content-Type"),
 			SHA256:      sha256,
@@ -149,6 +156,46 @@ func (a APIObjects) PutObject(c *echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusOK)
+}
+
+// headObjectBucket is the subset of core.Bucket needed for PutObject conditional evaluation.
+type headObjectBucket interface {
+	HeadObject(ctx context.Context, key string) (core.Object, error)
+}
+
+// putObjectConditional evaluates conditional headers for PutObject. It returns (ifNoneMatch, nil) to pass
+// to the backend, or (_, err) with core.ErrObjectNotFound (404) or core.ErrPreconditionFailed (412).
+func putObjectConditional(
+	ctx context.Context, bucket headObjectBucket, key string, cond conditionalheaders.Conditionals,
+) (bool, error) {
+	hasOther := cond.IfMatch != "" ||
+		(cond.IfNoneMatch != "" && cond.IfNoneMatch != "*") ||
+		cond.IfModifiedSince != nil || cond.IfUnmodifiedSince != nil
+
+	if !hasOther {
+		return cond.IfNoneMatch == "*", nil
+	}
+
+	obj, err := bucket.HeadObject(ctx, key)
+	if err != nil {
+		if errors.Is(err, core.ErrObjectNotFound) {
+			if cond.IfMatch != "" {
+				return false, core.ErrObjectNotFound
+			}
+
+			return cond.IfNoneMatch == "*", nil
+		}
+
+		return false, err
+	}
+	defer obj.Close()
+
+	metadata := obj.Metadata()
+	if cond.Check(metadata.SHA256, metadata.LastModified) != http.StatusOK {
+		return false, core.ErrPreconditionFailed
+	}
+
+	return false, nil
 }
 
 func (a APIObjects) CopyObject(c *echo.Context, rawCopySource string) error { //nolint:funlen

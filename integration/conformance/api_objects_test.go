@@ -159,6 +159,109 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 			})
 		})
 
+		When("conditional headers", func() {
+			putCondNonexistentKey := "put-cond-nonexistent.txt"
+			putCondExistingKey := "put-cond-existing.txt"
+
+			var putCondETag *string
+
+			BeforeAll(func(ctx context.Context) {
+				lo.Must(s3Client.PutObject(ctx, &s3.PutObjectInput{
+					Bucket: &bucketName,
+					Key:    &putCondExistingKey,
+					Body:   strings.NewReader(objectData),
+				}))
+				headExisting, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+					Bucket: &bucketName,
+					Key:    &putCondExistingKey,
+				})
+				Expect(err).NotTo(HaveOccurred())
+
+				putCondETag = headExisting.ETag
+			})
+
+			When("If-Match", func() {
+				It("overwrites when ETag matches", func(ctx context.Context) {
+					_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+						Bucket:  &bucketName,
+						Key:     &putCondExistingKey,
+						Body:    strings.NewReader("overwritten by If-Match"),
+						IfMatch: putCondETag,
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("returns 412 when ETag does not match", func(ctx context.Context) {
+					_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+						Bucket:  &bucketName,
+						Key:     objectKeyAWS,
+						Body:    strings.NewReader(objectData),
+						IfMatch: lo.ToPtr("wrong-etag"),
+					})
+					Expect(err).To(BeS3HttpError(412))
+				})
+
+				It("returns 404 when object does not exist", func(ctx context.Context) {
+					_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+						Bucket:  &bucketName,
+						Key:     &putCondNonexistentKey,
+						Body:    strings.NewReader(objectData),
+						IfMatch: lo.ToPtr("any-etag"),
+					})
+					Expect(err).To(BeS3HttpError(404))
+				})
+			})
+
+			When("If-None-Match with specific ETag", func() {
+				It("returns 412 when ETag matches", func(ctx context.Context) {
+					head, err := s3Client.HeadObject(ctx, &s3.HeadObjectInput{
+						Bucket: &bucketName,
+						Key:    objectKeyAWS,
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
+						Bucket:      &bucketName,
+						Key:         objectKeyAWS,
+						Body:        strings.NewReader(objectData),
+						IfNoneMatch: head.ETag,
+					})
+					Expect(err).To(BeS3HttpError(412))
+				})
+
+				It("overwrites when ETag does not match", func(ctx context.Context) {
+					_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+						Bucket:      &bucketName,
+						Key:         &putCondExistingKey,
+						Body:        strings.NewReader("overwritten by If-None-Match"),
+						IfNoneMatch: lo.ToPtr("wrong-etag"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				It("creates when object does not exist", func(ctx context.Context) {
+					_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
+						Bucket:      &bucketName,
+						Key:         &putCondNonexistentKey,
+						Body:        strings.NewReader(objectData),
+						IfNoneMatch: lo.ToPtr("some-etag"),
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+
+			AfterAll(func(ctx context.Context) {
+				_, _ = s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: &bucketName,
+					Key:    &putCondNonexistentKey,
+				})
+				_, _ = s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+					Bucket: &bucketName,
+					Key:    &putCondExistingKey,
+				})
+			})
+		})
+
 		When("bucket does not exist", func() {
 			It("returns an error", func(ctx context.Context) {
 				_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
@@ -851,8 +954,8 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 
 		When("conditional headers", func() {
 			var (
-				objectETag   string
-				lastModified time.Time
+				objectETag   *string
+				lastModified *time.Time
 			)
 
 			BeforeAll(func(ctx context.Context) {
@@ -862,8 +965,8 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 				})
 				Expect(err).NotTo(HaveOccurred())
 
-				objectETag = lo.FromPtr(head.ETag)
-				lastModified = lo.FromPtr(head.LastModified)
+				objectETag = head.ETag
+				lastModified = head.LastModified
 			})
 
 			When("If-Match", func() {
@@ -871,7 +974,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					getObjectOutput, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 						Bucket:  &bucketName,
 						Key:     objectKeyAWS,
-						IfMatch: lo.ToPtr(objectETag),
+						IfMatch: objectETag,
 					})
 					Expect(err).NotTo(HaveOccurred())
 
@@ -912,7 +1015,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					_, err := s3Client.GetObject(ctx, &s3.GetObjectInput{
 						Bucket:      &bucketName,
 						Key:         objectKeyAWS,
-						IfNoneMatch: lo.ToPtr(objectETag),
+						IfNoneMatch: objectETag,
 					})
 					Expect(err).To(BeS3HttpError(304))
 				})
