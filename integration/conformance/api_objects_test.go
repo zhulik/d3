@@ -2,7 +2,6 @@ package conformance_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/minio/minio-go/v7"
 	"github.com/zhulik/d3/integration/testhelpers"
+	. "github.com/zhulik/d3/pkg/ginkgohelpers"
 
 	"github.com/samber/lo"
 
@@ -155,11 +155,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					Body:        strings.NewReader(objectData),
 					IfNoneMatch: lo.ToPtr("*"),
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(412))
+				Expect(err).To(BeS3HttpError(412))
 			})
 		})
 
@@ -892,11 +888,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Key:     objectKeyAWS,
 						IfMatch: lo.ToPtr("wrong-etag"),
 					})
-					Expect(err).To(HaveOccurred())
-
-					var httpErr interface{ HTTPStatusCode() int }
-					Expect(errors.As(err, &httpErr)).To(BeTrue())
-					Expect(httpErr.HTTPStatusCode()).To(Equal(412))
+					Expect(err).To(BeS3HttpError(412))
 				})
 			})
 
@@ -922,11 +914,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Key:         objectKeyAWS,
 						IfNoneMatch: lo.ToPtr(objectETag),
 					})
-					Expect(err).To(HaveOccurred())
-
-					var httpErr interface{ HTTPStatusCode() int }
-					Expect(errors.As(err, &httpErr)).To(BeTrue())
-					Expect(httpErr.HTTPStatusCode()).To(Equal(304))
+					Expect(err).To(BeS3HttpError(304))
 				})
 
 				It("returns 304 when If-None-Match is *", func(ctx context.Context) {
@@ -935,11 +923,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Key:         objectKeyAWS,
 						IfNoneMatch: lo.ToPtr("*"),
 					})
-					Expect(err).To(HaveOccurred())
-
-					var httpErr interface{ HTTPStatusCode() int }
-					Expect(errors.As(err, &httpErr)).To(BeTrue())
-					Expect(httpErr.HTTPStatusCode()).To(Equal(304))
+					Expect(err).To(BeS3HttpError(304))
 				})
 			})
 
@@ -967,11 +951,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Key:             objectKeyAWS,
 						IfModifiedSince: lo.ToPtr(future),
 					})
-					Expect(err).To(HaveOccurred())
-
-					var httpErr interface{ HTTPStatusCode() int }
-					Expect(errors.As(err, &httpErr)).To(BeTrue())
-					Expect(httpErr.HTTPStatusCode()).To(Equal(304))
+					Expect(err).To(BeS3HttpError(304))
 				})
 			})
 
@@ -999,11 +979,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						Key:               objectKeyAWS,
 						IfUnmodifiedSince: lo.ToPtr(past),
 					})
-					Expect(err).To(HaveOccurred())
-
-					var httpErr interface{ HTTPStatusCode() int }
-					Expect(errors.As(err, &httpErr)).To(BeTrue())
-					Expect(httpErr.HTTPStatusCode()).To(Equal(412))
+					Expect(err).To(BeS3HttpError(412))
 				})
 			})
 		})
@@ -1578,11 +1554,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						},
 					},
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+				Expect(err).To(BeS3HttpError(400))
 			})
 		})
 
@@ -1639,11 +1611,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						},
 					},
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+				Expect(err).To(BeS3HttpError(400))
 			})
 		})
 
@@ -1701,11 +1669,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						},
 					},
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+				Expect(err).To(BeS3HttpError(400))
 			})
 		})
 
@@ -1763,11 +1727,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						},
 					},
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+				Expect(err).To(BeS3HttpError(400))
 			})
 		})
 
@@ -1825,11 +1785,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						},
 					},
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+				Expect(err).To(BeS3HttpError(400))
 			})
 		})
 	})
@@ -1866,11 +1822,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					UploadId:   uploadID,
 					Body:       strings.NewReader("part 1 data"),
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+				Expect(err).To(BeS3HttpError(400))
 			})
 		})
 
@@ -1924,11 +1876,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 						},
 					},
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+				Expect(err).To(BeS3HttpError(400))
 			})
 		})
 
@@ -1951,11 +1899,7 @@ var _ = Describe("Objects API", Label("conformance"), Label("api-objects"), Orde
 					Key:      lo.ToPtr("file2.txt"), // Different key
 					UploadId: uploadID,
 				})
-				Expect(err).To(HaveOccurred())
-
-				var httpErr interface{ HTTPStatusCode() int }
-				Expect(errors.As(err, &httpErr)).To(BeTrue())
-				Expect(httpErr.HTTPStatusCode()).To(Equal(400))
+				Expect(err).To(BeS3HttpError(400))
 
 				// Clean up with correct key
 				lo.Must(s3Client.AbortMultipartUpload(ctx, &s3.AbortMultipartUploadInput{
