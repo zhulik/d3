@@ -1,5 +1,7 @@
 # d3: Dump Data Depot
 
+[![CI](https://github.com/zhulik/pal/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zhulik/pal/actions/workflows/ci.yml)
+
 *Not to be confused with [d3: Data-Driven Documents](https://github.com/d3/d3)*
 
 d3 is a lightweight S3-compatible object store aimed at small deployments—home labs, local development, and single-machine setups where you want something simple instead of running full cloud-style infrastructure.
