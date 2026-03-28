@@ -296,7 +296,7 @@ func buildCanonicalHeaders(signedHeaders string, header http.Header, host string
 
 		val = collapseSpaces(val)
 
-		fmt.Fprintf(&canonicalHeaders, "%s:%s\n", name, val) //nolint:gosec
+		fmt.Fprintf(&canonicalHeaders, "%s:%s\n", name, val)
 	}
 
 	return canonicalHeaders.String()
