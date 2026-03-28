@@ -1,6 +1,6 @@
 # d3: Dump Data Depot
 
-[![CI](https://github.com/zhulik/pal/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zhulik/pal/actions/workflows/ci.yml)
+[![CI](https://github.com/zhulik/d3/actions/workflows/push.yaml/badge.svg?branch=main)](https://github.com/zhulik/d3/actions/workflows/push.yaml)
 
 *Not to be confused with [d3: Data-Driven Documents](https://github.com/d3/d3)*
 
