@@ -13,10 +13,11 @@ services:
     ports:
       - "9090:8080"
     environment:
+      - ENVIRONMENT=development
       - STORAGE_BACKEND=folder
       - FOLDER_STORAGE_BACKEND_PATH=/data
       - MANAGEMENT_BACKEND=YAML
-      - YAML_MANAGEMENT_BACKEND_PATH=/data/d3_management.yaml
+      - MANAGEMENT_BACKEND_YAML_PATH=/data/d3_management.yaml
       - REDIS_ADDRESS=valkey:6379
     volumes:
       - d3_data:/data
