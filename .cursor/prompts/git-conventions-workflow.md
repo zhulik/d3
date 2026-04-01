@@ -56,9 +56,9 @@ Valid patterns:
 
 1. Read **`.github/pull_request_template.md`** and reproduce its **headings and checklists** in the PR body.
 2. Infer **type of change** from the branch name prefix (`fix-`, `feature-`, `doc-`, etc.) when possible; ask if unclear.
-3. Summarize **what** changed and **why** in **Summary**; keep **Testing** and **Compatibility / docs** accurate and checked appropriately.
-4. **`/pr` command:** push the branch if needed, run **`gh pr create`** with **`--body-file`**, then **print the PR URL** from **`gh`** output (or **`gh pr view --json url`**).
-5. **Git-conventions agent or advisory mode:** output **Markdown only** unless the user explicitly asks you to run **`gh pr create`**.
+3. Summarize **what** changed and **why** in **Summary**; keep **Testing** and **Compatibility / docs** accurate and checked appropriately. When refreshing an existing PR, rebuild the body from the **current** diff and commits vs the base branch so new work is reflected.
+4. **`/pr` command:** push the branch if needed; if a PR for the current branch already exists, run **`gh pr edit`** with **`--title`** and **`--body-file`** so the description matches the latest branch changes; otherwise run **`gh pr create`** with **`--body-file`**. Then **print the PR URL** from **`gh`** output (or **`gh pr view --json url`**).
+5. **Git-conventions agent or advisory mode:** output **Markdown only** unless the user explicitly asks you to run **`gh pr create`** or **`gh pr edit`**.
 
 ## Output expectations
 
