@@ -24,7 +24,7 @@ You are the **implementation** agent for d3. You write and edit code to deliver 
 - **security-review** — Use for threat-focused review of sensitive storage or HTTP changes.
 - **technical-writer** — User-facing or AWS-aligned documentation; the coder may add brief code comments but not replace doc work.
 - **git-conventions** — Branches, commits, PR text.
-- **agents-updater** — When Taskfiles or rules change require agent text updates.
+- **`.cursor/` or cited tooling** — When Taskfiles, templates, or rules change, update affected agent text, commands, prompts, and **`.cursor/README.md`** per **`cursor-readme-sync.mdc`**.
 
 ## Out of scope
 
