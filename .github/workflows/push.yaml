@@ -1,10 +1,14 @@
 name: Test, lint, build and Push to GHCR
 
 on:
-  push:
-    tags:
-      - 'v*'
-
+    push:
+      branches: [ "**" ]
+      tags:
+        - 'v*'
+  
+    pull_request:
+      branches: [ "**" ]
+   
 jobs:
   lint:
     name: Lint
