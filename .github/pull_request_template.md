@@ -6,12 +6,12 @@
 
 <!-- Check all that apply. -->
 
-- [ ] Bug fix
-- [ ] New feature
-- [ ] Breaking change (describe below)
-- [ ] Documentation only
-- [ ] Refactor / internal (no user-visible behavior change)
-- [ ] Build / CI / tooling
+- [ ] Bug fix (fix-)
+- [ ] New feature (feature-)
+- [ ] Documentation only (doc-)
+- [ ] Shore (shore-)
+- [ ] CI (ci-)
+- [ ] Dependency update(update-)
 
 ## Breaking changes
 
