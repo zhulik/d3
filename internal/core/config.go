@@ -33,7 +33,7 @@ type Config struct {
 	// AdminCredentialsPath optionally specifies a path to a YAML file with admin credentials.
 	// When set, admin credentials are read from this file and validated.
 	// When not set, temporary admin credentials are generated on each run and not persisted.
-	AdminCredentialsPath string `env:"D3_ADMIN_CREDENTIALS_PATH" envDefault:""`
+	AdminCredentialsPath string `env:"ADMIN_CREDENTIALS_PATH" envDefault:""`
 
 	RedisAddress string `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
 
