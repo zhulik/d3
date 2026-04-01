@@ -76,28 +76,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install chart-testing Python tools
+        run: pip install yamale yamllint
 
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
           version: v3.16.4
 
-      - name: Helm lint
-        run: helm lint helm/d3
+      - name: Set up chart-testing
+        uses: helm/chart-testing-action@v2.7.0
+        with:
+          version: v3.13.0
 
-      - name: Helm template sanity checks
-        run: |
-          set -euo pipefail
-          helm template ct-default helm/d3 >/dev/null
-          helm template ct-external-redis helm/d3 \
-            --set redis.enabled=false \
-            --set externalRedis.address=redis.example:6379 \
-            --set admin.existingSecret=my-admin-secret \
-            --set admin.autoGenerate=false >/dev/null
-          helm template ct-ingress helm/d3 --set ingress.enabled=true >/dev/null
-          helm template ct-dev-ephemeral helm/d3 \
-            --set environment=development \
-            --set admin.autoGenerate=false >/dev/null
+      - name: Run chart-testing (lint)
+        run: ct lint --config ct.yaml --all
 
   deploy:
     # pull_request uses refs like refs/pull/2/merge → ref_name "2/merge", which is not a valid image tag.

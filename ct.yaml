@@ -1,0 +1,9 @@
+# https://github.com/helm/chart-testing
+chart-dirs:
+  - helm
+chart-yaml-schema: helm/ct/chart_schema.yaml
+lint-conf: helm/ct/lintconf.yaml
+validate-chart-schema: true
+validate-yaml: true
+validate-maintainers: true
+check-version-increment: false
