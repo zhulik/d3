@@ -12,7 +12,7 @@
             "program": "cmd/d3-server/main.go",
             "env": {
                 "ENVIRONMENT": "development",
-                "D3_ADMIN_CREDENTIALS_PATH": "${workspaceFolder}/admin-credentials.dev.yaml"
+                "ADMIN_CREDENTIALS_PATH": "${workspaceFolder}/admin-credentials.dev.yaml"
             }
         }
     ]

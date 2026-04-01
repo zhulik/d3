@@ -32,7 +32,7 @@ Build the image:
 docker build -t d3 .
 ```
 
-Run the container (adjust paths and ports as needed). You need a reachable Redis/Valkey instance. The example below sets `ENVIRONMENT=development` so ephemeral admin credentials are printed in the logs; for production, omit that and set `D3_ADMIN_CREDENTIALS_PATH` to a credentials YAML file instead.
+Run the container (adjust paths and ports as needed). You need a reachable Redis/Valkey instance. The example below sets `ENVIRONMENT=development` so ephemeral admin credentials are printed in the logs; for production, omit that and set `ADMIN_CREDENTIALS_PATH` to a credentials YAML file instead.
 
 ```bash
 docker run --rm \
@@ -56,7 +56,7 @@ The sample compose file maps the S3 API to host port `9090` (`9090:8080`). Healt
 
 ### From source
 
-Use the project’s [Task](https://taskfile.dev/) targets, for example `task build` and `task run`, or build with `go build -o d3 ./cmd/main.go`.
+Use the project’s [Task](https://taskfile.dev/) targets, for example `task build` and `task run`, or build with `go build -o d3 ./cmd/d3-server`.
 
 ## Configuration
 
@@ -70,13 +70,16 @@ Configuration is read from environment variables (via [caarlos0/env](https://git
 | `MANAGEMENT_BACKEND` | `YAML` | Management backend type. `YAML` is supported. |
 | `MANAGEMENT_BACKEND_YAML_PATH` | `./d3_data/management.yaml` | Path to the YAML management state file. |
 | `MANAGEMENT_BACKEND_TMP_PATH` | `./d3_data/tmp` | Temp directory for management operations. Should live on the same filesystem as main storage for atomic renames (YAML backend). |
-| `D3_ADMIN_CREDENTIALS_PATH` | *(empty)* | Path to a YAML file with admin credentials. If unset, `development` and `test` environments get ephemeral credentials (logged at startup); in `production` (default), admin credentials must be provided or startup fails. See [admin-credentials.dev.yaml](./admin-credentials.dev.yaml) for reference. |
+| `ADMIN_CREDENTIALS_PATH` | *(empty)* | Path to a YAML file with admin credentials. If unset, `development` and `test` environments get ephemeral credentials (logged at startup); in `production` (default), admin credentials must be provided or startup fails. See [admin-credentials.dev.yaml](./admin-credentials.dev.yaml) for reference. |
 | `REDIS_ADDRESS` | `localhost:6379` | Address of the Redis or Valkey server. |
+| `REDIS_USERNAME` | *(empty)* | Redis ACL username; omitted from `AUTH` when unset. |
+| `REDIS_PASSWORD` | *(empty)* | Redis password for `AUTH`; omitted when unset. |
 | `PORT` | `8080` | HTTP port for the S3-compatible API. |
 | `HEALTH_CHECK_PORT` | `8081` | Port for the health check HTTP server. |
 | `MANAGEMENT_PORT` | `8082` | Port for the management HTTP API. |
 
 ## Kubernetes
 
-A Helm chart and a Kubernetes operator are **not** available yet (TBD).
+A Helm chart lives in [helm/d3](./helm/d3). It deploys d3 as a **StatefulSet** with a PVC for folder storage, optional in-cluster **Valkey**, optional **Ingress** (S3 API on port 8080), and admin credentials either from an **existing Secret** or **chart-generated** (stable across upgrades via `lookup`).
 
+A Kubernetes operator is **not** available yet (TBD).

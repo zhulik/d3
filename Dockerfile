@@ -11,12 +11,12 @@ RUN go mod download
 COPY . .
 
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o d3 ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -installsuffix cgo -o d3 ./cmd/d3-server
 
 FROM scratch
 
 COPY --from=builder /build/d3 /d3
 
-EXPOSE 8080
+EXPOSE 8080 8081 8082
 
 ENTRYPOINT ["/d3"]

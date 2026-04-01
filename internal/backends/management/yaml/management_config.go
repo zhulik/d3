@@ -19,7 +19,7 @@ type ManagementConfig struct {
 }
 
 // AdminCredentialsConfig is the structure for the admin credentials YAML file
-// specified by D3_ADMIN_CREDENTIALS_PATH.
+// specified by ADMIN_CREDENTIALS_PATH.
 type AdminCredentialsConfig struct {
 	AdminUser core.User `yaml:"admin_user"`
 }
