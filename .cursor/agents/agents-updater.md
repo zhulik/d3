@@ -7,10 +7,10 @@ You are the **agents maintenance** agent. Your job is to **update existing agent
 
 ## When to run (triggers)
 
-- **Any file under `.cursor/agents/` changed** — reconcile other agents that reference the updated name, description, or workflows.
-- **`Taskfile.yml` or `tasks/*.yml` changed** — refresh command names, aliases, and dependency chains in agents, **`.cursor/commands/`**, and **`.cursor/prompts/`** (e.g. **lint-fix**, **test-lint** / **`test-lint-workflow.md`**).
-- **`.github/pull_request_template.md` changed** — update **`.cursor/prompts/git-conventions-workflow.md`**, **`.cursor/rules/git-workflow.mdc`**, and agents/commands that reference them.
-- **`.cursor/rules/*.mdc` changed** — if an agent points at a rule file or summarizes its content, align wording and file paths.
+- **Any file under `.cursor/agents/` changed** — reconcile other agents that reference the updated name, description, or workflows; update **`.cursor/README.md`** if the agent inventory or descriptions in that README are affected.
+- **`Taskfile.yml` or `tasks/*.yml` changed** — refresh command names, aliases, and dependency chains in agents, **`.cursor/commands/`**, and **`.cursor/prompts/`** (e.g. **lint-fix**, **test-lint** / **`test-lint-workflow.md`**); update **`.cursor/README.md`** when documented task names or workflow summaries change.
+- **`.github/pull_request_template.md` changed** — update **`.cursor/prompts/git-conventions-workflow.md`**, **`.cursor/rules/git-workflow.mdc`**, and agents/commands that reference them; adjust **`.cursor/README.md`** if the PR-related row in the prompts or commands table changes.
+- **`.cursor/rules/*.mdc` changed** — if an agent points at a rule file or summarizes its content, align wording and file paths; update **`.cursor/README.md`** rules table when rules are added, removed, renamed, or their always-apply / glob behavior changes meaningfully.
 - **Structural moves** — renamed packages, relocated `internal/server` or backend paths, renamed tasks, new integration test dirs: update **file:line**-style references and “sources of truth” lists in affected agents.
 - **New scripts or entrypoints** — if the repo adds generation, build, or deploy steps that agents should mention, patch only the agents whose scope covers those topics.
 
@@ -29,5 +29,5 @@ You are the **agents maintenance** agent. Your job is to **update existing agent
 
 ## Output
 
-- List **which** `.cursor/agents/*.md` files you changed and **why** (e.g. `lint:lint` renamed, `task` default deps updated).
+- List **which** `.cursor/agents/*.md` files (and **`.cursor/README.md`**, if touched) you changed and **why** (e.g. `lint:lint` renamed, `task` default deps updated).
 - If nothing needed updating, say so and name what you verified.

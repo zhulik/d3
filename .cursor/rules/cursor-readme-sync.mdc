@@ -1,0 +1,24 @@
+---
+description: When changing Cursor project config under .cursor/, keep .cursor/README.md accurate in the same change.
+globs:
+  - ".cursor/**"
+---
+
+# `.cursor/` changes → update the map
+
+Whenever you **add, remove, rename**, or **materially change** anything under **`.cursor/`** (agents, commands, prompts, rules—including this file), update **`.cursor/README.md`** in the **same commit or change set** so it stays accurate.
+
+## What counts as “material”
+
+- New or deleted **`.md`** / **`.mdc`** files in agents, commands, prompts, or rules.
+- Changed **purpose, scope, or cross-references** (e.g. a command now points at a different prompt).
+- Renamed files or paths that the README lists or that other `.cursor` docs cite.
+
+## Exemptions
+
+- **Only** fixing typos in prose where the **inventory** (tables, file lists, “what exists”) is unchanged.
+- Updates **limited to** `.cursor/README.md` that only correct documentation.
+
+## Hand-off
+
+If **`agents-updater`** (or similar maintenance) runs after Taskfile or template changes, it should refresh **`.cursor/README.md`** when agent lists, command behavior, or rule inventory in the README becomes stale.

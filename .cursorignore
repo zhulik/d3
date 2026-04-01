@@ -1,0 +1,22 @@
+# Cursor indexing / context — keep heavy, generated, and local-only trees out of default context.
+# Aligns with .gitignore where useful; add patterns here for things that are tracked but not worth indexing.
+
+# Local data and caches (see .gitignore)
+d3_data/
+.cache/
+.task/
+
+# Go build / debug / coverage artifacts
+__debug_bin*
+*.test
+coverprofile.out
+coverage.out
+coverage.html
+*.coverprofile
+bin/
+dist/
+
+# Temp and editor artifacts
+tmp/
+temp/
+.idea/
