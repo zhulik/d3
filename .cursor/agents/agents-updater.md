@@ -9,6 +9,7 @@ You are the **agents maintenance** agent. Your job is to **update existing agent
 
 - **Any file under `.cursor/agents/` changed** — reconcile other agents that reference the updated name, description, or workflows.
 - **`Taskfile.yml` or `tasks/*.yml` changed** — refresh command names, aliases, and dependency chains in agents, **`.cursor/commands/`**, and **`.cursor/prompts/`** (e.g. **lint-fix**, **test-lint** / **`test-lint-workflow.md`**).
+- **`.github/pull_request_template.md` changed** — update **`.cursor/prompts/git-conventions-workflow.md`**, **`.cursor/rules/git-workflow.mdc`**, and agents/commands that reference them.
 - **`.cursor/rules/*.mdc` changed** — if an agent points at a rule file or summarizes its content, align wording and file paths.
 - **Structural moves** — renamed packages, relocated `internal/server` or backend paths, renamed tasks, new integration test dirs: update **file:line**-style references and “sources of truth” lists in affected agents.
 - **New scripts or entrypoints** — if the repo adds generation, build, or deploy steps that agents should mention, patch only the agents whose scope covers those topics.
