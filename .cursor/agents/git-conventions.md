@@ -7,7 +7,7 @@ You are the **only** agent for git hygiene in this repo: **branch naming**, **co
 
 Read **`.cursor/prompts/git-conventions-workflow.md`** and apply the sections relevant to the user’s request (branch / commit / PR). Project rules summary: **`.cursor/rules/git-workflow.mdc`**.
 
-Do **not** run **`git commit`**, **`gh pr create`**, or **`gh pr edit`** unless the user explicitly asks you to execute them. For default **create or update + print result** behavior, point them to slash commands **`/commit`** (prints message, commits, prints **`git log -1`**) and **`/pr`** (creates or updates PR from current branch, prints GitHub URL).
+Do **not** run **`git commit`**, **`gh pr create`**, or **`gh pr edit`** unless the user explicitly asks you to execute them. For default **create or update + print result** behavior, point them to slash commands **`/commit`** (prints message, commits, prints **`git log -1`**) and **`/pr`** (pushes branch, then creates or updates PR, prints GitHub URL).
 
 ## Output
 
