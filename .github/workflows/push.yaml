@@ -99,6 +99,12 @@ jobs:
       - name: Run chart-testing (lint)
         run: ct lint --config ct.yaml --all
 
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v0.6.3
+
+      - name: Helm unit tests
+        run: helm unittest helm/d3
+
   deploy:
     # pull_request uses refs like refs/pull/2/merge → ref_name "2/merge", which is not a valid image tag.
     # Publish only on push (branches and tags), not on PR CI.
