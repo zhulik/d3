@@ -36,6 +36,9 @@ type Config struct {
 	AdminCredentialsPath string `env:"ADMIN_CREDENTIALS_PATH" envDefault:""`
 
 	RedisAddress string `env:"REDIS_ADDRESS" envDefault:"localhost:6379"`
+	// RedisUsername and RedisPassword are sent to Redis AUTH when non-empty (ACL / legacy requirepass).
+	RedisUsername string `env:"REDIS_USERNAME" envDefault:""`
+	RedisPassword string `env:"REDIS_PASSWORD" envDefault:""`
 
 	Port            int `env:"PORT"              envDefault:"8080"`
 	HealthCheckPort int `env:"HEALTH_CHECK_PORT" envDefault:"8081"`
