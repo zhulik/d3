@@ -1,5 +1,5 @@
 ---
-name: ginkgo-testing
+name: test-lint
 description: Testing specialist for Ginkgo/Gomega suites, table tests, and conformance vs unit layout. Use when adding coverage, fixing flaky tests, or aligning with project testing rules—not for production code review alone.
 ---
 
