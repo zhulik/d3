@@ -20,8 +20,7 @@ Used from the Agent picker / delegated tasks. Prefer the specialist that matches
 
 | Agent | Use when |
 |-------|----------|
-| `coder` | Implement or fix Go code (features, bugs, refactors); follow rules and local patterns. |
-| `test-lint` | Run **`task`** until green; fix lint and tests (see `prompts/test-lint-workflow.md`). |
+| `coder` | Implement or fix Go code; after substantive edits run **`task`** per `prompts/test-lint-workflow.md` until green. |
 | `go-reviewer` | Convention and architecture review (no Git hygiene). |
 | `security-review` | Threat review for storage paths, locking, checksums, HTTP surface, secrets. |
 | `technical-writer` | User/dev docs; AWS-aligned text via AWS Documentation MCP when relevant. |
