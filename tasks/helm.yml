@@ -5,20 +5,55 @@ version: '3'
 vars:
   HELM_CHART: helm/d3
   KUBE_K8S_VERSION: '1.30.0'
-  KUBECONFORM_VERSION: v0.6.7
+  CT_VERSION: v3.13.0
+  HELM_UNITTEST_PLUGIN_VERSION: v0.6.3
 
 tasks:
   lint:
-    desc: Run chart-testing lint (needs ct, yamale, yamllint — use a venv for Python tools)
+    desc: Run chart-testing lint (uv sync in helm/ct-tools; ct in .cache/chart-testing)
     dir: '{{.ROOT_DIR}}'
     cmds:
-      - ct lint --config ct.yaml --all
+      - |
+        set -euo pipefail
+        root="{{.ROOT_DIR}}"
+        uv sync --frozen --project "$root/helm/ct-tools"
+        export PATH="$root/helm/ct-tools/.venv/bin:$PATH"
+        ct_ver="{{.CT_VERSION}}"
+        ct_ver_num="${ct_ver#v}"
+        cache="$root/.cache/chart-testing"
+        ct_bin="$cache/ct"
+        mkdir -p "$cache"
+        if [ ! -x "$ct_bin" ]; then
+          os=$(uname -s | tr '[:upper:]' '[:lower:]')
+          arch=$(uname -m)
+          case "$arch" in
+            x86_64) arch=amd64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "unsupported arch: $arch" >&2; exit 1 ;;
+          esac
+          case "$os" in
+            linux|darwin) ;;
+            *) echo "unsupported OS for chart-testing binary: $os" >&2; exit 1 ;;
+          esac
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          curl -sSL "https://github.com/helm/chart-testing/releases/download/${ct_ver}/chart-testing_${ct_ver_num}_${os}_${arch}.tar.gz" | tar xz -C "$tmp"
+          mv "$tmp/ct" "$ct_bin"
+          chmod +x "$ct_bin"
+        fi
+        export PATH="$cache:$PATH"
+        ct lint --config ct.yaml --all
 
   unittest:
-    desc: Run helm-unittest (helm plugin install …/helm-unittest.git --version v0.6.3)
+    desc: Run helm-unittest (installs helm-unittest plugin if missing)
     dir: '{{.ROOT_DIR}}'
     cmds:
-      - helm unittest {{.HELM_CHART}}
+      - |
+        set -euo pipefail
+        if ! helm plugin list | grep -q '^unittest'; then
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version {{.HELM_UNITTEST_PLUGIN_VERSION}}
+        fi
+        helm unittest {{.HELM_CHART}}
 
   kubeconform:
     desc: Validate rendered manifests against Kubernetes OpenAPI (downloads kubeconform to .cache if missing)
@@ -26,21 +61,18 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        cache="{{.ROOT_DIR}}/.cache/kubeconform"
-        bin="$cache/kubeconform"
-        mkdir -p "$cache"
-        if [ ! -x "$bin" ]; then
-          url="https://github.com/yannh/kubeconform/releases/download/{{.KUBECONFORM_VERSION}}/kubeconform-linux-amd64.tar.gz"
-          curl -sSL "$url" | tar xz -C "$cache" kubeconform
-          chmod +x "$bin"
-        fi
         for f in "{{.ROOT_DIR}}/{{.HELM_CHART}}/ci"/*.yaml; do
           echo "kubeconform $f"
-          helm template ct "{{.ROOT_DIR}}/{{.HELM_CHART}}" -f "$f" | "$bin" -strict -kubernetes-version {{.KUBE_K8S_VERSION}} -summary
+          helm template ct "{{.ROOT_DIR}}/{{.HELM_CHART}}" -f "$f" | kubeconform -strict -kubernetes-version {{.KUBE_K8S_VERSION}} -summary
         done
 
+  ci:
+    desc: Run chart lint, helm unittest, and kubeconform (same as CI)
+    cmds:
+      - task: lint
+      - task: unittest
+      - task: kubeconform
+
   all:
-    desc: helm unittest + kubeconform (same subset as CI; omit ct without Python tools)
-    deps:
-      - unittest
-      - kubeconform
+    desc: Same as helm:ci (lint, unittest, kubeconform)
+    deps: [ci]
