@@ -43,7 +43,8 @@ Valid patterns:
 2. Draft one **title line** (and optional **minimal body** only when the title is insufficient).
 3. Match conventions in **Commit messages** above.
 4. **`/commit` command:** print the message, then run **`git commit`**, then print **`git log -1 --format=fuller`** (or equivalent) so the user sees the stored description.
-5. **Git-conventions agent or advisory mode:** output the proposed message only unless the user explicitly asks you to run **`git commit`**.
+5. **`/amend` command:** see **`.cursor/commands/amend.md`** (refuse if **`HEAD`** matches **`@{upstream}`**—already pushed; otherwise stage into **`HEAD`**, amend with or without a new message, print **`git log -1 --format=fuller`**).
+6. **Git-conventions agent or advisory mode:** output the proposed message only unless the user explicitly asks you to run **`git commit`** or **`git commit --amend`**.
 
 ## Pull requests
 
@@ -63,5 +64,5 @@ Valid patterns:
 ## Output expectations
 
 - **Branches:** one primary name plus short alternatives only if useful.
-- **Commits:** title line(s) and optional minimal body; after **`/commit`**, also show **`git log -1 --format=fuller`** (or equivalent).
+- **Commits:** title line(s) and optional minimal body; after **`/commit`** or **`/amend`**, also show **`git log -1 --format=fuller`** (or equivalent).
 - **PRs:** full Markdown body aligned with the template sections; after **`/pr`**, print the **GitHub PR URL** from **`gh`**.
