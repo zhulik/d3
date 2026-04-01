@@ -1,0 +1,175 @@
+{{- $adminMount := or .Values.admin.existingSecret .Values.admin.autoGenerate }}
+{{- if and (eq .Values.environment "production") (not $adminMount) }}
+{{- fail "admin: for production set admin.existingSecret or admin.autoGenerate true" }}
+{{- end }}
+{{- if not .Values.redis.enabled }}
+{{- if not .Values.externalRedis.address }}
+{{- fail "externalRedis.address is required when redis.enabled is false" }}
+{{- end }}
+{{- end }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "d3.fullname" . }}
+  labels:
+    {{- include "d3.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  serviceName: {{ include "d3.fullname" . }}
+  selector:
+    matchLabels:
+      {{- include "d3.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "d3.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "d3.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: d3
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: api
+              containerPort: {{ .Values.service.apiPort }}
+              protocol: TCP
+            - name: health
+              containerPort: {{ .Values.service.healthPort }}
+              protocol: TCP
+            - name: management
+              containerPort: {{ .Values.service.managementPort }}
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+            - name: STORAGE_BACKEND
+              value: folder
+            - name: FOLDER_STORAGE_BACKEND_PATH
+              value: /data
+            - name: MANAGEMENT_BACKEND
+              value: YAML
+            - name: MANAGEMENT_BACKEND_YAML_PATH
+              value: /data/management.yaml
+            - name: MANAGEMENT_BACKEND_TMP_PATH
+              value: /data/management_tmp
+            - name: PORT
+              value: {{ .Values.service.apiPort | quote }}
+            - name: HEALTH_CHECK_PORT
+              value: {{ .Values.service.healthPort | quote }}
+            - name: MANAGEMENT_PORT
+              value: {{ .Values.service.managementPort | quote }}
+            - name: ADMIN_CREDENTIALS_PATH
+              value: {{ if $adminMount }}{{ .Values.admin.mountPath | quote }}{{ else }}""{{ end }}
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_ADDRESS
+              value: {{ printf "%s:%v" (include "d3.redis.fullname" .) .Values.redis.service.port | quote }}
+            {{- else }}
+            - name: REDIS_ADDRESS
+              value: {{ .Values.externalRedis.address | quote }}
+            {{- if .Values.externalRedis.username }}
+            - name: REDIS_USERNAME
+              value: {{ .Values.externalRedis.username | quote }}
+            {{- end }}
+            {{- if .Values.externalRedis.password }}
+            - name: REDIS_PASSWORD
+              value: {{ .Values.externalRedis.password | quote }}
+            {{- else if .Values.externalRedis.existingSecret }}
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.externalRedis.existingSecret }}
+                  key: {{ .Values.externalRedis.existingSecretPasswordKey }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            {{- if $adminMount }}
+            - name: admin-credentials
+              mountPath: {{ .Values.admin.mountPath }}
+              subPath: {{ .Values.admin.existingSecretKey }}
+              readOnly: true
+            {{- end }}
+            {{- if .Values.extraTmpVolume }}
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
+      volumes:
+        {{- if not .Values.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+        {{- if $adminMount }}
+        - name: admin-credentials
+          secret:
+            secretName: {{ include "d3.adminSecretName" . }}
+        {{- end }}
+        {{- if .Values.extraTmpVolume }}
+        - name: tmp
+          emptyDir: {}
+        {{- end }}
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "d3.selectorLabels" . | nindent 10 }}
+        {{- with .Values.persistence.annotations }}
+        annotations:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+      spec:
+        accessModes:
+          {{- toYaml .Values.persistence.accessModes | nindent 10 }}
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | quote }}
+        {{- if .Values.persistence.storageClass }}
+        {{- if (eq "-" .Values.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: {{ .Values.persistence.storageClass | quote }}
+        {{- end }}
+        {{- end }}
+  {{- end }}

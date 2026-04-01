@@ -1,0 +1,62 @@
+{{- if .Values.redis.enabled -}}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "d3.redis.fullname" . }}
+  labels:
+    {{- include "d3.redis.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "d3.redis.fullname" . }}
+  selector:
+    matchLabels:
+      {{- include "d3.redis.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "d3.redis.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: valkey
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+          args:
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+      {{- if not .Values.redis.persistence.enabled }}
+      volumes:
+        - name: data
+          emptyDir: {}
+      {{- end }}
+  {{- if .Values.redis.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "d3.redis.selectorLabels" . | nindent 10 }}
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: {{ .Values.redis.persistence.size | quote }}
+        {{- if .Values.redis.persistence.storageClass }}
+        {{- if (eq "-" .Values.redis.persistence.storageClass) }}
+        storageClassName: ""
+        {{- else }}
+        storageClassName: {{ .Values.redis.persistence.storageClass | quote }}
+        {{- end }}
+        {{- end }}
+  {{- end }}
+{{- end }}

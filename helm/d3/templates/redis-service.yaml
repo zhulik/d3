@@ -1,0 +1,17 @@
+{{- if .Values.redis.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "d3.redis.fullname" . }}
+  labels:
+    {{- include "d3.redis.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: {{ .Values.redis.service.port }}
+      targetPort: redis
+      protocol: TCP
+  selector:
+    {{- include "d3.redis.selectorLabels" . | nindent 4 }}
+{{- end }}

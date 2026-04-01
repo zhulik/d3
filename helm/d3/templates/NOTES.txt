@@ -1,0 +1,41 @@
+Release {{ .Release.Name }} / namespace {{ .Release.Namespace }}
+
+1. d3 listens on API port {{ .Values.service.apiPort }} (S3), health {{ .Values.service.healthPort }}, management {{ .Values.service.managementPort }}.
+   This chart defaults to {{ .Values.replicaCount }} replica(s). Do not scale the folder backend beyond one pod unless you provide shared storage.
+
+2. Application URL:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[?(@.name=='api')].nodePort}" services {{ include "d3.fullname" . }})
+   export NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[0].address}")
+   echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+   kubectl get svc --namespace {{ .Release.Namespace }} {{ include "d3.fullname" . }} -w
+   export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "d3.fullname" . }} -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+   echo http://$SERVICE_IP:{{ .Values.service.apiPort }}
+{{- else }}
+   kubectl port-forward --namespace {{ .Release.Namespace }} svc/{{ include "d3.fullname" . }} {{ .Values.service.apiPort }}:{{ .Values.service.apiPort }}
+   Then use http://127.0.0.1:{{ .Values.service.apiPort }} as the S3 endpoint.
+{{- end }}
+
+3. Admin credentials:
+{{- if .Values.admin.existingSecret }}
+   Mounted from Secret {{ .Values.admin.existingSecret }} (data key {{ .Values.admin.existingSecretKey }}).
+{{- else if .Values.admin.autoGenerate }}
+   Stored in Secret {{ include "d3.fullname" . }}-admin. View (YAML) with:
+
+     kubectl get secret {{ include "d3.fullname" . }}-admin -n {{ .Release.Namespace }} -o yaml
+
+   Decode the {{ .Values.admin.existingSecretKey }} data field from base64. Credentials persist across helm upgrade via lookup.
+{{- else if ne .Values.environment "production" }}
+   ADMIN_CREDENTIALS_PATH is unset; in development/test d3 may log ephemeral credentials at startup.
+{{- else }}
+   Production requires admin.existingSecret or admin.autoGenerate.
+{{- end }}
+
+4. Redis: {{ if .Values.redis.enabled }}in-cluster Valkey at {{ include "d3.redis.fullname" . }}:{{ .Values.redis.service.port }}{{ else }}external {{ .Values.externalRedis.address }}{{ end }}.

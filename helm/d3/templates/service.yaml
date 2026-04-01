@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "d3.fullname" . }}
+  labels:
+    {{- include "d3.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - name: api
+      port: {{ .Values.service.apiPort }}
+      targetPort: api
+      protocol: TCP
+    - name: health
+      port: {{ .Values.service.healthPort }}
+      targetPort: health
+      protocol: TCP
+    - name: management
+      port: {{ .Values.service.managementPort }}
+      targetPort: management
+      protocol: TCP
+  selector:
+    {{- include "d3.selectorLabels" . | nindent 4 }}

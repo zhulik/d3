@@ -80,5 +80,6 @@ Configuration is read from environment variables (via [caarlos0/env](https://git
 
 ## Kubernetes
 
-A Helm chart and a Kubernetes operator are **not** available yet (TBD).
+A Helm chart lives in [helm/d3](./helm/d3). It deploys d3 as a **StatefulSet** with a PVC for folder storage, optional in-cluster **Valkey**, optional **Ingress** (S3 API on port 8080), and admin credentials either from an **existing Secret** or **chart-generated** (stable across upgrades via `lookup`).
 
+A Kubernetes operator is **not** available yet (TBD).
