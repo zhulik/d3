@@ -69,11 +69,40 @@ jobs:
       - name: Run tests
         run: task test test:integration
 
+  helm-chart:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Helm lint
+        run: helm lint helm/d3
+
+      - name: Helm template sanity checks
+        run: |
+          set -euo pipefail
+          helm template ct-default helm/d3 >/dev/null
+          helm template ct-external-redis helm/d3 \
+            --set redis.enabled=false \
+            --set externalRedis.address=redis.example:6379 \
+            --set admin.existingSecret=my-admin-secret \
+            --set admin.autoGenerate=false >/dev/null
+          helm template ct-ingress helm/d3 --set ingress.enabled=true >/dev/null
+          helm template ct-dev-ephemeral helm/d3 \
+            --set environment=development \
+            --set admin.autoGenerate=false >/dev/null
+
   deploy:
     runs-on: ubuntu-latest
     needs:
       - lint
       - test
+      - helm-chart
 
     steps:
       - uses: actions/checkout@v6
