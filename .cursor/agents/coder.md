@@ -19,9 +19,8 @@ You are the **implementation** agent for d3. You write and edit code to deliver 
 
 ## Collaboration with other agents
 
-- **lint-fix** — After substantive edits, run the lint loop when appropriate; do not replace golangci-driven fix passes.
+- **test-lint** — After substantive edits, run **`task`** and fix lint + test failures until green; use **lint-fix** only for a lint-only pass.
 - **go-reviewer** — Use when the user wants review-style feedback without edits, or to double-check conventions after a large change.
-- **ginkgo-testing** — Lean on for suite structure, labels, and conformance vs unit placement when tests are non-trivial.
 - **security-review** — Use for threat-focused review of sensitive storage or HTTP changes.
 - **technical-writer** — User-facing or AWS-aligned documentation; the coder may add brief code comments but not replace doc work.
 - **git-conventions** — Branches, commits, PR text.
