@@ -39,10 +39,11 @@ Valid patterns:
 
 ### Creating a commit (assistant steps)
 
-1. Inspect **`git status`** and **`git diff`** (prefer **staged** changes; include unstaged if the user is committing everything).
+1. Inspect **`git status`** and **`git diff`** / **`git diff --cached`** (prefer **staged** changes; **`/commit`** may stage tracked changes with **`git add -u`** when nothing is staged—see **`.cursor/commands/commit.md`**).
 2. Draft one **title line** (and optional **minimal body** only when the title is insufficient).
 3. Match conventions in **Commit messages** above.
-4. **Do not** run **`git commit`** unless the user explicitly asks you to execute it; default is to output text they can paste or use.
+4. **`/commit` command:** print the message, then run **`git commit`**, then print **`git log -1 --format=fuller`** (or equivalent) so the user sees the stored description.
+5. **Git-conventions agent or advisory mode:** output the proposed message only unless the user explicitly asks you to run **`git commit`**.
 
 ## Pull requests
 
@@ -53,14 +54,14 @@ Valid patterns:
 
 ### Opening a PR (assistant steps)
 
-1. Read **`.github/pull_request_template.md`** and reproduce its **headings and checklists** in your output.
+1. Read **`.github/pull_request_template.md`** and reproduce its **headings and checklists** in the PR body.
 2. Infer **type of change** from the branch name prefix (`fix-`, `feature-`, `doc-`, etc.) when possible; ask if unclear.
 3. Summarize **what** changed and **why** in **Summary**; keep **Testing** and **Compatibility / docs** accurate and checked appropriately.
-4. Output **Markdown ready to paste** into GitHub (e.g. new PR description field).
-5. **Do not** open the PR in the browser or call `gh pr create` unless the user explicitly asks you to run those commands.
+4. **`/pr` command:** push the branch if needed, run **`gh pr create`** with **`--body-file`**, then **print the PR URL** from **`gh`** output (or **`gh pr view --json url`**).
+5. **Git-conventions agent or advisory mode:** output **Markdown only** unless the user explicitly asks you to run **`gh pr create`**.
 
 ## Output expectations
 
 - **Branches:** one primary name plus short alternatives only if useful.
-- **Commits:** title line(s) and optional minimal body only when necessary.
-- **PRs:** full Markdown body aligned with the template sections.
+- **Commits:** title line(s) and optional minimal body; after **`/commit`**, also show **`git log -1 --format=fuller`** (or equivalent).
+- **PRs:** full Markdown body aligned with the template sections; after **`/pr`**, print the **GitHub PR URL** from **`gh`**.
