@@ -10,6 +10,7 @@ includes:
   test: tasks/test.yml
   lint: tasks/lint.yml
   generate: tasks/generate.yml
+  helm: tasks/helm.yml
 
 tasks:
   default:

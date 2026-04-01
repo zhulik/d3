@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  HELM_CHART: helm/d3
+  KUBE_K8S_VERSION: '1.30.0'
+  KUBECONFORM_VERSION: v0.6.7
+
+tasks:
+  lint:
+    desc: Run chart-testing lint (needs ct, yamale, yamllint — use a venv for Python tools)
+    dir: '{{.ROOT_DIR}}'
+    cmds:
+      - ct lint --config ct.yaml --all
+
+  unittest:
+    desc: Run helm-unittest (helm plugin install …/helm-unittest.git --version v0.6.3)
+    dir: '{{.ROOT_DIR}}'
+    cmds:
+      - helm unittest {{.HELM_CHART}}
+
+  kubeconform:
+    desc: Validate rendered manifests against Kubernetes OpenAPI (downloads kubeconform to .cache if missing)
+    dir: '{{.ROOT_DIR}}'
+    cmds:
+      - |
+        set -euo pipefail
+        cache="{{.ROOT_DIR}}/.cache/kubeconform"
+        bin="$cache/kubeconform"
+        mkdir -p "$cache"
+        if [ ! -x "$bin" ]; then
+          url="https://github.com/yannh/kubeconform/releases/download/{{.KUBECONFORM_VERSION}}/kubeconform-linux-amd64.tar.gz"
+          curl -sSL "$url" | tar xz -C "$cache" kubeconform
+          chmod +x "$bin"
+        fi
+        for f in "{{.ROOT_DIR}}/{{.HELM_CHART}}/ci"/*.yaml; do
+          echo "kubeconform $f"
+          helm template ct "{{.ROOT_DIR}}/{{.HELM_CHART}}" -f "$f" | "$bin" -strict -kubernetes-version {{.KUBE_K8S_VERSION}} -summary
+        done
+
+  all:
+    desc: helm unittest + kubeconform (same subset as CI; omit ct without Python tools)
+    deps:
+      - unittest
+      - kubeconform

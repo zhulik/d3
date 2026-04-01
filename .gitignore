@@ -3,3 +3,4 @@ d3_data/
 __debug_bin*
 coverprofile.out
 *.test
+.cache/

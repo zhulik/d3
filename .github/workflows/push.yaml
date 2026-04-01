@@ -105,6 +105,21 @@ jobs:
       - name: Helm unit tests
         run: helm unittest helm/d3
 
+      - name: Install kubeconform
+        run: |
+          mkdir -p "$HOME/bin"
+          curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz -C "$HOME/bin" kubeconform
+          chmod +x "$HOME/bin/kubeconform"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Kubeconform rendered manifests
+        run: |
+          set -euo pipefail
+          for f in helm/d3/ci/*.yaml; do
+            echo "kubeconform $f"
+            helm template ct helm/d3 -f "$f" | kubeconform -strict -kubernetes-version 1.30.0 -summary
+          done
+
   deploy:
     # pull_request uses refs like refs/pull/2/merge → ref_name "2/merge", which is not a valid image tag.
     # Publish only on push (branches and tags), not on PR CI.
