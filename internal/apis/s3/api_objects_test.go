@@ -1,15 +1,18 @@
 package s3_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/zhulik/d3/internal/apictx"
 	"github.com/zhulik/d3/internal/apis/s3"
 	"github.com/zhulik/d3/internal/apis/s3/middlewares"
 	"github.com/zhulik/d3/internal/core"
+	"github.com/zhulik/d3/pkg/s3actions"
 
 	"github.com/labstack/echo/v5"
 	. "github.com/onsi/ginkgo/v2"
@@ -107,6 +110,45 @@ var _ = Describe("S3ErrorRenderer", func() {
 			ok := errors.As(err, &httpErr)
 			Expect(ok).To(BeTrue())
 			Expect(httpErr.Code).To(Equal(http.StatusForbidden))
+		})
+	})
+})
+
+type capturingAuthorizer struct {
+	resource string
+}
+
+func (a *capturingAuthorizer) IsAllowed(
+	_ context.Context, _ *core.User, _ s3actions.Action, resource string,
+) (bool, error) {
+	a.resource = resource
+	return true, nil
+}
+
+var _ = Describe("S3AuthorizerMiddleware", func() {
+	When("head object request has no preloaded object", func() {
+		It("authorizes against bucket and key from URL", func() {
+			captured := &capturingAuthorizer{}
+			mw := (&middlewares.Authorizer{Authorizer: captured}).Middleware()
+
+			req := httptest.NewRequest(http.MethodHead, "/my-bucket/path/to/file.txt", nil)
+			rec := httptest.NewRecorder()
+			c := echo.New().NewContext(req, rec)
+			c.SetPath("/:bucket/*")
+			c.SetPathValues(echo.PathValues{
+				{Name: "bucket", Value: "my-bucket"},
+				{Name: "*", Value: "path/to/file.txt"},
+			})
+
+			ctx := apictx.Inject(c)
+			apiCtx := apictx.FromContext(ctx)
+			apiCtx.Action = s3actions.HeadObject
+			apiCtx.User = &core.User{Name: "reader"}
+			c.SetRequest(c.Request().WithContext(ctx))
+
+			err := mw(func(_ *echo.Context) error { return nil })(c)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(captured.resource).To(Equal("my-bucket/path/to/file.txt"))
 		})
 	})
 })
