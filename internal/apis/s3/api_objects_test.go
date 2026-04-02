@@ -2,12 +2,16 @@ package s3_test
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/zhulik/d3/internal/apis/s3"
+	"github.com/zhulik/d3/internal/apis/s3/middlewares"
 	"github.com/zhulik/d3/internal/core"
 
+	"github.com/labstack/echo/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -80,6 +84,29 @@ var _ = Describe("ValidateTags", func() {
 				strings.Repeat("k", maxTagKey): strings.Repeat("v", maxTagVal),
 			}
 			Expect(s3.ValidateTags(tags)).To(Succeed())
+		})
+	})
+})
+
+var _ = Describe("S3ErrorRenderer", func() {
+	When("handler returns ErrUnauthorized", func() {
+		It("maps to HTTP 403", func() {
+			mw := middlewares.ErrorRenderer()
+			handler := mw(func(_ *echo.Context) error {
+				return core.ErrUnauthorized
+			})
+
+			req := httptest.NewRequest(http.MethodHead, "/bucket/key", nil)
+			rec := httptest.NewRecorder()
+			c := echo.New().NewContext(req, rec)
+
+			err := handler(c)
+			Expect(err).To(HaveOccurred())
+
+			httpErr := &echo.HTTPError{}
+			ok := errors.As(err, &httpErr)
+			Expect(ok).To(BeTrue())
+			Expect(httpErr.Code).To(Equal(http.StatusForbidden))
 		})
 	})
 })
