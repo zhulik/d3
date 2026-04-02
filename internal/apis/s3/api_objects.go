@@ -95,7 +95,17 @@ func (a APIObjects) Init(_ context.Context) error {
 func (a APIObjects) HeadObject(c *echo.Context) error {
 	object := apictx.FromContext(c.Request().Context()).Object
 
-	setObjectHeaders(c, object.Metadata())
+	metadata := object.Metadata()
+
+	cond := conditionalheaders.Parse(c.Request().Header)
+	switch cond.Check(metadata.SHA256, metadata.LastModified) {
+	case http.StatusNotModified:
+		return c.NoContent(http.StatusNotModified)
+	case http.StatusPreconditionFailed:
+		return core.ErrPreconditionFailed
+	}
+
+	setObjectHeaders(c, metadata)
 
 	return c.NoContent(http.StatusOK)
 }
