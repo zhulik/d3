@@ -20,6 +20,7 @@ Used from the Agent picker / delegated tasks. Prefer the specialist that matches
 
 | Agent | Use when |
 |-------|----------|
+| `issue-orchestrator` | Implement what a **GitHub issue** (or stated scope) describes: implement → **`go-reviewer`** → **`security-review`** (fix loop) → **`technical-writer`**; uses **Task**/delegation when the session supports it, otherwise runs each phase per **`.cursor/agents/*.md`**. |
 | `coder` | Implement or fix Go code; after substantive edits run **`task`** per `prompts/test-lint-workflow.md` until green. |
 | `go-reviewer` | Convention and architecture review (no Git hygiene). |
 | `security-review` | Threat review for storage paths, locking, checksums, HTTP surface, secrets. |
