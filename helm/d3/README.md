@@ -25,4 +25,4 @@ Use `helm show values ./helm/d3` for options (external Redis, ingress, persisten
 CI runs chart-testing (`ct lint`), `helm unittest`, and kubeconform on every `helm/d3/ci/*-values.yaml` overlay. Locally:
 
 - `task helm:all` — unittest + kubeconform (kubeconform binary is cached under `.cache/kubeconform`).
-- `task helm:lint` — same as `ct lint --config ct.yaml --all` (install `ct` plus Python packages `yamale` and `yamllint`, e.g. in a venv).
+- `task helm:lint` — same as `ct lint --config ct.yaml --all`, executed via the official `quay.io/helmpack/chart-testing` container image.
