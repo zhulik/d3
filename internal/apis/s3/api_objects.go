@@ -53,7 +53,7 @@ func (a APIObjects) Init(_ context.Context) error {
 	a.Echo.SetRootFallbackHandler(a.ListObjectsV2, s3actions.ListObjectsV2, bucketFinder, authorizer)
 
 	objects := a.Echo.Group("/:bucket/*", middlewares.ObjectKeyValidator)
-	objects.HEAD("", a.HeadObject, middlewares.SetAction(s3actions.HeadObject), bucketFinder, objectFinder, authorizer)
+	objects.HEAD("", a.HeadObject, middlewares.SetAction(s3actions.HeadObject), bucketFinder, authorizer, objectFinder)
 	objects.PUT("", NewQueryParamsRouter().
 		SetFallbackHandler(a.PutObject, s3actions.PutObject, bucketFinder, authorizer).
 		AddRoute("tagging", a.PutObjectTagging, s3actions.PutObjectTagging, bucketFinder, objectFinder, authorizer).

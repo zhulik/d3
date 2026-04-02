@@ -49,9 +49,9 @@ func (a *Authorizer) Middleware() echo.MiddlewareFunc {
 				switch {
 				case apiCtx.Object != nil:
 					resource = bucketName + "/" + apiCtx.Object.Key()
-				case apiCtx.Action == s3actions.DeleteObject:
-					// DeleteObject does not use objectFinder (object may not exist; S3 returns 204 for non-existent keys).
-					// Authorize against the key from the URL to enforce prefix-based policies.
+				case apiCtx.Action == s3actions.DeleteObject || apiCtx.Action == s3actions.HeadObject:
+					// These operations can be authorized by URL key without preloading object metadata.
+					// This keeps authorization ahead of object lookup for HEAD and supports prefix policies.
 					if key := c.Param("*"); key != "" {
 						resource = bucketName + "/" + key
 					} else {
