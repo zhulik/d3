@@ -62,7 +62,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/go-build
-          key: |.github/workflows/push.yaml
+          key: |
             go-build-${{ runner.os }}-${{ hashFiles('.tool-versions', 'go.sum') }}
           restore-keys: |
             go-build-${{ runner.os }}-
