@@ -55,7 +55,7 @@ func ErrorRenderer() echo.MiddlewareFunc {
 				errors.Is(err, core.ErrUserNameReserved):
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			case errors.Is(err, core.ErrUnauthorized):
-				return echo.NewHTTPError(http.StatusUnauthorized, err.Error())
+				return echo.NewHTTPError(http.StatusForbidden, err.Error())
 			case errors.Is(err, iampol.ErrInvalidPolicy):
 				return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 			case err == nil:
