@@ -10,7 +10,7 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/golang-cz/devslog v0.0.15
 	github.com/google/uuid v1.6.0
-	github.com/labstack/echo/v5 v5.0.0
+	github.com/labstack/echo/v5 v5.1.0
 	github.com/minio/minio-go/v7 v7.0.98
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.0
