@@ -20,7 +20,7 @@ Used from the Agent picker / delegated tasks. Prefer the specialist that matches
 
 | Agent | Use when |
 |-------|----------|
-| `issue-orchestrator` | Implement what a **GitHub issue** (or stated scope) describes: implement → **`go-reviewer`** → **`pattern-refine`** → **`security-review`** (fix loop) → **`technical-writer`**; uses **Task**/delegation when the session supports it, otherwise runs each phase per **`.cursor/agents/*.md`**. |
+| `issue-orchestrator` | Implement what a **GitHub issue** (or stated scope) describes end-to-end: start on a dedicated branch named per `git-workflow.mdc`, run implement → **`go-reviewer`** → **`pattern-refine`** → **`security-review`** (fix loop) → **`technical-writer`**, then commit/push and open a PR before completion. |
 | `coder` | Implement or fix Go code; after substantive edits run **`task`** per `prompts/test-lint-workflow.md` until green. Prefer small, logical commits; keep feature/fix and its tests in one commit (see `agents/coder.md`). |
 | `go-reviewer` | Convention and architecture review (no Git hygiene). |
 | `pattern-refine` | Duplication, abstraction level, and complexity after implementation; DRY and simpler structure without replacing **go-reviewer** or **security-review**. |
