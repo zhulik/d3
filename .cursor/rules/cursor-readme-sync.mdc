@@ -1,0 +1,30 @@
+---
+description: When editing under .cursor/, keep .cursor/README.md accurate and reconcile cross-references across rules, agents, commands, and prompts.
+globs:
+  - ".cursor/**"
+---
+
+# `.cursor/` changes — README and cross-references
+
+Whenever you **add, remove, rename**, or **materially change** anything under **`.cursor/`** (agents, commands, prompts, rules—including this file), do **both** in the **same change set**:
+
+1. **Update `.cursor/README.md`** so inventories (tables, file lists) match reality.
+2. **Reconcile references** across `.cursor/` and in repo files that `.cursor/` docs cite (e.g. `Taskfile.yml`, `.github/pull_request_template.md`): paths, filenames, task names, agent names, command → prompt links, and rule file names.
+
+## What counts as “material” (README)
+
+- New or deleted **`.md`** / **`.mdc`** files in agents, commands, prompts, or rules.
+- Changed **purpose, scope, or cross-references** (e.g. a command now points at a different prompt).
+- Renamed files or paths that the README lists or that other `.cursor` docs cite.
+
+## Cross-reference checklist
+
+- **`Taskfile.yml` / `tasks/*.yml`** changed → refresh task names and flows in agents, **`.cursor/commands/`**, and **`.cursor/prompts/`** where they are documented.
+- **`.github/pull_request_template.md`** changed → align **`git-conventions-workflow.md`**, **`git-workflow.mdc`**, and anything that references the template.
+- **Agent, command, or prompt renamed or rescoped** → update deferrals, slash-command stubs, and mentions in other agents or prompts.
+- **Rules added, removed, or renamed** → update the rules table in **`.cursor/README.md`** and any agent or prompt that names a rule file.
+
+## Exemptions
+
+- **Only** fixing typos in prose where the **inventory** (tables, file lists, “what exists”) is unchanged.
+- Updates **limited to** `.cursor/README.md` that only correct documentation.
