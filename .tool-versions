@@ -6,4 +6,3 @@ awscli 2.33.5
 ko 0.18.1
 helm 3.20.1
 kubeconform 0.6.7
-uv 0.11.2
