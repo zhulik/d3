@@ -18,7 +18,7 @@ require (
 	github.com/samber/lo v1.52.0
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.6.2
-	github.com/zhulik/pal v0.11.1
+	github.com/zhulik/pal v0.11.2
 	go.yaml.in/yaml/v3 v3.0.4
 	golang.org/x/sys v0.42.0
 )
