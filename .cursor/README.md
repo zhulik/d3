@@ -36,7 +36,7 @@ Short instructions the editor injects; they usually point at a **prompt** for th
 | `commit.md` | Git commit flow via `prompts/git-conventions-workflow.md`. |
 | `amend.md` | `git commit --amend` flow (guards for pushed branches). |
 | `pr.md` | Push branch, create or update GitHub PR with `gh`, body from template + conventions prompt. |
-| `create-issue.md` | Summarize the current chat and create a GitHub issue with `gh` via `prompts/create-issue-workflow.md`. |
+| `create-issue.md` | Summarize the current chat and create a GitHub issue with `gh` via `prompts/create-issue-workflow.md`; body/title follow `.github/ISSUE_TEMPLATE/`. |
 
 ## Prompts (`.cursor/prompts/*.md`)
 
@@ -46,7 +46,7 @@ Longer canonical workflows; **single source of truth** for multi-step procedures
 |--------|---------|
 | `test-lint-workflow.md` | Lint/test loops, `task` targets, pointers to `testing.mdc` and Taskfiles. |
 | `git-conventions-workflow.md` | Branches, commits, PRs; aligns with `git-workflow.mdc` and the PR template. |
-| `create-issue-workflow.md` | Turn the current chat into a GitHub issue title/body; `gh issue create` with guards (auth, draft-only). |
+| `create-issue-workflow.md` | Turn the current chat into a GitHub issue title/body matching `.github/ISSUE_TEMPLATE/`; `gh issue create` with guards (auth, draft-only). |
 
 ## Repo root
 
@@ -56,4 +56,5 @@ Longer canonical workflows; **single source of truth** for multi-step procedures
 
 - **`Taskfile.yml`**, **`tasks/*.yml`** — build, lint, test entrypoints referenced by agents and prompts.
 - **`.github/pull_request_template.md`** — required PR shape for `/pr` and conventions.
+- **`.github/ISSUE_TEMPLATE/*.yml`** — bug / feature / other issue forms; `/create-issue` and `create-issue-workflow.md` align with these.
 - **`.golangci.yaml`** — linter config; do not “fix” lint by disabling rules in source unless agreed.

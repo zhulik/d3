@@ -2,24 +2,30 @@
 
 Use this workflow when filing work that came out of the **current Cursor chat**: the issue should reflect what was discussed, decided, and what remains to do—not a generic project overview.
 
+## Alignment with `.github/ISSUE_TEMPLATE/`
+
+The repo uses **Bug report**, **Feature request**, and **Other** forms (`bug_report.yml`, `feature_request.yml`, `other.yml`). **Choose one** that fits the chat, then shape title and body to match that template—not a custom outline.
+
+| Template | Title prefix | Default label (`gh issue create --label`) |
+|----------|--------------|----------------------------------------|
+| Bug report | `[Bug] ` | `bug` |
+| Feature request | `[Feature] ` | `enhancement` |
+| Other | `[Other] ` | omit unless the user asked for labels |
+
+**Body headings** should mirror the template’s fields (use `##` for each main block). Map chat content into those sections; skip optional blocks only when they add nothing.
+
+- **Bug report**: Summary; Steps to reproduce; Expected behavior; Actual behavior; Environment (d3 version/commit, OS/runtime, storage backend, Redis/Valkey); Additional context.
+- **Feature request**: Summary; Problem / motivation; Proposed solution; Alternatives considered; Additional context.
+- **Other**: Summary; Details; Additional context.
+
+If something from the chat does not fit a section (e.g. acceptance criteria), fold it into **Additional context** or the closest field rather than inventing new top-level sections.
+
 ## Principles
 
 - **Ground the issue in the conversation**: goals, constraints, decisions, file paths, errors, and follow-ups actually mentioned in the thread.
-- **Title**: one line, specific, readable on a board (like a good commit subject: clear scope, not vague “Fix bug” or “Improve X”).
-- **Body**: Markdown, short sections below. Skip empty sections; do not pad with boilerplate.
+- **Title**: after the required prefix, one line that is specific and readable on a board (clear scope, not vague “Fix bug” or “Improve X”).
+- **Body**: Markdown; skip empty sections; do not pad with boilerplate.
 - **No secrets**: never paste tokens, passwords, or private URLs from the chat into the issue.
-
-## Body structure (use what applies)
-
-Use these headings when they add value:
-
-1. **`## Summary`** — What the issue is for in one short paragraph.
-2. **`## Background`** — Relevant context from the chat (problem statement, reproduction, stack traces trimmed to essentials).
-3. **`## Proposed direction`** — If the chat converged on an approach, state it; if not, say options briefly or leave this section out.
-4. **`## Acceptance criteria`** — Checklist or bullet list of “done when…” items when the work is definable.
-5. **`## Open questions`** — Uncertainties or decisions still needed.
-
-If the chat is only a small fix request, a **`## Summary`** plus bullets may be enough.
 
 ## GitHub CLI
 
@@ -28,14 +34,14 @@ If the chat is only a small fix request, a **`## Summary`** plus bullets may be 
 - **Create the issue**: write the body to a **temporary file**, then:
 
   ```bash
-  gh issue create --title "<title>" --body-file <path-to-temp-file>
+  gh issue create --title "<title>" --body-file <path-to-temp-file> [--label <name> ...]
   ```
 
 - **Print the issue URL** after creation (e.g. from **`gh`** stdout or **`gh issue view <n> --json url -q .url`** if needed).
 
-### Optional flags
+### Labels and other flags
 
-- Add **`--label`** only when the user asked for labels **or** when you can infer standard repo labels from existing issues (**`gh label list`**) without guessing wrong.
+- **Bug report** → **`--label bug`**. **Feature request** → **`--label enhancement`**. **Other** → omit **`--label`** unless the user asked for one or you confirm it exists (**`gh label list`**).
 - Do not assign milestones or users unless the user asked.
 
 ## Default vs draft-only
