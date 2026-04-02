@@ -1,0 +1,27 @@
+name: Other
+description: Questions, documentation, meta discussion, or anything that is not a bug or feature request.
+title: "[Other] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for **questions**, **docs**, **meta**, or work that does not fit **Bug report** or **Feature request**.
+  - type: textarea
+    id: summary
+    validations:
+      required: true
+    attributes:
+      label: Summary
+      description: What is this about in one or two sentences?
+  - type: textarea
+    id: details
+    validations:
+      required: true
+    attributes:
+      label: Details
+      description: Explain what you need—context, questions, links, etc.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Optional screenshots, references, or other notes.

@@ -1,0 +1,81 @@
+name: Bug report
+description: Report incorrect behavior, crashes, or unexpected API responses.
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for **bugs only**. For ideas or new behavior, use **Feature request**; for everything else, use **Other**.
+  - type: textarea
+    id: summary
+    validations:
+      required: true
+    attributes:
+      label: Summary
+      description: What went wrong? Link related issues or PRs if helpful.
+      placeholder: Clear, short description of the problem.
+  - type: textarea
+    id: steps
+    validations:
+      required: true
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps so maintainers can reproduce the issue.
+      placeholder: |
+        1. …
+        2. …
+        3. …
+  - type: textarea
+    id: expected
+    validations:
+      required: true
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+  - type: textarea
+    id: actual
+    validations:
+      required: true
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include error messages or logs if relevant.
+      render: shell
+  - type: markdown
+    attributes:
+      value: |
+        ## Environment
+  - type: input
+    id: version
+    validations:
+      required: true
+    attributes:
+      label: d3 version or commit
+      description: e.g. release tag, output of `git describe`, or `main @ abc1234`.
+      placeholder: e.g. v0.1.0 or main @ abc1234
+  - type: input
+    id: os
+    validations:
+      required: true
+    attributes:
+      label: OS / runtime
+      description: e.g. Linux distro, Docker image name/tag.
+      placeholder: e.g. Arch Linux, docker.io/…
+  - type: input
+    id: storage_backend
+    attributes:
+      label: Storage backend
+      description: e.g. `folder`. Leave blank if unknown.
+      placeholder: folder
+  - type: input
+    id: redis
+    attributes:
+      label: Redis / Valkey
+      description: Version or deployment hint; `N/A` if you are sure it is unrelated.
+      placeholder: e.g. Valkey 7.x, or N/A
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Config snippets (redact secrets), HTTP traces, or anything else that helps.
