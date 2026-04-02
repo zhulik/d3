@@ -1,4 +1,5 @@
 d3_data/
+.cache/
 .task/
 __debug_bin*
 coverprofile.out

@@ -1,0 +1,24 @@
+---
+description: d3 branch names, commit messages, and PR descriptions. Use when naming branches, drafting commits, or writing PR text.
+alwaysApply: false
+---
+
+# Git workflow (d3)
+
+Full patterns and examples: **`.cursor/prompts/git-conventions-workflow.md`**. PR structure must match **`.github/pull_request_template.md`**.
+
+## Branches
+
+- Shape: `<type>-<summary>` or `issue-<n>/<type>-<summary>`.
+- **Types:** `fix`, `feature`, `doc`, `shore`, `ci`, `update`.
+- Summary: kebab-case, specific (never bare `fix` / `shore` / `doc`).
+
+## Commits
+
+- Imperative mood, short title first; add body only when needed.
+- Avoid verbose or “this commit” boilerplate.
+
+## Pull requests
+
+- Fill every section the template expects (Summary, Type of change, checklists, Breaking changes, Testing, Compatibility / docs).
+- Tie Summary to real branch changes; use `Fixes #` / `Closes #` when an issue applies.
