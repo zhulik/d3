@@ -1,0 +1,7 @@
+redis:
+  enabled: false
+externalRedis:
+  address: redis.example:6379
+admin:
+  existingSecret: my-admin-secret
+  autoGenerate: false

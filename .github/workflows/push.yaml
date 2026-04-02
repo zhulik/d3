@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Cache asdf
         uses: actions/cache@v5
@@ -44,6 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Cache asdf
         uses: actions/cache@v5
@@ -58,7 +62,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.cache/go-build
-          key: |
+          key: |.github/workflows/push.yaml
             go-build-${{ runner.os }}-${{ hashFiles('.tool-versions', 'go.sum') }}
           restore-keys: |
             go-build-${{ runner.os }}-
@@ -76,28 +80,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - name: Install Helm
-        uses: azure/setup-helm@v5
         with:
-          version: v3.16.4
+          fetch-depth: 0
 
-      - name: Helm lint
-        run: helm lint helm/d3
+      - name: Cache asdf
+        uses: actions/cache@v5
+        with:
+          path: ~/.asdf
+          key: |
+            asdf-${{ runner.os }}-${{ hashFiles('.tool-versions', 'go.sum') }}
+          restore-keys: |
+            asdf-${{ runner.os }}-
 
-      - name: Helm template sanity checks
-        run: |
-          set -euo pipefail
-          helm template ct-default helm/d3 >/dev/null
-          helm template ct-external-redis helm/d3 \
-            --set redis.enabled=false \
-            --set externalRedis.address=redis.example:6379 \
-            --set admin.existingSecret=my-admin-secret \
-            --set admin.autoGenerate=false >/dev/null
-          helm template ct-ingress helm/d3 --set ingress.enabled=true >/dev/null
-          helm template ct-dev-ephemeral helm/d3 \
-            --set environment=development \
-            --set admin.autoGenerate=false >/dev/null
+      - uses: asdf-vm/actions/install@v4
+
+      - name: Helm chart checks
+        run: task helm:ci
 
   deploy:
     # pull_request uses refs like refs/pull/2/merge → ref_name "2/merge", which is not a valid image tag.
@@ -112,6 +110,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Cache asdf
         uses: actions/cache@v5
@@ -132,7 +132,6 @@ jobs:
             go-build-${{ runner.os }}-
 
       - uses: asdf-vm/actions/install@v4
-      - uses: ko-build/setup-ko@v0.9
 
       - name: Set image tags
         id: tags

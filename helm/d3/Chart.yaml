@@ -4,3 +4,20 @@ description: Helm chart for d3 (S3-compatible object store with folder backend)
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
+kubeVersion: ">=1.25.0-0"
+home: https://github.com/zhulik/d3
+sources:
+  - https://github.com/zhulik/d3
+keywords:
+  - s3
+  - object-storage
+  - valkey
+  - redis
+maintainers:
+  - name: zhulik
+    url: https://github.com/zhulik
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/links: |
+    - name: Source
+      url: https://github.com/zhulik/d3

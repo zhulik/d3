@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  HELM_CHART: helm/d3
+  KUBE_K8S_VERSION: '1.30.0'
+  CT_VERSION: v3.13.0
+  HELM_UNITTEST_PLUGIN_VERSION: v0.6.3
+
+tasks:
+  lint:
+    desc: Run chart-testing lint (ct via quay.io/helmpack/chart-testing)
+    dir: '{{.ROOT_DIR}}'
+    cmds:
+      - |
+        set -euo pipefail
+        root="{{.ROOT_DIR}}"
+        if ! command -v docker >/dev/null 2>&1; then
+          echo "docker is required for helm:lint (ct runs in a container)" >&2
+          exit 1
+        fi
+
+        # Use the official chart-testing image which bundles:
+        # - ct, helm, git, yamllint, yamale, kubectl
+        #
+        # The container runs as root; when the repo is mounted from the host,
+        # git may refuse to operate due to "dubious ownership". Mark the mount
+        # as safe before running ct.
+        docker run --rm \
+          -v "$root:/data" \
+          -w /data \
+          "quay.io/helmpack/chart-testing:{{.CT_VERSION}}" \
+          sh -lc 'git config --global --add safe.directory /data && ct lint --config ct.yaml --all'
+
+  unittest:
+    desc: Run helm-unittest (installs helm-unittest plugin if missing)
+    dir: '{{.ROOT_DIR}}'
+    cmds:
+      - |
+        set -euo pipefail
+        if ! helm plugin list | grep -q '^unittest'; then
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version {{.HELM_UNITTEST_PLUGIN_VERSION}}
+        fi
+        helm unittest {{.HELM_CHART}}
+
+  kubeconform:
+    desc: Validate rendered manifests against Kubernetes OpenAPI (downloads kubeconform to .cache if missing)
+    dir: '{{.ROOT_DIR}}'
+    cmds:
+      - |
+        set -euo pipefail
+        for f in "{{.ROOT_DIR}}/{{.HELM_CHART}}/ci"/*.yaml; do
+          echo "kubeconform $f"
+          helm template ct "{{.ROOT_DIR}}/{{.HELM_CHART}}" -f "$f" | kubeconform -strict -kubernetes-version {{.KUBE_K8S_VERSION}} -summary
+        done
+
+  ci:
+    desc: Run chart lint, helm unittest, and kubeconform (same as CI)
+    cmds:
+      - task: lint
+      - task: unittest
+      - task: kubeconform
+
+  all:
+    desc: Same as helm:ci (lint, unittest, kubeconform)
+    deps: [ci]

@@ -1,0 +1,24 @@
+suite: statefulset
+templates:
+  - statefulset.yaml
+tests:
+  - it: configures folder storage and default ports
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: STORAGE_BACKEND
+            value: folder
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: PORT
+            value: "8080"
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: api
+            containerPort: 8080
+            protocol: TCP
