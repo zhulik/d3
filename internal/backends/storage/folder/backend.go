@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"syscall"
+	"time"
 
 	"github.com/zhulik/d3/internal/core"
 	"github.com/zhulik/d3/pkg/xiter"
@@ -18,6 +20,10 @@ const (
 
 type configYaml struct {
 	Version int `yaml:"version"`
+}
+
+type bucketMetadata struct {
+	CreationDate time.Time `yaml:"creationDate"`
 }
 
 type Backend struct {
@@ -77,12 +83,26 @@ func (b *Backend) CreateBucket(_ context.Context, name string) error {
 		return err
 	}
 
+	err = yaml.MarshalToFile(bucketMetadata{CreationDate: time.Now()}, b.bucketMetadataPath(name))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (b *Backend) DeleteBucket(_ context.Context, name string) error {
 	path, err := b.config.bucketPath(name)
 	if err != nil {
+		return err
+	}
+
+	metadataPath := b.bucketMetadataPath(name)
+	if err := rejectSymlink(metadataPath); err != nil {
+		return err
+	}
+
+	if err := os.Remove(metadataPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
@@ -124,9 +144,14 @@ func (b *Backend) HeadBucket(_ context.Context, name string) (core.Bucket, error
 		return nil, err
 	}
 
+	creationDate, err := b.bucketCreationDate(name, info)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Bucket{
 		name:         name,
-		creationDate: info.ModTime(), // TODO: use the actual creation date
+		creationDate: creationDate,
 		config:       b.config,
 		Locker:       b.Locker,
 	}, nil
@@ -142,12 +167,41 @@ func (b *Backend) dirEntryToBucket(entry os.DirEntry) (core.Bucket, bool, error)
 		return nil, false, err
 	}
 
+	creationDate, err := b.bucketCreationDate(entry.Name(), info)
+	if err != nil {
+		return nil, false, err
+	}
+
 	return &Bucket{
 		name:         entry.Name(),
-		creationDate: info.ModTime(), // TODO: use the actual creation date
+		creationDate: creationDate,
 		config:       b.config,
 		Locker:       b.Locker,
 	}, true, nil
+}
+
+func (b *Backend) bucketMetadataPath(name string) string {
+	return filepath.Join(b.config.bucketsPath(), name, "bucket.yaml")
+}
+
+func (b *Backend) bucketCreationDate(name string, info os.FileInfo) (time.Time, error) {
+	path := b.bucketMetadataPath(name)
+
+	if err := rejectSymlink(path); err != nil {
+		return time.Time{}, err
+	}
+
+	metadata, err := yaml.UnmarshalFromFile[bucketMetadata](path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// Buckets created before bucket metadata support use mtime as a best-effort fallback.
+			return info.ModTime(), nil
+		}
+
+		return time.Time{}, err
+	}
+
+	return metadata.CreationDate, nil
 }
 
 func (b *Backend) prepareFileStructure(ctx context.Context) error {
