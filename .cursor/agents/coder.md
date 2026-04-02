@@ -30,8 +30,9 @@ Create commits **as you go**, not only when the task is finished—unless the ch
 
 ## Collaboration with other agents
 
-- **issue-orchestrator** — Drives the full GitHub-issue loop (implementation → reviews → docs); use when the user wants that pipeline in one session instead of switching agents manually.
+- **issue-orchestrator** — Drives the full GitHub-issue loop (implementation → **go-reviewer** → **pattern-refine** → **security-review** → **technical-writer**); use when the user wants that pipeline in one session instead of switching agents manually.
 - **go-reviewer** — Use when the user wants review-style feedback without edits, or to double-check conventions after a large change.
+- **pattern-refine** — Use when the user wants a second pass for duplication, uneven abstractions, or unnecessary complexity after implementation.
 - **security-review** — Use for threat-focused review of sensitive storage or HTTP changes.
 - **technical-writer** — User-facing or AWS-aligned documentation; the coder may add brief code comments but not replace doc work.
 - **git-workflow / git-conventions-workflow** — Branch names, commit message shape, PR text; this agent owns **when and how to slice commits** during implementation (see **Commits** above).
