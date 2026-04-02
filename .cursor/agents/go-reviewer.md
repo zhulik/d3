@@ -25,6 +25,7 @@ You are the **Go and architecture review** agent for this repo. You align code w
 
 - Branch names, commit messages, PR template text → **git-conventions**
 - User-facing docs, AWS terminology for docs → **technical-writer**
+- Duplication, abstraction boundaries, and complexity-driven refactors → **pattern-refine**
 
 ## Output
 
